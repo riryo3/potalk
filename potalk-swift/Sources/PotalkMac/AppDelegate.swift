@@ -92,6 +92,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         NSApp.activate(ignoringOtherApps: true)
     }
+    /// 入室中（部屋を開いている場合も含む）に終了しようとしたら、確認する
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard model.engine.room.joined else { return .terminateNow }
+        if ProcessInfo.processInfo.environment["POTALK_DEBUG"] == "1" { print("quit warning: would ask (joined)"); return .terminateNow }
+        let a = NSAlert()
+        a.messageText = "通話中です。アプリを終了しますか？"
+        a.informativeText = "終了すると、いまの部屋から退出します。部屋を開いている場合は、あなたが抜けたあとの部屋が、どうなるかは、ほかの参加者しだいです。"
+        a.addButton(withTitle: "キャンセル"); a.addButton(withTitle: "退出して終了")
+        a.buttons[0].keyEquivalent = "\r"; a.buttons[1].keyEquivalent = ""
+        NSApp.activate(ignoringOtherApps: true)
+        if a.runModal() == .alertSecondButtonReturn { model.engine.cmd(["type": "leave"]); return .terminateNow }
+        return .terminateCancel
+    }
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { false }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag { model.mainWin?.makeKeyAndOrderFront(nil) }; return true
