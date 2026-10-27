@@ -48,7 +48,10 @@ final class DebugChannel {
         }
     }
     func save(_ view: NSView, _ path: String) {
-        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        // 見本の画像は、2倍の細かさで書き出す
+        let w = Int(view.bounds.width * 2), h = Int(view.bounds.height * 2)
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: w, pixelsHigh: h, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return }
+        rep.size = view.bounds.size
         view.cacheDisplay(in: view.bounds, to: rep)
         if let data = rep.representation(using: .png, properties: [:]) { try? data.write(to: URL(fileURLWithPath: path)); out("snap saved \(path)") }
     }

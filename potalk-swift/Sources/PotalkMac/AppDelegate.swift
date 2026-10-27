@@ -71,6 +71,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                     let t = String(n.dropFirst(5))
                     if let it = NSApp.windowsMenu?.items.first(where: { $0.title == t }), let a = it.action { print("menu:", t, "enabled:", self?.validateMenuItem(it) as Any); _ = NSApp.sendAction(a, to: it.target, from: it); print("tab:", m.tab, "singlePane:", m.singlePane) }
                     else { print("menu: not found", t) }
+                case "demoLobby": Demo.apply(m, joined: false)
+                case "demoRoom": Demo.apply(m, joined: true)
                 case "toggleDrawer": m.drawerOpen.toggle()
                 case "singleOn": m.singlePane = true
                 case "singleOff": m.singlePane = false

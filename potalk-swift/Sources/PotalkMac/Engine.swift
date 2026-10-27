@@ -16,6 +16,7 @@ final class Engine: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelega
     @Published var ready = false
     @Published var patched = false
 
+    var demo = false
     var onChat: ((ChatLine) -> Void)?
     var onReact: ((ReactEvent) -> Void)?
     var log: ((String) -> Void)?
@@ -115,6 +116,7 @@ final class Engine: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelega
     // MARK: ページからの知らせ
     func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], let t = body["t"] as? String else { return }
+        if demo, t != "ready" { return }     // 画面の見本を作るとき（開発用）は、ページからの知らせを受け付けない
         let d = body["d"]
         func decode<T: Decodable>(_ type: T.Type) -> T? {
             guard let d = d, JSONSerialization.isValidJSONObject(d) || d is [Any] || d is [String: Any],
