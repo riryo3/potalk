@@ -144,7 +144,7 @@ public static class Img
 
 public static class Links
 {
-    static readonly System.Text.RegularExpressions.Regex Url = new(@"https?://[^\s<>""'）)」』、。]+", System.Text.RegularExpressions.RegexOptions.Compiled);
+    static readonly System.Text.RegularExpressions.Regex Url = new(@"https?://[A-Za-z0-9\-._~:/?#@!$&*+,;=%\[\]]+", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     static readonly System.Text.RegularExpressions.Regex NameParam = new(@"&name=[^&\s#]*", System.Text.RegularExpressions.RegexOptions.Compiled);
 
