@@ -63,9 +63,38 @@ struct ChipButton: ButtonStyle {
 }
 
 /// 文章中の URL をリンクにする
+/// URL と見なす範囲（全角のかっこや句読点の手前で終わる）
+let urlPattern = #"(https?://[^\s<>"'「」『』（）【】〈〉《》［］｛｝、。，．！？]+|www\.[^\s<>"'「」『』（）【】〈〉《》［］｛｝、。，．！？]+)"#
+
+/// 文章に入っている URL を、出てくる順に返す（右クリックの「URLをコピー」用）
+func urlsIn(_ text: String) -> [String] {
+    guard let re = try? NSRegularExpression(pattern: urlPattern, options: [.caseInsensitive]) else { return [] }
+    let ns = text as NSString
+    return re.matches(in: text, range: NSRange(location: 0, length: ns.length)).map { m in
+        var s = ns.substring(with: m.range)
+        while let last = s.last, ".,;:!?)]、。，．）".contains(last) { s.removeLast() }
+        return s.lowercased().hasPrefix("www.") ? "https://" + s : s
+    }
+}
+
+/// 右クリックのメニュー：文章をコピー、入っている URL ごとに「URLをコピー」
+struct CopyMenu: ViewModifier {
+    let text: String
+    func body(content: Content) -> some View {
+        content.contextMenu {
+            ForEach(urlsIn(text), id: \.self) { u in
+                Button("URLをコピー：\(u.prefix(40))") { copyToPasteboard(u) }
+            }
+            Button("文字をコピー") { copyToPasteboard(text) }
+        }
+    }
+}
+func copyToPasteboard(_ s: String) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(s, forType: .string) }
+extension View { func copyMenu(_ text: String) -> some View { modifier(CopyMenu(text: text)) } }
+
 func linkified(_ text: String) -> AttributedString {
     var out = AttributedString(text)
-    guard let re = try? NSRegularExpression(pattern: #"(https?://[^\s<>"'「」『』（）【】〈〉《》［］｛｝、。，．！？]+|www\.[^\s<>"'「」『』（）【】〈〉《》［］｛｝、。，．！？]+)"#, options: [.caseInsensitive]) else { return out }
+    guard let re = try? NSRegularExpression(pattern: urlPattern, options: [.caseInsensitive]) else { return out }
     let ns = text as NSString
     for m in re.matches(in: text, range: NSRange(location: 0, length: ns.length)).reversed() {
         var r = m.range

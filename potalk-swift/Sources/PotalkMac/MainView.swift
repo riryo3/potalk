@@ -169,6 +169,7 @@ struct RoomCard: View {
                     Text(linkified(room.sub)).font(.system(size: 12, weight: .semibold))
                     Text(linkified(room.subBy)).font(.system(size: 12)).foregroundColor(.secondary)
                 }
+                .copyMenu(room.sub + room.subBy)
             }
             Text(room.dur).font(.system(size: 11)).foregroundColor(.secondary)
             FlowLayout(spacing: 5) {

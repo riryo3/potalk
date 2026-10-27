@@ -75,6 +75,7 @@ struct RoomView: View {
         VStack(spacing: 4) {
             HStack {
                 Text(linkified("🏷 " + (r.tag.text.isEmpty ? "話題はまだありません" : r.tag.text))).font(.system(size: 12)).foregroundColor(.secondary).lineLimit(1)
+                    .copyMenu(r.tag.text)
                 Spacer()
                 Button(r.tag.btn.isEmpty ? "つける" : r.tag.btn) { tagEditing.toggle() }.buttonStyle(ChipButton())
             }
@@ -233,6 +234,10 @@ struct RoomView: View {
                 if !c.socials.isEmpty {
                     FlowLayout { ForEach(Array(c.socials.enumerated()), id: \.offset) { _, s in
                         Button(s.t.isEmpty ? s.u : s.t) { model.confirmOpen(s.u, from: model.roomHost) }.buttonStyle(.link).font(.system(size: 13))
+                            .contextMenu {
+                                Button("URLをコピー：\(s.u.prefix(40))") { copyToPasteboard(s.u) }
+                                Button("表示の文字をコピー") { copyToPasteboard(s.t.isEmpty ? s.u : s.t) }
+                            }
                     } }
                 }
                 Divider()
