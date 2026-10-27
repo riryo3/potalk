@@ -7,6 +7,7 @@ struct RowFrameKey: PreferenceKey {
 }
 
 struct RoomView: View {
+    var embedded = false      // シングルペインの中に置くとき
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var engine: Engine
     @State private var legendOpen = false
@@ -42,7 +43,7 @@ struct RoomView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .coordinateSpace(name: "room")
         .onPreferenceChange(RowFrameKey.self) { rowFrames = $0 }
-        .frame(minWidth: 320, minHeight: 600)
+        .frame(minWidth: 320, minHeight: embedded ? 440 : 600)
     }
 
     var header: some View {
@@ -56,8 +57,8 @@ struct RoomView: View {
                     ForEach(model.mics, id: \.self) { n in Button((model.selectedMic == n ? "✓ " : "") + n) { model.switchMic(n) } }
                 } label: { Text("🎤") }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("入力（マイク）を切り替えて入り直す")
-                Button("⚙ 設定") { model.openSettings() }.buttonStyle(ChipButton())
-                Button("📌 最前面") { model.togglePin() }.buttonStyle(ChipButton(on: model.pinRoom))
+                if !embedded { Button("⚙ 設定") { model.openSettings() }.buttonStyle(ChipButton()) }
+                if !embedded { Button("📌 最前面") { model.togglePin() }.buttonStyle(ChipButton(on: model.pinRoom)) }
             }
         }.padding(.horizontal, 12).padding(.vertical, 8)
     }
@@ -177,7 +178,7 @@ struct RoomView: View {
 
     var actions: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 8) {
+            if !embedded { HStack(spacing: 8) {
                 Button(model.unread > 0 ? "💬 ひとこと 新着 \(model.unread)" : "💬 ひとこと") { model.toggleChat() }
                     .buttonStyle(PillButton(fill: model.unread > 0 ? tealColor : (model.chatOpen ? .accentColor : Color(nsColor: .controlBackgroundColor)),
                                             fg: model.unread > 0 ? .black : (model.chatOpen ? .white : .primary), hot: model.unread > 0))
@@ -187,28 +188,16 @@ struct RoomView: View {
                     Button((hot ? "📮 おたより募集中" : "📮 おたより") + (n > 0 ? " (\(n))" : "")) { model.openMail() }
                         .buttonStyle(PillButton(fill: hot ? .orange : Color(nsColor: .controlBackgroundColor), fg: hot ? .black : .primary, hot: hot))
                 }
-            }
-            muteButton
+            } }
+            MuteControl()
             HStack(spacing: 8) {
                 Button(copied ? "✓ コピーしました" : "🔗 URLを共有") {
                     NSPasteboard.general.clearContents(); NSPasteboard.general.setString(r.share, forType: .string)
                     copied = true; DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
                 }.buttonStyle(PillButton()).disabled(r.share.isEmpty)
-                Button("🚪 退出") { model.requestLeave(from: model.roomWin) }.buttonStyle(PillButton(fill: Color(red: 0.72, green: 0.11, blue: 0.11), fg: .white))
+                Button("🚪 退出") { model.requestLeave(from: model.roomHost) }.buttonStyle(PillButton(fill: Color(red: 0.72, green: 0.11, blue: 0.11), fg: .white))
             }
         }.padding(.horizontal, 10).padding(.top, 8).padding(.bottom, 12)
-    }
-
-    @ViewBuilder var muteButton: some View {
-        if r.raise.show {
-            Button("🙋 \(r.raise.label.isEmpty ? "通話希望" : r.raise.label)") { engine.cmd(["type": "raise"]) }.buttonStyle(PillButton())
-        } else if r.speak.show {
-            Button("🎙 \(r.speak.label.isEmpty ? "マイクを使う" : r.speak.label)") { engine.cmd(["type": "speak"]) }.buttonStyle(PillButton()).disabled(r.speak.disabled ?? false)
-        } else {
-            Button(r.muted ? "🔇 ミュート解除" : "🎤 ミュート") { engine.cmd(["type": "mute"]) }
-                .buttonStyle(PillButton(fill: r.muted ? Color(red: 0.71, green: 0.33, blue: 0.04) : Color(nsColor: .controlBackgroundColor), fg: r.muted ? .white : .primary))
-                .disabled(!r.canMute)
-        }
     }
 
     // MARK: 飛ぶ絵文字
@@ -242,7 +231,7 @@ struct RoomView: View {
                 if !c.bio.isEmpty { Text(linkified(c.bio)).font(.system(size: 14)).textSelection(.enabled) }
                 if !c.socials.isEmpty {
                     FlowLayout { ForEach(Array(c.socials.enumerated()), id: \.offset) { _, s in
-                        Button(s.t.isEmpty ? s.u : s.t) { model.confirmOpen(s.u, from: model.roomWin) }.buttonStyle(.link).font(.system(size: 13))
+                        Button(s.t.isEmpty ? s.u : s.t) { model.confirmOpen(s.u, from: model.roomHost) }.buttonStyle(.link).font(.system(size: 13))
                     } }
                 }
                 Divider()
@@ -260,7 +249,7 @@ struct RoomView: View {
             .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.primary.opacity(0.15)))
             .padding(14)
         }
-        .environment(\.openURL, OpenURLAction { url in model.confirmOpen(url.absoluteString, from: model.roomWin); return .handled })
+        .environment(\.openURL, OpenURLAction { url in model.confirmOpen(url.absoluteString, from: model.roomHost); return .handled })
     }
 
     func ignoreOverlay(_ a: IgnoreAsk) -> some View {
@@ -279,6 +268,23 @@ struct RoomView: View {
             .background(RoundedRectangle(cornerRadius: 20).fill(Color(nsColor: .windowBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.primary.opacity(0.15)))
             .padding(14)
+        }
+    }
+}
+
+/// ミュート（または通話希望・マイクを使う）のボタン。部屋の画面と、シングルペインの常時バーで使う
+struct MuteControl: View {
+    @EnvironmentObject var engine: Engine
+    var body: some View {
+        let r = engine.room
+        if r.raise.show {
+            Button("🙋 \(r.raise.label.isEmpty ? "通話希望" : r.raise.label)") { engine.cmd(["type": "raise"]) }.buttonStyle(PillButton())
+        } else if r.speak.show {
+            Button("🎙 \(r.speak.label.isEmpty ? "マイクを使う" : r.speak.label)") { engine.cmd(["type": "speak"]) }.buttonStyle(PillButton()).disabled(r.speak.disabled ?? false)
+        } else {
+            Button(r.muted ? "🔇 ミュート解除" : "🎤 ミュート") { engine.cmd(["type": "mute"]) }
+                .buttonStyle(PillButton(fill: r.muted ? Color(red: 0.71, green: 0.33, blue: 0.04) : Color(nsColor: .controlBackgroundColor), fg: r.muted ? .white : .primary))
+                .disabled(!r.canMute)
         }
     }
 }

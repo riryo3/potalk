@@ -11,13 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engine.log = { print("[engine]", $0) }
         engine.start()
         buildMenu()
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 820), styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
-        w.title = "Potalker（ぽっと通話 非公式クライアント）"
-        w.contentView = NSHostingView(rootView: MainView().environmentObject(model).environmentObject(engine))
-        w.contentMinSize = NSSize(width: 360, height: 420)
-        w.isReleasedWhenClosed = false
-        w.center(); w.setFrameAutosaveName("win.main"); w.makeKeyAndOrderFront(nil)
-        model.mainWin = w
+        model.buildMainWindow()
         if ProcessInfo.processInfo.environment["POTALK_DEBUG"] == "1" {
             let d = DebugChannel(engine: engine)
             d.snapshots["main"] = { [weak self] in self?.model.mainWin?.contentView }
@@ -26,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             d.snapshots["mail"] = { [weak self] in self?.model.mailWin?.contentView }
             d.snapshots["letter"] = { [weak self] in self?.model.letterWin?.contentView }
             d.snapshots["settings"] = { [weak self] in self?.model.settingsWin?.contentView }
+            d.snapshots["drawer"] = { [weak self] in self?.model.drawerWin?.contentView }
             d.snapshots["cardedit"] = { [weak self] in self?.model.cardEditWin?.contentView }
             d.snapshots["cardauth"] = { [weak self] in self?.model.cardAuthWin?.contentView }
             d.snapshots["profile"] = { [weak self] in self?.model.profileWin?.contentView }
@@ -36,7 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if name.hasPrefix("link:") { let q = String(name.dropFirst(5)); if let r = m.engine.lobby.rooms.first(where: { $0.name.contains(q) }) { print("link test:", r.name, r.id); m.openRoomLink("https://potalk.app/#room=\(r.id)") } else { print("link test: no room", q) }; return }
                 switch name {
                 case "snapTest":
-                    if let w = m.roomWin, let s = w.screen?.visibleFrame {
+                    if let w = m.roomWin ?? (m.singlePane ? m.mainWin : nil), let s = w.screen?.visibleFrame {
                         m.forceSnap = true
                         w.setFrameOrigin(NSPoint(x: s.maxX - w.frame.width - 9, y: s.minY + 6))
                         m.windowDidMove(Notification(name: NSWindow.didMoveNotification, object: w))
@@ -53,12 +48,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case "resetLayout": m.resetWindowLayout()
                 case "menuItems": print("menu:", NSApp.mainMenu?.items.compactMap { $0.submenu?.items.map { $0.title } } as Any)
                 case "moveRoom": if let w = m.roomWin { w.setFrame(NSRect(x: 321, y: 123, width: 377, height: 655), display: true) }
-                case "roomFrame": print("roomFrame:", m.roomWin?.frame as Any, "main:", m.mainWin?.frame as Any)
+                case "roomFrame": print("roomFrame:", m.roomWin?.frame as Any, "main:", m.mainWin?.frame as Any, "drawer:", m.drawerWin?.frame as Any, "level:", m.mainWin?.level.rawValue as Any, m.drawerWin?.level.rawValue as Any)
                 case "openLinkGreeter": if let r = m.engine.lobby.rooms.first(where: { $0.name.contains("ようこそ") }) { m.openRoomLink("https://potalk.app/#room=\(r.id)") }
                 case "createRoom": m.createRoom(name: "ミュート試験", broadcast: false)
                 case "setMuteOnCreate": m.muteOnCreate = false
                 case "setMuteOnJoin": m.muteOnJoin = false
                 case "joinGreeter": if let r = m.engine.lobby.rooms.first(where: { $0.name.contains("ようこそ") }) { m.join(r, quiet: false) }
+                case "fakeUnread": m.unread = 1
+                case "alignTest":
+                    if let w = m.roomWin, let gw = m.mainWin {
+                        let g = gw.frame
+                        var f = w.frame; f.origin.x = g.maxX + 8; f.origin.y = g.maxY - f.height - 20; w.setFrame(f, display: true)
+                        m.alignTop(w, to: gw)
+                        print("align result:", w.frame.maxY == g.maxY, w.frame.maxY, g.maxY)
+                    }
+                case "toggleDrawer": m.drawerOpen.toggle()
+                case "singleOn": m.singlePane = true
+                case "singleOff": m.singlePane = false
+                case "tabRoom": m.tab = .room
+                case "tabChat": m.tab = .chat
+                case "tabMail": m.tab = .mail
+                case "tabSettings": m.tab = .settings
                 case "openChat": m.openChat()
                 case "openMail": m.openMail()
                 case "openSettings": m.openSettings()

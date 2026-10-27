@@ -2,6 +2,8 @@ import SwiftUI
 import AppKit
 
 struct MainView: View {
+    var embedded = false      // シングルペインの左列として置くとき
+    var compact = false       // 入室中は、一覧を縮小して出す
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var engine: Engine
 
@@ -30,10 +32,14 @@ struct MainView: View {
             Divider()
             footer
         }
-        .frame(minWidth: 360, minHeight: 420)
+        .frame(minWidth: embedded ? 0 : 360, minHeight: embedded ? 0 : 420)
         .sheet(item: $model.joinCandidate) { r in JoinSheet(room: r) }
         .sheet(isPresented: $model.createOpen) { CreateSheet() }
         .onAppear { model.requestDevices() }
+    }
+
+    func isCurrent(_ r: LobbyRoom) -> Bool {
+        engine.room.joined && ((!model.joinedRoomID.isEmpty && r.id == model.joinedRoomID) || (model.joinedRoomID.isEmpty && engine.room.state.contains(r.name)))
     }
 
     var topBar: some View {
@@ -50,7 +56,7 @@ struct MainView: View {
                     }
                     Divider()
                     Button("マイクの一覧を更新") { model.requestDevices() }
-                } label: { Text("🎤 入力設定") }
+                } label: { Text(embedded ? "🎤" : "🎤 入力設定") }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 .padding(.vertical, 4).padding(.horizontal, 10)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
@@ -74,7 +80,14 @@ struct MainView: View {
         ScrollView {
             LazyVStack(spacing: 8) {
                 ForEach(filtered) { r in
-                    RoomCard(room: r).onTapGesture { if r.id != "" { model.joinCandidate = r } }
+                    if compact {
+                        CompactRoomRow(room: r, current: isCurrent(r)).onTapGesture { if r.id != "", !isCurrent(r) { model.joinCandidate = r } }
+                    } else {
+                        let cur = embedded && isCurrent(r)
+                        RoomCard(room: r)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.accentColor, lineWidth: cur ? 2 : 0))
+                            .onTapGesture { if r.id != "", !cur { model.joinCandidate = r } }
+                    }
                 }
                 if engine.lobby.rooms.isEmpty { Text("いま通話中の部屋はありません").foregroundColor(.secondary).padding(.top, 30) }
             }.padding(12)
@@ -94,11 +107,28 @@ struct MainView: View {
 
     var footer: some View {
         HStack {
-            Button { model.notifyRooms.toggle() } label: { Text(model.notifyRooms ? "🔔 部屋の通知：オン" : "🔕 部屋の通知：オフ") }
+            Button { model.notifyRooms.toggle() } label: { Text(model.notifyRooms ? (embedded ? "🔔 通知：オン" : "🔔 部屋の通知：オン") : (embedded ? "🔕 通知：オフ" : "🔕 部屋の通知：オフ")) }
                 .buttonStyle(ChipButton(on: model.notifyRooms))
             Spacer()
             Text(engine.lobby.viewers).font(.system(size: 12)).foregroundColor(.secondary)
         }.padding(.horizontal, 12).padding(.vertical, 8)
+    }
+}
+
+/// 入室中の左列に出す、縮小した部屋の一覧の1行
+struct CompactRoomRow: View {
+    let room: LobbyRoom
+    let current: Bool
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(room.name).font(.system(size: 13, weight: current ? .bold : .regular)).lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: 4)
+            Text(room.count).font(.system(size: 12, weight: .bold)).foregroundColor(tealColor)
+        }
+        .padding(.vertical, 6).padding(.horizontal, 10).frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(current ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.05)))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(current ? Color.accentColor : .clear, lineWidth: 1.2))
+        .contentShape(Rectangle())
     }
 }
 
