@@ -51,8 +51,10 @@ struct RoomView: View {
             Text(r.state.isEmpty ? "未参加" : r.state).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
             HStack(spacing: 8) {
                 Text("\(r.members.count)人").font(.system(size: 12)).foregroundColor(.secondary)
-                if model.speakerMuted { Text("🔇 スピーカーミュート中").font(.system(size: 12, weight: .semibold)).foregroundColor(orangeColor) }
                 Spacer(minLength: 4)
+                // スピーカーのミュート（⇧⌘S でも切り替わる）。ミュート中は 🔇、ふだんは 🔈
+                Button { model.toggleSpeakerMute() } label: { Text(model.speakerMuted ? "🔇" : "🔈").frame(minWidth: 20) }
+                    .buttonStyle(.plain).help(model.speakerMuted ? "スピーカーのミュートを解除（⇧⌘S）" : "スピーカーをミュート（⇧⌘S）")
                 Menu {
                     Button((model.selectedMic.isEmpty ? "✓ " : "") + "既定のマイク") { model.switchMic("") }
                     ForEach(model.mics, id: \.self) { n in Button((model.selectedMic == n ? "✓ " : "") + n) { model.switchMic(n) } }
