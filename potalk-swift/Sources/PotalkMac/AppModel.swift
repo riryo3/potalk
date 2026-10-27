@@ -271,7 +271,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         }
     }
     func sendChat(_ t: String) { engine.cmd(["type": "chat", "text": t]) }
-    func refreshLobby() { engine.cmd(["type": "refreshLobby"]) }
+    func refreshLobby() { quiet(for: 6); engine.cmd(["type": "refreshLobby"]) }    // 更新を押したときも、一覧の入れ替わりで音を出さない
     /// 入力デバイスの一覧（マイクの許可がなくても名前は取れる）
     /// マイクを選ぶ。通話中なら、入り直さないと切り替わらないので、確認して「つなぎ直す」
     func switchMic(_ name: String) {
