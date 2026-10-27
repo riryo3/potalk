@@ -78,6 +78,35 @@ Electron 版（`potalk-mac/`）も、Windows 向けにビルドできます。Gi
 
 - ローカルで作る場合: `cd potalk-mac && npm ci && npm run dist:win`
 
+## Linux 版（試験中）
+
+Electron 版（`potalk-mac/`）は、Linux でも起動できます。2026年10月に、Linux Mint（ThinkPad L570）での動作報告がありました。起動直後は少し重いものの、動き出してからは快適に使えたとのことです。
+
+- 必要なものは Node.js（動作報告の環境は v24 LTS）と git です。起動方法は下の「Electron 版」と同じです。
+
+  ```bash
+  git clone https://github.com/riryo3/potalk.git
+  cd potalk/potalk-mac
+  npm install
+  npm start
+  ```
+
+- ライブラリ不足で起動しない場合は、次を入れてください（Linux Mint 22 / Ubuntu 24.04 系。21 系では `libasound2t64` の代わりに `libasound2` を使います）。
+
+  ```bash
+  sudo apt install -y libgtk-3-0 libnss3 libasound2t64
+  ```
+
+- `The SUID sandbox helper binary was found, but is not configured correctly` というエラーで止まる場合は、サンドボックスなしで起動できます。
+
+  ```bash
+  npx electron --no-sandbox .
+  ```
+
+  毎回ではなく恒常的に対処したい場合は、`node_modules/electron/dist/chrome-sandbox` の所有者を root にし、権限を 4755 に直してください。
+
+- 作者の環境では未確認です。ビルド済みパッケージ（AppImage や .deb）の配布も、まだありません。
+
 ## Electron 版
 
 ```bash
