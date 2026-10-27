@@ -43,6 +43,11 @@ struct MainView: View {
         .onAppear { model.requestDevices() }
     }
 
+    /// 部屋のカードを押したとき：いまいる部屋なら、その部屋の画面を前に出すだけ。ほかの部屋なら、参加の確認を出す
+    func tap(_ r: LobbyRoom) {
+        if isCurrent(r) { model.openRoom(); return }
+        if r.id != "" { model.joinCandidate = r }
+    }
     func isCurrent(_ r: LobbyRoom) -> Bool {
         engine.room.joined && ((!model.joinedRoomID.isEmpty && r.id == model.joinedRoomID) || (model.joinedRoomID.isEmpty && engine.room.state.contains(r.name)))
     }
@@ -89,12 +94,11 @@ struct MainView: View {
             LazyVStack(spacing: 8) {
                 ForEach(filtered) { r in
                     if compact {
-                        CompactRoomRow(room: r, current: isCurrent(r)).onTapGesture { if r.id != "", !isCurrent(r) { model.joinCandidate = r } }
+                        CompactRoomRow(room: r, current: isCurrent(r)).onTapGesture { tap(r) }
                     } else {
-                        let cur = embedded && isCurrent(r)
                         RoomCard(room: r)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.accentColor, lineWidth: cur ? 2 : 0))
-                            .onTapGesture { if r.id != "", !cur { model.joinCandidate = r } }
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.accentColor, lineWidth: isCurrent(r) ? 2 : 0))
+                            .onTapGesture { tap(r) }
                     }
                 }
                 if engine.lobby.rooms.isEmpty { Text("いま通話中の部屋はありません").foregroundColor(.secondary).padding(.top, 30) }
