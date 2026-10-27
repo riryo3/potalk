@@ -65,11 +65,16 @@ public static class Ui
         return t;
     }
 
-    public static Window Base(string title, double w, double h, Window owner = null) => new()
+    public static Window Base(string title, double w, double h, Window owner = null)
     {
-        Title = title, Width = w, Height = h, Background = Bg, Foreground = Fg, FontFamily = new FontFamily("Yu Gothic UI, Segoe UI, Meiryo UI"),
-        Owner = owner, WindowStartupLocation = owner != null ? WindowStartupLocation.CenterOwner : WindowStartupLocation.CenterScreen,
-    };
+        // まだ表示していない窓（シングルペインの部品として使うだけの窓）は、親にできない。本体の窓を親にする
+        if (owner != null && !owner.IsVisible) owner = Application.Current?.MainWindow is { IsVisible: true } mw ? mw : null;
+        return new Window
+        {
+            Title = title, Width = w, Height = h, Background = Bg, Foreground = Fg, FontFamily = new FontFamily("Yu Gothic UI, Segoe UI, Meiryo UI"),
+            Owner = owner, WindowStartupLocation = owner != null ? WindowStartupLocation.CenterOwner : WindowStartupLocation.CenterScreen,
+        };
+    }
 
     /// <summary>OK / キャンセルの小さな確認ダイアログ。</summary>
     public static bool Ask(Window owner, string title, string detail, string yes, string no = "キャンセル", Brush yesBg = null)
@@ -147,8 +152,17 @@ public static class Links
     public static string StripName(string text) => NameParam.Replace(text, "");
 
     /// <summary>文中の http(s) のURLをリンクにして、TextBlock に入れる（押すと、開く前に確認を出す）。</summary>
+    /// <summary>クリックされたものが、リンクの上か（カードを押した扱いにしないため）。</summary>
+    public static bool IsOnLink(object source)
+    {
+        var d = source as DependencyObject;
+        while (d != null) { if (d is System.Windows.Documents.Hyperlink) return true; d = LogicalTreeHelper.GetParent(d); }
+        return false;
+    }
+
     public static void Fill(TextBlock tb, string text, Action<string> open)
     {
+        tb.Inlines.Clear(); tb.Text = "";
         int pos = 0;
         foreach (System.Text.RegularExpressions.Match m in Url.Matches(text))
         {

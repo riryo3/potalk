@@ -1,220 +1,125 @@
 using System;
-using System.Linq;
-using System.Text.Json;
+using System.ComponentModel;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
+using System.Windows.Media;
 
 namespace Potalker;
 
+/// <summary>本体の窓。ふつうは、部屋の一覧だけ。シングルペインでは、入室すると、タブ（部屋・ひとこと・おたより・設定）に変わる。</summary>
 public sealed class MainWindow : Window
 {
     readonly AppModel M;
-    readonly StackPanel list = new() { Margin = new Thickness(12) };
-    readonly TextBox search = Ui.Input();
-    readonly TextBlock viewers = Ui.Txt("", 12, Ui.Dim);
-    readonly Button profBtn, createBtn, notifBtn;
-    readonly ComboBox mic = new() { MinWidth = 150, FontSize = 12 };
-    bool micBusy;
+    readonly LobbyView lobby;
+    PaneView pane;
+    string key;
+    bool fitting;
+    DrawerWindow drawer;
 
     public MainWindow(AppModel m)
     {
         M = m;
         Title = "Potalker"; Width = 460; Height = 760; MinWidth = 380; MinHeight = 440;
-        Background = Ui.Bg; Foreground = Ui.Fg; FontFamily = new System.Windows.Media.FontFamily("Yu Gothic UI, Segoe UI, Meiryo UI");
+        Background = Ui.Bg; Foreground = Ui.Fg; FontFamily = new FontFamily("Yu Gothic UI, Segoe UI, Meiryo UI");
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        lobby = new LobbyView(M);
 
-        profBtn = Ui.Btn("設定", M.OpenProfile);
-        createBtn = Ui.Btn("🏠 部屋を作る", OpenCreate);
-        notifBtn = Ui.Btn("", () => { M.S.NotifyRooms = !M.S.NotifyRooms; M.S.Save(); UpdateNotif(); });
-        var help = Ui.Btn("？ これはなに？", M.OpenHelp);
-        var refresh = Ui.Btn("🔄 更新", () => M.E.Cmd(new { type = "refreshLobby" }));
+        key = M.S.SinglePane ? "single" : "main";
+        M.S.Restore(this, key);
+        Snap.Attach(this, M, () => M.S.SinglePane);
+        Closing += OnClosing;
+        Closed += (_, _) => { M.S.Store(this, key); drawer?.Close(); Application.Current.Shutdown(); };
+        SizeChanged += (_, _) => drawer?.Reposition();
+        // 幅は、利用者さんが窓の縁をドラッグして変え終えたときだけ覚える（プログラムが決めた幅は、覚えない）
+        SourceInitialized += (_, _) => (System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(this).Handle))?.AddHook(
+            (IntPtr h, int msg, IntPtr wp, IntPtr lp, ref bool handled) => { if (msg == 0x0232) RememberWidth(); return IntPtr.Zero; });
+        LocationChanged += (_, _) => drawer?.Reposition();
+        StateChanged += (_, _) => SyncDrawer();
+        M.PaneChanged += SyncDrawer;
+        Loaded += (_, _) => ApplyMode();
+        ApplyMode();
+    }
 
-        mic.SelectionChanged += (_, _) =>
+    void OnClosing(object s, CancelEventArgs e)
+    {
+        // 入室中に、アプリを終了しようとしたら、確認する（Windows では、本体の窓を閉じる＝アプリの終了）
+        if (M.ForceClose || M.Quitting || !M.E.Joined) return;
+        e.Cancel = true;
+        if (!Ui.Ask(this, "アプリを終了しますか？", "いま入っている部屋から退出して、終了します。", "退出して終了", yesBg: Ui.Red)) return;
+        M.Quitting = true;
+        M.E.Cmd(new { type = "leave" });                  // 相手に、退出が伝わるように、少し待ってから閉じる
+        _ = System.Threading.Tasks.Task.Delay(700).ContinueWith(_ => Dispatcher.Invoke(Close));
+    }
+
+    /// <summary>窓の幅を、入室前と入室中で、別々に覚える（シングルペイン）</summary>
+    void RememberWidth()
+    {
+        if (!M.S.SinglePane || fitting || !IsLoaded) return;
+        if (M.E.Joined) M.S.SingleRoomW = ActualWidth; else M.S.SingleLobbyW = ActualWidth;
+    }
+
+    /// <summary>使い方（複数ウインドウ／シングルペイン）と、入室中かどうかに合わせて、中身と大きさを切り替える。</summary>
+    public void ApplyMode()
+    {
+        bool single = M.S.SinglePane, joined = M.E.Joined;
+
+        // 使い方が変わったら、位置と大きさも、それぞれ別に覚える
+        var want = single ? "single" : "main";
+        if (want != key) { M.S.Store(this, key); key = want; M.S.Restore(this, key); }
+
+        Topmost = single && M.S.PinSingle;
+        MinWidth = joined && single ? 340 : 380; MinHeight = joined && single ? 560 : 440;
+
+        if (single && joined && M.Room != null && M.Chat != null && M.Mail != null && M.Sett != null)
         {
-            if (micBusy || mic.SelectedIndex < 0) return;
-            M.SwitchMic(mic.SelectedIndex == 0 ? "" : (string)mic.SelectedItem);
-        };
-        mic.ToolTip = "次に入室するときから反映されます";
-        search.TextChanged += (_, _) => RefreshLobby();
-
-        var top = new StackPanel { Margin = new Thickness(12, 8, 12, 8) };
-        var r1 = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
-        DockPanel.SetDock(mic, Dock.Right); r1.Children.Add(mic);
-        r1.Children.Add(profBtn); profBtn.HorizontalAlignment = HorizontalAlignment.Left; profBtn.Margin = new Thickness(0, 0, 8, 0);
-        var r2 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
-        help.Margin = new Thickness(0, 0, 8, 0); r2.Children.Add(help); r2.Children.Add(createBtn);
-        var r3 = new DockPanel();
-        DockPanel.SetDock(refresh, Dock.Right); refresh.Margin = new Thickness(8, 0, 0, 0); r3.Children.Add(refresh);
-        r3.Children.Add(search);
-        top.Children.Add(r1); top.Children.Add(r2); top.Children.Add(r3);
-
-        var foot = new DockPanel { Margin = new Thickness(12, 8, 12, 8) };
-        foot.Children.Add(notifBtn); notifBtn.HorizontalAlignment = HorizontalAlignment.Left;
-        viewers.HorizontalAlignment = HorizontalAlignment.Right; foot.Children.Add(viewers);
-
-        var root = new DockPanel();
-        DockPanel.SetDock(top, Dock.Top); root.Children.Add(top);
-        DockPanel.SetDock(foot, Dock.Bottom); root.Children.Add(foot);
-        root.Children.Add(new ScrollViewer { Content = list, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
-        Content = root;
-
-        M.E.OnProfile += RefreshProfile;
-        M.MicsChanged += RefreshMicList;
-        M.S.Remember(this, "main");
-        UpdateNotif(); RefreshMicList(); RefreshLobby();
-        Closed += (_, _) => Application.Current.Shutdown();
-    }
-
-    void UpdateNotif()
-    {
-        notifBtn.Content = M.S.NotifyRooms ? "🔔 部屋の通知：オン" : "🔕 部屋の通知：オフ";
-        notifBtn.Background = M.S.NotifyRooms ? Ui.TealSoft : Ui.Chip;
-    }
-
-    void RefreshProfile()
-    {
-        var p = M.E.Profile;
-        var n = p.S("name");
-        profBtn.Content = $"{p.S("emoji")} {(n.Length == 0 ? "設定" : n)}";
-        M.Prof?.Refresh();
-    }
-
-    void RefreshMicList()
-    {
-        micBusy = true;
-        mic.Items.Clear();
-        mic.Items.Add("🎤 既定のマイク");
-        foreach (var n in M.Mics) mic.Items.Add(n);
-        var i = M.S.MicLabel.Length == 0 ? 0 : M.Mics.IndexOf(M.S.MicLabel) + 1;
-        mic.SelectedIndex = Math.Max(i, 0);
-        micBusy = false;
-    }
-
-    string LinkId()
-    {
-        var v = search.Text.Trim();
-        var i = v.IndexOf("#room=", StringComparison.Ordinal);
-        if (i < 0) return null;
-        var id = v[(i + 6)..].Split('&', ' ')[0];
-        return Uri.UnescapeDataString(id);
-    }
-
-    void OpenCreate()
-    {
-        var w = Ui.Base("部屋を作る", 420, 280, this); w.ResizeMode = ResizeMode.NoResize; w.SizeToContent = SizeToContent.Height;
-        var pn = M.E.Profile.S("name");
-        var name = Ui.Input(pn.Length == 0 ? "" : (pn + "の部屋"), 30);
-        var chat = new RadioButton { Content = "🏠 雑談部屋にする（全員で話せます）", IsChecked = true, Margin = new Thickness(0, 10, 0, 4), Foreground = Ui.Fg };
-        var bc = new RadioButton { Content = "📣 配信部屋にする（あなたの声だけ流れます）", Foreground = Ui.Fg };
-        var sp = new StackPanel { Margin = new Thickness(18) };
-        sp.Children.Add(Ui.Txt("🏠 部屋を作る", 16, bold: true));
-        sp.Children.Add(new TextBlock { Text = "部屋名（30文字まで）", Foreground = Ui.Dim, FontSize = 12, Margin = new Thickness(0, 10, 0, 3) });
-        var nameRow = new DockPanel(); var nc = Ui.Counter(name, 30); DockPanel.SetDock(nc, Dock.Right); nameRow.Children.Add(nc); nameRow.Children.Add(name);
-        sp.Children.Add(nameRow); sp.Children.Add(chat); sp.Children.Add(bc);
-        var ok = Ui.Btn("部屋を作る", () =>
-        {
-            var t = name.Text.Trim(); if (t.Length == 0) return;
-            M.CreateRoom(t, bc.IsChecked == true); w.Close();
-        }, Ui.Accent, Ui.White, bold: true);
-        var cancel = Ui.Btn("キャンセル", () => w.Close()); cancel.Margin = new Thickness(0, 0, 8, 0);
-        var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 16, 0, 0) };
-        row.Children.Add(cancel); row.Children.Add(ok); sp.Children.Add(row);
-        w.Content = sp; name.Focus(); w.ShowDialog();
-    }
-
-    void AskJoin(JsonElement r)
-    {
-        bool bcast = r.B("bc"), joined = M.E.Joined;
-        var w = Ui.Base("部屋に参加", 420, 200, this); w.ResizeMode = ResizeMode.NoResize; w.SizeToContent = SizeToContent.Height;
-        var sp = new StackPanel { Margin = new Thickness(18) };
-        sp.Children.Add(Ui.Txt($"「{(bcast ? "📣 " : "")}{r.S("name")}」に{(joined ? "移りますか？ いまの部屋を退出します" : "参加しますか？")}", 15, bold: true, wrap: true));
-        sp.Children.Add(new TextBlock { Text = bcast ? "聞き役で入室します（マイクは使いません）" : "ミュート状態で入室します", Foreground = Ui.Dim, FontSize = 12.5, Margin = new Thickness(0, 6, 0, 0) });
-        var quiet = new CheckBox { Content = "🤫 静かに入る（名前を出さずに聞きます）", Margin = new Thickness(0, 10, 0, 0), Visibility = bcast ? Visibility.Visible : Visibility.Collapsed };
-        sp.Children.Add(quiet);
-        var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 16, 0, 0) };
-        var cancel = Ui.Btn("やめる", () => w.Close()); cancel.Margin = new Thickness(0, 0, 8, 0);
-        var id = r.S("id");
-        row.Children.Add(cancel);
-        row.Children.Add(Ui.Btn(joined ? "移る" : "参加する", () => { M.Join(id, quiet.IsChecked == true); w.Close(); }, Ui.Accent, Ui.White, bold: true));
-        sp.Children.Add(row);
-        w.Content = sp; w.ShowDialog();
-    }
-
-    public void RefreshLobby()
-    {
-        var L = M.E.Lobby;
-        viewers.Text = L.S("viewers");
-        createBtn.IsEnabled = !M.E.Joined;
-        list.Children.Clear();
-        var rooms = L.A("rooms").ToList();
-        var q = search.Text.Trim();
-        var link = LinkId();
-        if (q.Length > 0)
-            rooms = link != null ? rooms.Where(r => r.S("id") == link).ToList()
-                : rooms.Where(r => new[] { r.S("name"), r.S("sub"), r.S("subBy") }.Concat(r.A("people").Select(p => p.S("name")))
-                    .Any(s => s.Contains(q, StringComparison.OrdinalIgnoreCase))).ToList();
-        if (rooms.Count == 0)
-        {
-            var sp = new StackPanel { Margin = new Thickness(0, 30, 0, 0) };
-            if (q.Length > 0 && link != null)
-            {
-                sp.Children.Add(Ui.Txt("このリンクの部屋は、いま通話中の一覧にありません（お休み中かもしれません）。", 13, Ui.Dim, wrap: true));
-                var b = Ui.Btn("このリンクの部屋に入ってみる", () => { var link = search.Text; search.Text = ""; M.OpenRoomLink(link); }); b.Margin = new Thickness(0, 10, 0, 0);
-                sp.Children.Add(b);
-            }
-            else sp.Children.Add(Ui.Txt(q.Length > 0 ? $"「{q}」に合う部屋は見つかりません。" : "いま通話中の部屋はありません", 13, Ui.Dim));
-            list.Children.Add(sp);
-            return;
+            if (pane == null || !pane.Matches(M)) { pane = new PaneView(M); }
+            if (!ReferenceEquals(Content, pane)) { Content = null; Content = pane; }
         }
-        foreach (var r in rooms) list.Children.Add(RoomCard(r));
+        else
+        {
+            pane = null;
+            if (!ReferenceEquals(Content, lobby)) { Content = null; Content = lobby; }
+        }
+        if (single) FitSingleFrame(joined);
+        SyncDrawer();
     }
 
-    UIElement RoomCard(JsonElement r)
+    /// <summary>部屋一覧のドロワー：入室中のシングルペインで、取っ手（か Ctrl+L）で開いているとき、本体の窓の左に出す。</summary>
+    void SyncDrawer()
     {
-        var sp = new StackPanel();
-        var head = new DockPanel();
-        var copy = Ui.Btn("🔗", null, Ui.Card, size: 12); copy.ToolTip = "部屋名とリンクをコピー";
-        copy.Click += (_, e) =>
+        bool want = M.DrawerOpen && M.S.SinglePane && M.E.Joined && IsLoaded && WindowState != WindowState.Minimized;
+        if (want && drawer == null)
         {
-            try
-            {
-                var link = $"https://potalk.app/#room={Uri.EscapeDataString(r.S("id"))}&name={Uri.EscapeDataString(r.S("name"))}";
-                Clipboard.SetText($"{r.S("name")}\n{(M.S.ShortLinks ? Links.StripName(link) : link)}");
-            }
-            catch { }
-            copy.Content = "✓"; var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1.4) };
-            t.Tick += (_, _) => { copy.Content = "🔗"; t.Stop(); }; t.Start();
-            e.Handled = true;
-        };
-        DockPanel.SetDock(copy, Dock.Right); head.Children.Add(copy);
-        var cnt = Ui.Txt(r.S("count"), 13, Ui.Teal, bold: true); cnt.Margin = new Thickness(8, 0, 8, 0);
-        DockPanel.SetDock(cnt, Dock.Right); head.Children.Add(cnt);
-        head.Children.Add(Ui.Txt(r.S("name"), 15, bold: true, wrap: true));
-        sp.Children.Add(head);
-        if (r.S("sub").Length > 0)
-        {
-            var s = new StackPanel { Orientation = Orientation.Horizontal };
-            s.Children.Add(Ui.Txt(r.S("sub"), 12, bold: true)); s.Children.Add(Ui.Txt(r.S("subBy"), 12, Ui.Dim));
-            sp.Children.Add(s);
+            drawer = new DrawerWindow(M, this) { Topmost = Topmost };
+            drawer.Show();
+            drawer.SlideOpen();
         }
-        sp.Children.Add(Ui.Txt(r.S("dur"), 11, Ui.Dim));
-        var people = new WrapPanel { Margin = new Thickness(0, 5, 0, 0) };
-        foreach (var p in r.A("people"))
+        else if (!want && drawer != null)
         {
-            var row = new StackPanel { Orientation = Orientation.Horizontal };
-            row.Children.Add(Ui.Txt(p.S("em"), 13)); var nm = Ui.Txt(p.S("name"), 12); nm.Margin = new Thickness(4, 0, 0, 0); row.Children.Add(nm);
-            if (p.B("muted")) { var m = Ui.Txt("🔇", 10); m.Margin = new Thickness(3, 0, 0, 0); row.Children.Add(m); }
-            var chip = Ui.Panel(row, Ui.Chip, 12, new Thickness(8, 2, 8, 2)); chip.BorderThickness = new Thickness(0); chip.Margin = new Thickness(0, 0, 5, 4);
-            people.Children.Add(chip);
+            var d = drawer; drawer = null;
+            d.SlideClose(null);
         }
-        sp.Children.Add(people);
-        var card = Ui.Panel(sp); card.Margin = new Thickness(0, 0, 0, 8);
-        if (r.S("id").Length > 0)
+        if (drawer != null) drawer.Topmost = Topmost;
+    }
+
+    /// <summary>シングルペイン：入室前は縦長の一覧、入室したら部屋の小窓くらいの幅にする。右端と上端の位置は動かさない。</summary>
+    void FitSingleFrame(bool joined)
+    {
+        if (!IsLoaded) return;
+        fitting = true;
+        try
         {
-            card.Cursor = Cursors.Hand;
-            card.MouseLeftButtonUp += (_, _) => AskJoin(r);
+            var wa = SystemParameters.WorkArea;
+            double right = Left + ActualWidth;
+            double want = joined ? M.S.SingleRoomW : M.S.SingleLobbyW;
+            double w = Math.Min(want > 0 ? want : ActualWidth, wa.Width);
+            w = Math.Max(w, MinWidth);
+            Width = w; Left = right - w;
+            if (joined && Height < 640) Height = Math.Min(640, wa.Height);
+            if (Left + Width > wa.Right) Left = Math.Max(wa.Left, wa.Right - Width);
+            if (Left < wa.Left) Left = wa.Left;
+            if (Top + Height > wa.Bottom) Top = Math.Max(wa.Top, wa.Bottom - Height);
+            if (Top < wa.Top) Top = wa.Top;
         }
-        return card;
+        finally { Dispatcher.BeginInvoke(new Action(() => fitting = false), System.Windows.Threading.DispatcherPriority.ContextIdle); }
     }
 }

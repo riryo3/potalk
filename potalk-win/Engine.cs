@@ -22,7 +22,7 @@ public sealed class Engine
     public string Eq = "";
     public bool Ready, Patched;
 
-    public event Action OnLobby, OnProfile, OnRoom, OnEq, OnReady, OnCards;
+    public event Action OnLobby, OnProfile, OnRoom, OnEq, OnReady, OnCards, OnReloading;
     public event Action<JsonElement> OnChat, OnReact;
     public Action<string> Log = _ => { };
 
@@ -80,7 +80,7 @@ public sealed class Engine
         {
             Log("ページの描画プロセスが落ちました: " + e.ProcessFailedKind);
             if (e.ProcessFailedKind is CoreWebView2ProcessFailedKind.RenderProcessExited or CoreWebView2ProcessFailedKind.RenderProcessUnresponsive)
-            { Ready = false; c.Reload(); }
+            { Ready = false; OnReloading?.Invoke(); c.Reload(); }
         };
         c.Navigate(Home.ToString());
     }
@@ -141,7 +141,7 @@ public sealed class Engine
         _ = wv.CoreWebView2.ExecuteScriptAsync("window.__pm && window.__pm.cmd(" + JsonSerializer.Serialize(dict) + ")");
     }
 
-    public enum LinkResult { Joined, Asleep, Choose, Timeout }
+    public enum LinkResult { Joined, Asleep, Choose, Invalid, Timeout }
 
     /// <summary>
     /// 部屋のリンクで入る：そのリンクでページを読み込み直し、入口の案内が「いま開いています」になって
@@ -152,24 +152,24 @@ public sealed class Engine
         var i = text.IndexOf("#room=", StringComparison.Ordinal);
         if (i < 0) return;
         var hash = text[i..].Split(' ', '\n', '\r')[0];
-        Ready = false;
+        Ready = false; OnReloading?.Invoke();
         wv.CoreWebView2.Navigate(Home + hash);
         // 「#」以降だけが変わる移動は、読み込み直しにならない。必ず読み込み直して、差し込み済みのページで始める
         await Task.Delay(150);
         wv.CoreWebView2.Reload();
         const string probe = "JSON.stringify({t: (document.getElementById('entryText')||{}).textContent||'', n: !!(document.getElementById('entryNote')&&!document.getElementById('entryNote').hidden), name: (document.getElementById('room')||{}).value||''})";
-        int asleep = 0;
+        int asleep = 0, idle = 0;
         for (int n = 0; n < 80; n++)   // 最大 40 秒
         {
             await Task.Delay(500);
             if (Joined) { done(LinkResult.Joined); return; }
             if (!Ready) continue;
-            string t, name;
+            string t, name; bool shown;
             try
             {
                 var raw = await wv.CoreWebView2.ExecuteScriptAsync(probe);      // 文字列の JSON が、さらに文字列として返る
                 var o = JsonDocument.Parse(JsonSerializer.Deserialize<string>(raw)).RootElement;
-                t = o.S("t"); name = o.S("name");
+                t = o.S("t"); name = o.S("name"); shown = o.B("n");
             }
             catch { continue; }
             if (t.Contains("いま開いています") && name.Length > 0)
@@ -179,6 +179,8 @@ public sealed class Engine
                 done(LinkResult.Timeout); return;
             }
             if (t.Contains("同じ名前の部屋")) { done(LinkResult.Choose); return; }
+            // ページが入口の案内を出さない（部屋のIDとして読み取れない）リンクは、待たずに知らせる
+            if (!shown && t.Length == 0 && name.Length == 0) { if (++idle > 10) { done(LinkResult.Invalid); return; } } else idle = 0;
             if (t.Contains("😴")) { if (++asleep > 2) { done(LinkResult.Asleep); return; } } else asleep = 0;
         }
         done(LinkResult.Timeout);

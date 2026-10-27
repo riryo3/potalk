@@ -30,8 +30,11 @@ public static class PagePatcher
         // 名刺と「無視」の確認は、ネイティブ側に出すので、ページ内ではモーダルにしない
         new("try { $('cardDlg').showModal() } catch {}", _ => "try { $('cardDlg').show() } catch {}"),
         new("try { $('ignoreDlg').showModal() } catch { doIgnore(id) }", _ => "try { $('ignoreDlg').show() } catch { doIgnore(id) }"),
-        new("cardKeyLoad(false).catch(() => {})\nconst CARD_NOSTR_KIND", _ =>
-            "try { const _pc = loadCard(); if (_pc.proofs && Object.keys(_pc.proofs).length) cardKeyLoad(false).catch(() => {}) } catch {}\nconst CARD_NOSTR_KIND"),
+        // 起動のたびに確認が出ないよう、名刺の鍵は起動時には読まない。
+        // 相手が自分の名刺を見るとき（名刺を渡す直前）に、はじめて読む（本人確認の✅を、相手に見せるため）
+        new("cardKeyLoad(false).catch(() => {})\nconst CARD_NOSTR_KIND", _ => "const CARD_NOSTR_KIND"),
+        new("      sendTo(call.cardAction, myCardPayload(), peerId)\n    } else if (data.k === 'res') {", _ =>
+            "      const _pc = loadCard()\n      if (_pc.proofs && Object.keys(_pc.proofs).length) cardKeyLoad(false).catch(() => {}).then(() => sendTo(call.cardAction, myCardPayload(), peerId))\n      else sendTo(call.cardAction, myCardPayload(), peerId)\n    } else if (data.k === 'res') {"),
         new("try { $('cropDlg').showModal() } catch { finish(null) }", _ => "try { $('cropDlg').show() } catch { finish(null) }"),
         new("try { $('cardEditDlg').showModal() } catch {}", _ => "try { $('cardEditDlg').show() } catch {}"),
         new("try { $('cardAuthDlg').showModal() } catch {}", _ => "try { $('cardAuthDlg').show() } catch {}"),

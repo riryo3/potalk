@@ -31,10 +31,13 @@ public sealed class ChatWindow : Window
         Content = dock;
         M.ChatChanged += Refresh;
         Closed += (_, _) => { M.ChatChanged -= Refresh; M.Chat = null; M.ChatOpen = false; M.Unread = 0; };
-        M.S.Remember(this, "chat");
+        M.S.Remember(this, "chat"); Snap.Attach(this, M);
         Loaded += (_, _) => input.Focus();
         Refresh();
     }
+
+    /// <summary>シングルペイン用：窓から中身だけを取り出す（窓は表示しない）。</summary>
+    public UIElement Detach() { var c = (UIElement)Content; Content = null; return c; }
 
     void Send() { var t = input.Text.Trim(); if (t.Length == 0) return; M.SendChat(t); input.Text = ""; }
 
@@ -61,6 +64,9 @@ public sealed class SettingsWindow : Window
     readonly AppModel M;
     readonly StackPanel body = new() { Margin = new Thickness(14) };
     string key = "";
+    /// <summary>シングルペイン用：窓から中身だけを取り出す（窓は表示しない）。</summary>
+    public UIElement Detach() { var c = (UIElement)Content; Content = null; return c; }
+
 
     public SettingsWindow(AppModel m)
     {
@@ -68,7 +74,7 @@ public sealed class SettingsWindow : Window
         Title = "部屋の設定"; Width = 340; Height = 460; MinWidth = 280; MinHeight = 240; Topmost = true;
         Background = Ui.Bg; Foreground = Ui.Fg; FontFamily = new FontFamily("Yu Gothic UI, Segoe UI, Meiryo UI");
         Content = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        M.S.Remember(this, "settings");
+        M.S.Remember(this, "settings"); Snap.Attach(this, M);
         Closed += (_, _) => M.Sett = null;
     }
 
@@ -157,6 +163,10 @@ public sealed class ProfileWindow : Window
         shortLink.Click += (_, _) => { M.S.ShortLinks = shortLink.IsChecked == true; M.S.Save(); };
         sp.Children.Add(shortLink);
         sp.Children.Add(Ui.Txt("ひとこと欄は60文字までなので、長いURLは途中で切れます。省いても、同じ部屋に入れます。", 11, Ui.Dim, wrap: true));
+        var single = new CheckBox { Content = "1つの窓にまとめる（シングルペイン）", IsChecked = M.S.SinglePane, Margin = new Thickness(0, 14, 0, 0) };
+        single.Click += (_, _) => M.SetSinglePane(single.IsChecked == true);
+        sp.Children.Add(single);
+        sp.Children.Add(Ui.Txt("画面の小さなPC向けです。入室前は一覧、入室すると、上のタブ（部屋・ひとこと・おたより・設定）に変わります。通話は、そのまま続きます。", 11, Ui.Dim, wrap: true));
         var reset = Ui.Btn("🪟 ウィンドウの位置と大きさを初期に戻す", () =>
         {
             M.S.Windows.Clear(); M.S.Save();
@@ -165,7 +175,7 @@ public sealed class ProfileWindow : Window
         reset.Margin = new Thickness(0, 12, 0, 8); sp.Children.Add(reset);
         sp.Children.Add(ver);
         Content = new ScrollViewer { Content = sp, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        M.S.Remember(this, "profile");
+        M.S.Remember(this, "profile"); Snap.Attach(this, M);
         Closed += (_, _) => { Apply(); M.Prof = null; };
         Refresh();
     }

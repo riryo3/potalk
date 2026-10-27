@@ -48,7 +48,7 @@ public sealed class CardEditWindow : Window
         dock.Children.Add(new ScrollViewer { Content = sp, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         Content = dock;
 
-        M.S.Remember(this, "cardedit");
+        M.S.Remember(this, "cardedit"); Snap.Attach(this, M);
         Closed += (_, _) => { if (M.CardEdit == this) { M.CardEdit = null; E.Cmd(new { type = "ceClose" }); } };
         Refresh();
     }
@@ -240,7 +240,7 @@ public sealed class CardAuthWindow : Window
         sp.Children.Add(bar);
         Content = new ScrollViewer { Content = sp, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
 
-        M.S.Remember(this, "cardauth");
+        M.S.Remember(this, "cardauth"); Snap.Attach(this, M);
         Closed += (_, _) => { if (M.CardAuth == this) { M.CardAuth = null; M.E.Cmd(new { type = "caCancel" }); } };
         Refresh();
     }

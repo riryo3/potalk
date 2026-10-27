@@ -47,10 +47,13 @@ public sealed class MailWindow : Window
         var root = new Grid(); root.Children.Add(dock); off.HorizontalAlignment = HorizontalAlignment.Center; off.VerticalAlignment = VerticalAlignment.Center; root.Children.Add(off);
         Content = root;
 
-        M.S.Remember(this, "mail");
+        M.S.Remember(this, "mail"); Snap.Attach(this, M);
         Closed += (_, _) => { M.Mail = null; M.MailOpen = false; M.RoomWindowRefresh(); };
         Refresh();
     }
+
+    /// <summary>シングルペイン用：窓から中身だけを取り出す（窓は表示しない）。</summary>
+    public UIElement Detach() { var c = (UIElement)Content; Content = null; return c; }
 
     void Send()
     {
@@ -134,7 +137,7 @@ public sealed class LetterWindow : Window
         var sp = new StackPanel { Margin = new Thickness(24) };
         sp.Children.Add(cap); who.Margin = new Thickness(0, 10, 0, 10); sp.Children.Add(who); sp.Children.Add(text);
         Content = new ScrollViewer { Content = sp, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        M.S.Remember(this, "letter");
+        M.S.Remember(this, "letter"); Snap.Attach(this, M);
         Closed += (_, _) => M.LetterClosed();
         Refresh();
     }
