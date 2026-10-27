@@ -186,10 +186,13 @@ public sealed class AppModel
         ChatChanged?.Invoke(); PaneChanged?.Invoke();
     }
 
+    string lastRid = "";
     void RoomChanged()
     {
         var r = E.Room;
         bool joined = r.B("joined");
+        var rid = joined ? r.S("rid") : "";
+        if (rid != lastRid) { lastRid = rid; LobbyRefresh?.Invoke(); }
         if (joined != wasJoined)
         {
             wasJoined = joined; Quiet(6);

@@ -138,6 +138,7 @@ public sealed class LobbyView : UserControl
     void AskJoin(JsonElement r)
     {
         bool bcast = r.B("bc"), joined = M.E.Joined;
+        if (joined && r.S("id").Length > 0 && r.S("id") == M.E.Room.S("rid")) { M.ShowRoom(); return; }
         var w = Ui.Base("部屋に参加", 420, 200, Win); w.ResizeMode = ResizeMode.NoResize; w.SizeToContent = SizeToContent.Height;
         var sp = new StackPanel { Margin = new Thickness(18) };
         sp.Children.Add(Ui.Txt($"「{(bcast ? "📣 " : "")}{r.S("name")}」に{(joined ? "移りますか？ いまの部屋を退出します" : "参加しますか？")}", 15, bold: true, wrap: true));
@@ -233,6 +234,7 @@ public sealed class LobbyView : UserControl
         }
         sp.Children.Add(people);
         var card = Ui.Panel(sp); card.Margin = new Thickness(0, 0, 0, 8);
+        if (M.E.Joined && r.S("id").Length > 0 && r.S("id") == M.E.Room.S("rid")) { card.BorderBrush = Ui.Accent; card.BorderThickness = new Thickness(2); }
         if (r.S("id").Length > 0)
         {
             card.Cursor = Cursors.Hand;
