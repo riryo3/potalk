@@ -102,6 +102,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func showChat() { model.openChat() }
     @objc func showMail() { model.openMail() }
     @objc func showSettings() { model.openSettings() }
+    @objc func toggleSinglePane() { model.singlePane.toggle() }
     @objc func toggleDrawer() { if model.singlePane { model.drawerOpen.toggle() } }
     @objc func nextTab() { model.cycleTab(1) }
     @objc func prevTab() { model.cycleTab(-1) }
@@ -112,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(showRoom), #selector(showChat), #selector(showSettings): return joined
         case #selector(showMail): return joined && model.engine.room.bcast
         case #selector(toggleDrawer), #selector(nextTab), #selector(prevTab): return joined && model.singlePane
+        case #selector(toggleSinglePane): item.state = model.singlePane ? .on : .off; return true
         default: return true
         }
     }
@@ -142,6 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             let m = NSMenuItem(title: title, action: sel, keyEquivalent: key); m.keyEquivalentModifierMask = mods; m.target = self; win.addItem(m)
         }
         item("メインウインドウ", #selector(showMain), "1")
+        item("シングルペインで表示", #selector(toggleSinglePane), "p", [.command, .shift])
         win.addItem(.separator())
         item("部屋", #selector(showRoom), "2")
         item("ひとこと", #selector(showChat), "3")
