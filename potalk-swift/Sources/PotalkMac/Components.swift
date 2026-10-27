@@ -65,7 +65,7 @@ struct ChipButton: ButtonStyle {
 /// 文章中の URL をリンクにする
 func linkified(_ text: String) -> AttributedString {
     var out = AttributedString(text)
-    guard let re = try? NSRegularExpression(pattern: #"(https?://[^\s<>"'「」]+|www\.[^\s<>"'「」]+)"#, options: [.caseInsensitive]) else { return out }
+    guard let re = try? NSRegularExpression(pattern: #"(https?://[^\s<>"'「」『』（）【】〈〉《》［］｛｝、。，．！？]+|www\.[^\s<>"'「」『』（）【】〈〉《》［］｛｝、。，．！？]+)"#, options: [.caseInsensitive]) else { return out }
     let ns = text as NSString
     for m in re.matches(in: text, range: NSRange(location: 0, length: ns.length)).reversed() {
         var r = m.range

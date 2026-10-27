@@ -73,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                     else { print("menu: not found", t) }
                 case "demoLobby": Demo.apply(m, joined: false)
                 case "demoRoom": Demo.apply(m, joined: true)
+                case "demoTag": m.engine.room.tag.text = "https://riryo3.github.io/en/（リョータが付けた）"
                 case "toggleDrawer": m.drawerOpen.toggle()
                 case "singleOn": m.singlePane = true
                 case "singleOff": m.singlePane = false
