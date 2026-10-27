@@ -8,7 +8,7 @@
 |---|---|---|
 | **macOS**（14 以降） | 対応しています | `potalk-swift/`（Swift 製） |
 | **Windows** | 対応しています | `potalk-win/`（C# / WPF / WebView2 製） |
-| **Linux** | **対応していません。他の方の貢献に期待しています。** | － |
+| **Linux** | **対応していません。他の方の貢献に期待しています。**（Electron 版で動いたという報告はあります。下の「Linux 版（試験中）」を参照） | － |
 
 - Linux は、手が回っていません。Electron 版（`potalk-mac/`）が、Linux で動いたという報告はありますが、私は確認していません。Linux 向けに、きちんと作ってくださる方がいれば、プルリクエストや Issue を、お待ちしています。
 
@@ -103,7 +103,7 @@ Electron 版（`potalk-mac/`）は、Linux でも起動できます。2026年10�
   npx electron --no-sandbox .
   ```
 
-  毎回ではなく恒常的に対処したい場合は、`node_modules/electron/dist/chrome-sandbox` の所有者を root にし、権限を 4755 に直してください。
+  `--no-sandbox` は、Chromium の安全のための仕組み（サンドボックス）を切る回避策です。使うのは、ご自分の手元で、信頼できるサイトだけを開く場合に限ってください。毎回ではなく恒常的に対処したい場合は、`node_modules/electron/dist/chrome-sandbox` の所有者を root にし、権限を 4755 に直してください（`sudo` が必要です）。
 
 - 作者の環境では未確認です。ビルド済みパッケージ（AppImage や .deb）の配布も、まだありません。
 
