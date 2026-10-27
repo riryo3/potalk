@@ -63,6 +63,7 @@ struct RoomState: Codable, Equatable {
     var tag: TagInfo; var speak: ButtonState; var raise: ButtonState
     var mail: MailInfo; var reactions: [String]
     var canMute: Bool; var muted: Bool; var share: String; var settings: [SettingItem]
+    var rid: String? = nil      // いまいる部屋の ID（URL の #room= から）
 
     static let empty = RoomState(joined: false, state: "", members: [], card: nil, ignoreAsk: nil, mailNow: nil, more: "", mailOpen: false,
                                  bcast: false, tag: TagInfo(show: false, text: "", btn: ""), speak: ButtonState(show: false, label: "", disabled: nil),

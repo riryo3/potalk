@@ -49,7 +49,9 @@ struct MainView: View {
         if r.id != "" { model.joinCandidate = r }
     }
     func isCurrent(_ r: LobbyRoom) -> Bool {
-        engine.room.joined && ((!model.joinedRoomID.isEmpty && r.id == model.joinedRoomID) || (model.joinedRoomID.isEmpty && engine.room.state.contains(r.name)))
+        // 部屋の ID（URL の #room=）が分かれば、それで見分ける。分からないときだけ、入った部屋の記録や、部屋名で見分ける
+        if engine.room.joined, let rid = engine.room.rid, !rid.isEmpty, !r.id.isEmpty { return r.id == rid }
+        return engine.room.joined && ((!model.joinedRoomID.isEmpty && r.id == model.joinedRoomID) || (model.joinedRoomID.isEmpty && engine.room.state.contains(r.name)))
     }
 
     var topBar: some View {

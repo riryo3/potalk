@@ -36,7 +36,7 @@ final class DebugChannel {
         case "js":
             engine.eval(arg) { r, e in self.out("js> \(r.map { "\($0)" } ?? "nil") \(e?.localizedDescription ?? "")") }
         case "state":
-            out("lobby rooms=\(engine.lobby.rooms.count) status=\(engine.lobby.status) viewers=\(engine.lobby.viewers) | profile=\(engine.profile.emoji) \(engine.profile.name) | room joined=\(engine.room.joined) \(engine.room.state) members=\(engine.room.members.map { $0.name }) | ready=\(engine.ready) patched=\(engine.patched) devices=\(engine.devices.map { $0.label }) \(extra?() ?? "")")
+            out("lobby rooms=\(engine.lobby.rooms.count) status=\(engine.lobby.status) viewers=\(engine.lobby.viewers) | profile=\(engine.profile.emoji) \(engine.profile.name) | room joined=\(engine.room.joined) rid=\(engine.room.rid ?? "nil") \(engine.room.state) members=\(engine.room.members.map { $0.name }) | ready=\(engine.ready) patched=\(engine.patched) devices=\(engine.devices.map { $0.label }) \(extra?() ?? "")")
         case "cmd":
             if let d = arg.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] { engine.cmd(o); out("cmd sent") }
         case "snap":

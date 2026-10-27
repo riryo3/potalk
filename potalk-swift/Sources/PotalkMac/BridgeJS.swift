@@ -99,6 +99,7 @@ enum BridgeJS {
         const mn = $('mailNow');
         return {
           joined: j,
+          rid: (() => { const m = location.hash.match(/room=([^&]*)/); try { return m ? decodeURIComponent(m[1]) : ''; } catch { return ''; } })(),
           state: $('state') ? $('state').textContent : '',
           members: members,
           card: cd && cd.open ? {
