@@ -51,6 +51,7 @@ struct RoomView: View {
             Text(r.state.isEmpty ? "未参加" : r.state).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
             HStack(spacing: 8) {
                 Text("\(r.members.count)人").font(.system(size: 12)).foregroundColor(.secondary)
+                if model.speakerMuted { Text("🔇 スピーカーミュート中").font(.system(size: 12, weight: .semibold)).foregroundColor(orangeColor) }
                 Spacer(minLength: 4)
                 Menu {
                     Button((model.selectedMic.isEmpty ? "✓ " : "") + "既定のマイク") { model.switchMic("") }

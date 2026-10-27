@@ -88,6 +88,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     private var seenRooms = Set<String>()
     private var armed = false
     private var quietGen = 0
+    /// スピーカー（聞こえてくる音）のミュート。ボタンは増やさず、ショートカット（通話メニュー）で切り替える
+    @Published var speakerMuted = false
     private var lastRid = ""      // いまいる部屋の ID（部屋から部屋へ移ったことを見分ける）
     private var lastHands = 0
     private var lastLetter = ""
@@ -115,6 +117,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             // 読み込み直し（つなぎ直し・マイクの入り直しなど）のたびに、数秒のあいだは、新しい部屋の通知を出さない。
             // そのあいだに見えた部屋は「見た部屋」に入るので、あとから「新しい部屋」として通知されることもない
             self.quiet(for: ok ? 6 : nil)
+            self.speakerMuted = false      // ページを読み込み直すと、ミュートも解ける
             guard ok else { return }
             self.engine.cmd(["type": "setMicLabel", "label": self.selectedMic])
             self.engine.cmd(["type": "sndRoom", "on": false])    // 通知はこちらで一本化する（ページの音は使わない）
@@ -178,7 +181,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             drawerOpen = false
             fitSingleFrame(joined: r.joined)
         }
-        if !r.joined { lastRid = "" }
+        if !r.joined { lastRid = ""; if speakerMuted { speakerMuted = false; engine.cmd(["type": "spk", "on": false]) } }
         guard r.joined else { return }
         // 部屋から部屋へ、いったん退出せずに移ったときも、前の部屋のひとことを残さない
         if let rid = r.rid, !rid.isEmpty, rid != lastRid {
@@ -253,6 +256,12 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent n: UNNotification) async -> UNNotificationPresentationOptions { [.banner] }
 
     // MARK: 指示
+    func toggleSpeakerMute() {
+        guard engine.room.joined else { return }
+        speakerMuted.toggle()
+        engine.cmd(["type": "spk", "on": speakerMuted])
+    }
+    func toggleMicMute() { if engine.room.joined, engine.room.canMute { engine.cmd(["type": "mute"]) } }
     /// ひとこと（前の部屋のぶん）を空にする
     func clearChat() { chat = []; past = []; unread = 0 }
     func join(_ r: LobbyRoom, quiet q: Bool) { quiet(for: 6); if engine.room.joined { clearChat() }; joinedRoomID = r.id; drawerOpen = false; pendingMute = (Date(), muteOnJoin); engine.cmd(["type": "join", "id": r.id, "quiet": q]); joinCandidate = nil }

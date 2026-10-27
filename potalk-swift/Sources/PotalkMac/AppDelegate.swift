@@ -77,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "fakeChat": m.chat.append(ChatLine(sys: false, hist: false, em: "🦊", who: "テスト", text: "前の部屋のひとこと")); print("chat count:", m.chat.count)
                 case "chatCount": print("chat count:", m.chat.count, "past:", m.past.count)
                 case "joinOther": if let r = m.engine.lobby.rooms.first(where: { !$0.name.contains("ようこそ") && !$0.bc }) { print("join other:", r.name); m.join(r, quiet: false) } else { print("no other room") }
+                case "spk": m.toggleSpeakerMute(); print("speakerMuted:", m.speakerMuted)
                 case "toggleDrawer": m.drawerOpen.toggle()
                 case "singleOn": m.singlePane = true
                 case "singleOff": m.singlePane = false
@@ -121,6 +122,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func showChat() { model.openChat() }
     @objc func showMail() { model.openMail() }
     @objc func showSettings() { model.openSettings() }
+    @objc func micMute() { model.toggleMicMute() }
+    @objc func speakerMute() { model.toggleSpeakerMute() }
     @objc func toggleSinglePane() { model.singlePane.toggle() }
     @objc func toggleDrawer() { if model.singlePane { model.drawerOpen.toggle() } }
     @objc func nextTab() { model.cycleTab(1) }
@@ -132,6 +135,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(showRoom), #selector(showChat), #selector(showSettings): return joined
         case #selector(showMail): return joined && model.engine.room.bcast
         case #selector(toggleDrawer), #selector(nextTab), #selector(prevTab): return joined && model.singlePane
+        case #selector(micMute): return joined && model.engine.room.canMute
+        case #selector(speakerMute): item.state = model.speakerMuted ? .on : .off; return joined
         case #selector(toggleSinglePane): item.state = model.singlePane ? .on : .off; return true
         default: return true
         }
@@ -157,6 +162,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         edit.addItem(withTitle: "コピー", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
         edit.addItem(withTitle: "ペースト", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         edit.addItem(withTitle: "すべてを選択", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let callItem = NSMenuItem(); main.addItem(callItem)
+        let call = NSMenu(title: "通話"); callItem.submenu = call
+        for (t, sel, key) in [("マイクのミュート", #selector(micMute), "m"), ("スピーカーのミュート", #selector(speakerMute), "s")] {
+            let m = NSMenuItem(title: t, action: sel, keyEquivalent: key); m.keyEquivalentModifierMask = [.command, .shift]; m.target = self; call.addItem(m)
+        }
         let winItem = NSMenuItem(); main.addItem(winItem)
         let win = NSMenu(title: "ウインドウ"); winItem.submenu = win
         func item(_ title: String, _ sel: Selector, _ key: String, _ mods: NSEvent.ModifierFlags = [.command]) {
