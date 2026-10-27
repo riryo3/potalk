@@ -112,12 +112,10 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             guard let self else { return }
             // 読み込み直し（つなぎ直し・マイクの入り直しなど）のたびに、数秒のあいだは、新しい部屋の通知を出さない。
             // そのあいだに見えた部屋は「見た部屋」に入るので、あとから「新しい部屋」として通知されることもない
-            self.armed = false; self.quietGen += 1
+            self.quiet(for: ok ? 6 : nil)
             guard ok else { return }
             self.engine.cmd(["type": "setMicLabel", "label": self.selectedMic])
             self.engine.cmd(["type": "sndRoom", "on": false])    // 通知はこちらで一本化する（ページの音は使わない）
-            let g = self.quietGen
-            DispatchQueue.main.asyncAfter(deadline: .now() + 6) { if g == self.quietGen { self.armed = true } }
         }.store(in: &bag)
         refreshMics()
         for n in [AVCaptureDevice.wasConnectedNotification, AVCaptureDevice.wasDisconnectedNotification] {
@@ -173,6 +171,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     private func roomChanged(_ r: RoomState) {
         if r.joined != wasJoined {
             wasJoined = r.joined
+            quiet(for: 6)
             if r.joined { joinedAt = Date(); knownMembers = []; roomHot = false; openRoom() } else { closeRoomGroup() }
             drawerOpen = false
             fitSingleFrame(joined: r.joined)
@@ -214,12 +213,27 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         } else if c.auth == nil, let w = cardAuthWin { cardAuthWin = nil; w.close() }
     }
 
+    /// いま作られたばかりの部屋か（一覧の「経過時間」が数分以内）。読み込みが遅れて、あとから一覧に現れた古い部屋を、新しい部屋として通知しない
+    static func isFresh(_ dur: String) -> Bool {
+        if dur.contains("時間") || dur.contains("日") { return false }
+        let digits = dur.filter { $0.isNumber }
+        guard let n = Int(digits) else { return true }
+        return n <= 3
+    }
     private func lobbyChanged(_ l: LobbyState) {
         for room in l.rooms {
-            if seenRooms.insert(room.key).inserted && armed && notifyRooms { notify(newRoom: room) }
+            if seenRooms.insert(room.key).inserted && armed && notifyRooms && Self.isFresh(room.dur) { notify(newRoom: room) }
         }
     }
+    /// 新しい部屋の通知を、しばらく止める（nil なら、読み込みが済むまで止めたまま）。入室・退出・作成・読み込み直しのあとは、一覧が入れ替わるため
+    func quiet(for seconds: Double?) {
+        armed = false; quietGen += 1
+        guard let seconds else { return }
+        let g = quietGen
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in if let self, g == self.quietGen { self.armed = true } }
+    }
     func notify(newRoom r: LobbyRoom) {
+        if ProcessInfo.processInfo.environment["POTALK_DEBUG"] == "1" { print("notify:", r.name) }
         NSSound(named: "Glass")?.play()
         let c = UNMutableNotificationContent()
         c.title = "新しい部屋ができました"; c.body = r.name; c.sound = nil
@@ -231,10 +245,11 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent n: UNNotification) async -> UNNotificationPresentationOptions { [.banner] }
 
     // MARK: 指示
-    func join(_ r: LobbyRoom, quiet: Bool) { joinedRoomID = r.id; drawerOpen = false; pendingMute = (Date(), muteOnJoin); engine.cmd(["type": "join", "id": r.id, "quiet": quiet]); joinCandidate = nil }
-    func createRoom(name: String, broadcast: Bool) { joinedRoomID = ""; pendingMute = (Date(), muteOnCreate); engine.cmd(["type": "create", "name": name, "kind": broadcast ? "bc" : "chat"]); createOpen = false }
+    func join(_ r: LobbyRoom, quiet q: Bool) { quiet(for: 6); joinedRoomID = r.id; drawerOpen = false; pendingMute = (Date(), muteOnJoin); engine.cmd(["type": "join", "id": r.id, "quiet": q]); joinCandidate = nil }
+    func createRoom(name: String, broadcast: Bool) { quiet(for: 6); joinedRoomID = ""; pendingMute = (Date(), muteOnCreate); engine.cmd(["type": "create", "name": name, "kind": broadcast ? "bc" : "chat"]); createOpen = false }
     /// 部屋のリンク（名前なしでもよい）で入る。入れなかったときは、理由を知らせる
     func openRoomLink(_ text: String) {
+        quiet(for: 6)
         joinedRoomID = ""
         pendingMute = (Date(), muteOnJoin)
         search = ""
