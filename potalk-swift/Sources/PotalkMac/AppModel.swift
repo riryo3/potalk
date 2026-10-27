@@ -67,6 +67,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     var drawerWin: NSPanel?
     private var drawerShift: CGFloat = 0       // 左に出す余地がなくて、本体の窓を右にずらしたぶん
     let drawerW: CGFloat = 360
+    let drawerOverlap: CGFloat = 24        // 本体の窓の下に潜り込ませるぶん（つなぎ目を、角丸にせず、まっすぐに見せる）
     var joinedRoomID = ""
 
     // ウィンドウ
@@ -371,22 +372,22 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             let deficit = max(0, screen.minX - (w.frame.minX - drawerW))
             drawerShift = min(deficit, max(0, screen.maxX - w.frame.maxX))
             if drawerShift > 0 { var f = w.frame; f.origin.x += drawerShift; w.setFrame(f, display: true, animate: true) }
-            let p = DrawerPanel(contentRect: NSRect(x: w.frame.minX, y: w.frame.minY, width: drawerW, height: w.frame.height),
+            let p = DrawerPanel(contentRect: NSRect(x: w.frame.minX, y: w.frame.minY, width: drawerW + drawerOverlap, height: w.frame.height),
                                 styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
             p.titleVisibility = .hidden; p.titlebarAppearsTransparent = true
             for b in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] { p.standardWindowButton(b)?.isHidden = true }
             p.isMovable = false; p.isReleasedWhenClosed = false; p.hidesOnDeactivate = false; p.level = pinSingle ? .floating : .normal
-            p.contentView = NSHostingView(rootView: MainView(embedded: true).environmentObject(self).environmentObject(engine))
+            p.contentView = NSHostingView(rootView: MainView(embedded: true).padding(.trailing, drawerOverlap).background(Color(nsColor: .windowBackgroundColor)).environmentObject(self).environmentObject(engine))
             p.delegate = self
             w.addChildWindow(p, ordered: .below)
             p.orderFront(nil)
             drawerWin = p
-            p.setFrame(NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: drawerW, height: w.frame.height), display: true, animate: true)
+            p.setFrame(NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: drawerW + drawerOverlap, height: w.frame.height), display: true, animate: true)
         } else {
             guard let p = drawerWin else { return }
             drawerWin = nil
             let main = p.parent
-            let back = NSRect(x: (main?.frame.minX ?? p.frame.maxX), y: p.frame.minY, width: drawerW, height: p.frame.height)
+            let back = NSRect(x: (main?.frame.minX ?? p.frame.maxX), y: p.frame.minY, width: drawerW + drawerOverlap, height: p.frame.height)
             let shift = drawerShift; drawerShift = 0
             NSAnimationContext.runAnimationGroup({ c in
                 c.duration = 0.2
@@ -401,7 +402,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     func windowDidResize(_ n: Notification) {
         guard let w = n.object as? NSWindow, w === mainWin, let p = drawerWin else { return }
-        p.setFrame(NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: drawerW, height: w.frame.height), display: true)
+        p.setFrame(NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: drawerW + drawerOverlap, height: w.frame.height), display: true)
     }
     func windowDidEndLiveResize(_ n: Notification) {
         guard singlePane, let w = n.object as? NSWindow, w === mainWin else { return }
