@@ -67,6 +67,9 @@ struct MainView: View {
                 Button("？ これはなに？") { model.openHelp() }.buttonStyle(ChipButton())
                 Button("🏠 部屋を作る") { model.createOpen = true }.buttonStyle(ChipButton()).disabled(engine.room.joined)
                 Spacer()
+                if model.singlePane && !embedded {
+                    PinButton()
+                }
             }
             HStack(spacing: 8) {
                 TextField("部屋を検索／部屋のURLを貼る", text: $model.search).textFieldStyle(.roundedBorder)
@@ -133,6 +136,7 @@ struct CompactRoomRow: View {
 }
 
 struct RoomCard: View {
+    @EnvironmentObject var model: AppModel
     let room: LobbyRoom
     @State private var copied = false
     var body: some View {
@@ -151,8 +155,8 @@ struct RoomCard: View {
             }
             if !room.sub.isEmpty {
                 HStack(spacing: 0) {
-                    Text(room.sub).font(.system(size: 12, weight: .semibold))
-                    Text(room.subBy).font(.system(size: 12)).foregroundColor(.secondary)
+                    Text(linkified(room.sub)).font(.system(size: 12, weight: .semibold))
+                    Text(linkified(room.subBy)).font(.system(size: 12)).foregroundColor(.secondary)
                 }
             }
             Text(room.dur).font(.system(size: 11)).foregroundColor(.secondary)
@@ -168,6 +172,7 @@ struct RoomCard: View {
             }
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading).card().contentShape(Rectangle())
+        .environment(\.openURL, OpenURLAction { url in model.confirmOpen(url.absoluteString, from: NSApp.keyWindow); return .handled })
     }
 }
 

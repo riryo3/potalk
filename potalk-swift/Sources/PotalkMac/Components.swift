@@ -84,3 +84,15 @@ extension View {
             .overlay(RoundedRectangle(cornerRadius: r).stroke(Color.primary.opacity(0.12), lineWidth: 1))
     }
 }
+
+/// 最前面の切り替え（📌）。オンのときは、青い丸で囲う
+struct PinButton: View {
+    @EnvironmentObject var model: AppModel
+    var body: some View {
+        Button { model.pinSingle.toggle() } label: {
+            Text("📌").font(.system(size: 13)).frame(width: 26, height: 26)
+                .background(Circle().fill(model.pinSingle ? Color.accentColor : Color(nsColor: .controlBackgroundColor)))
+                .overlay(Circle().stroke(Color.primary.opacity(0.15), lineWidth: 1))
+        }.buttonStyle(.plain).help("最前面に表示する／しない")
+    }
+}

@@ -74,7 +74,7 @@ struct RoomView: View {
     var tagRow: some View {
         VStack(spacing: 4) {
             HStack {
-                Text("🏷 " + (r.tag.text.isEmpty ? "話題はまだありません" : r.tag.text)).font(.system(size: 12)).foregroundColor(.secondary).lineLimit(1)
+                Text(linkified("🏷 " + (r.tag.text.isEmpty ? "話題はまだありません" : r.tag.text))).font(.system(size: 12)).foregroundColor(.secondary).lineLimit(1)
                 Spacer()
                 Button(r.tag.btn.isEmpty ? "つける" : r.tag.btn) { tagEditing.toggle() }.buttonStyle(ChipButton())
             }
@@ -87,6 +87,7 @@ struct RoomView: View {
                 }
             }
         }.padding(.horizontal, 12).padding(.vertical, 6)
+        .environment(\.openURL, OpenURLAction { url in model.confirmOpen(url.absoluteString, from: model.roomHost); return .handled })
     }
     func sendTag() { engine.cmd(["type": "tag", "text": tagText]); tagText = ""; tagEditing = false }
 

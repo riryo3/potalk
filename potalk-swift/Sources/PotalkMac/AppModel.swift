@@ -29,6 +29,15 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     @Published var muteOnJoin: Bool { didSet { UserDefaults.standard.set(muteOnJoin, forKey: "muteOnJoin") } }
     private var pendingMute: (at: Date, target: Bool)?   // 作成・入室の直後だけ、設定の状態（ミュート／解除）にそろえる（つなぎ直しでは触らない）
     @Published var pinRoom = true
+    /// シングルペインの窓を、ほかの窓の上に浮かせておくか（ロビーと部屋の📌で切り替える）
+    @Published var pinSingle: Bool {
+        didSet {
+            UserDefaults.standard.set(pinSingle, forKey: "pinSingle")
+            let lv: NSWindow.Level = pinSingle ? .floating : .normal
+            if singlePane { mainWin?.level = lv }
+            drawerWin?.level = lv
+        }
+    }
     @Published var joinCandidate: LobbyRoom?       // 「参加しますか？」を出す部屋
     @Published var createOpen = false
     /// 1つの窓にまとめて使うモード（初期設定のスイッチ）
@@ -39,9 +48,14 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         }
     }
     /// シングルペインで開いているタブ。ひとこと・おたよりを開いているときは、新着を既読にする
+    /// シングルペインで、雑談部屋に新しい人が入ったとき、「部屋」のタブに色をつける（部屋を開くと消える）
+    @Published var roomHot = false
+    private var knownMembers = Set<String>()
+    private var joinedAt = Date.distantPast
     @Published var tab: PaneTab = .room {
         didSet {
             guard singlePane else { return }
+            if tab == .room { roomHot = false }
             chatOpen = (tab == .chat); mailOpen = (tab == .mail)
             if tab == .chat { unread = 0 }
         }
@@ -72,6 +86,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     // 検知用
     private var seenRooms = Set<String>()
     private var armed = false
+    private var quietGen = 0
     private var lastHands = 0
     private var lastLetter = ""
     private var letterDismissed = ""
@@ -85,6 +100,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         muteOnCreate = d.object(forKey: "muteOnCreate") as? Bool ?? true
         muteOnJoin = d.object(forKey: "muteOnJoin") as? Bool ?? true
         singlePane = d.bool(forKey: "singlePane")
+        pinSingle = d.object(forKey: "pinSingle") as? Bool ?? true
         super.init()
         engine.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &bag)
         engine.onChat = { [weak self] l in self?.receive(chat: l) }
@@ -93,10 +109,15 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         engine.$cards.removeDuplicates().sink { [weak self] _ in DispatchQueue.main.async { guard let self else { return }; self.cardsChanged(self.engine.cards) } }.store(in: &bag)
         engine.$lobby.removeDuplicates().sink { [weak self] l in self?.lobbyChanged(l) }.store(in: &bag)
         engine.$ready.removeDuplicates().sink { [weak self] ok in
-            guard let self, ok else { return }
+            guard let self else { return }
+            // 読み込み直し（つなぎ直し・マイクの入り直しなど）のたびに、数秒のあいだは、新しい部屋の通知を出さない。
+            // そのあいだに見えた部屋は「見た部屋」に入るので、あとから「新しい部屋」として通知されることもない
+            self.armed = false; self.quietGen += 1
+            guard ok else { return }
             self.engine.cmd(["type": "setMicLabel", "label": self.selectedMic])
             self.engine.cmd(["type": "sndRoom", "on": false])    // 通知はこちらで一本化する（ページの音は使わない）
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.armed = true }
+            let g = self.quietGen
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6) { if g == self.quietGen { self.armed = true } }
         }.store(in: &bag)
         refreshMics()
         for n in [AVCaptureDevice.wasConnectedNotification, AVCaptureDevice.wasDisconnectedNotification] {
@@ -104,6 +125,35 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         }
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    // MARK: 初回起動のごあいさつ（作者への謝辞）
+    /// 初回の起動で出す。「次から表示しない」は、はじめからチェック済み（はずして閉じると、次の起動でも出る）
+    func showThanksIfFirst() {
+        let d = UserDefaults.standard
+        guard !d.bool(forKey: "thanksShown") else { return }
+        let a = NSAlert()
+        a.messageText = "くらもさんへ、ありがとうございます"
+        a.informativeText = "Potalker は、くらもさんが作った「ぽっと通話」の、非公式クライアントです。通話の仕組みは、くらもさんのサイトをそのまま使わせてもらっています。\n\nこんなに気軽に話せる、すてきな場所を公開してくださって、ありがとうございます。「これはなに？」からも、読み返せます。"
+        a.addButton(withTitle: "はじめる")
+        a.showsSuppressionButton = true
+        a.suppressionButton?.title = "次から表示しない"
+        a.suppressionButton?.state = .on
+        let links = [("ぽっと通話（Web アプリ）　potalk.app", "https://potalk.app/"),
+                     ("ソース（GitHub）　po-talk/po-talk.github.io", "https://github.com/po-talk/po-talk.github.io")]
+        let openers = links.map { LinkOpener(url: URL(string: $0.1)!) }
+        let stack = NSStackView(views: zip(links, openers).map { l, o in
+            let b = NSButton(title: "", target: o, action: #selector(LinkOpener.open))
+            b.isBordered = false; b.alignment = .left
+            b.attributedTitle = NSAttributedString(string: l.0, attributes: [.foregroundColor: NSColor.linkColor, .underlineStyle: NSUnderlineStyle.single.rawValue, .font: NSFont.systemFont(ofSize: 12)])
+            return b
+        })
+        stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 6
+        stack.frame = NSRect(x: 0, y: 0, width: 300, height: 44)
+        a.accessoryView = stack
+        a.runModal()
+        if a.suppressionButton?.state == .on { d.set(true, forKey: "thanksShown") }
+        withExtendedLifetime(openers) {}
     }
 
     // MARK: 受け取り
@@ -123,12 +173,16 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     private func roomChanged(_ r: RoomState) {
         if r.joined != wasJoined {
             wasJoined = r.joined
-            if r.joined { openRoom() } else { closeRoomGroup() }
+            if r.joined { joinedAt = Date(); knownMembers = []; roomHot = false; openRoom() } else { closeRoomGroup() }
             drawerOpen = false
             fitSingleFrame(joined: r.joined)
         }
         guard r.joined else { return }
         if singlePane, r.card != nil || r.ignoreAsk != nil { tab = .room }
+        // 雑談部屋に、新しい人が入ったら、「部屋」のタブに色をつける（入室して数秒は、もとからいた人なので、数えない）
+        let names = Set(r.members.map { $0.id })
+        if !r.bcast, singlePane, tab != .room, Date().timeIntervalSince(joinedAt) > 3, !names.subtracting(knownMembers).isEmpty { roomHot = true }
+        knownMembers = names
         // 作成・入室の直後は、設定に合わせてミュートにそろえる（マイクが取れて、ミュートの操作ができるようになってから1回だけ）
         if let p = pendingMute {
             if Date().timeIntervalSince(p.at) > 15 { pendingMute = nil }
@@ -264,7 +318,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         w.contentView = NSHostingView(rootView: root)
         w.contentMinSize = singlePane && engine.room.joined ? NSSize(width: 340, height: 560) : NSSize(width: 360, height: 420)
         w.isReleasedWhenClosed = false; w.delegate = self
-        if singlePane { w.level = .floating }     // シングルペインは、小さな画面向け。ほかの窓の上に浮かせておく
+        if singlePane { w.level = pinSingle ? .floating : .normal }     // シングルペインは、小さな画面向け。既定は、ほかの窓の上に浮かせておく
         w.center(); w.setFrameAutosaveName(singlePane ? "win.single" : "win.main"); w.makeKeyAndOrderFront(nil)
         mainWin = w
         fitSingleFrame(joined: engine.room.joined)
@@ -306,7 +360,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
                                 styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
             p.titleVisibility = .hidden; p.titlebarAppearsTransparent = true
             for b in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] { p.standardWindowButton(b)?.isHidden = true }
-            p.isMovable = false; p.isReleasedWhenClosed = false; p.hidesOnDeactivate = false; p.level = .floating
+            p.isMovable = false; p.isReleasedWhenClosed = false; p.hidesOnDeactivate = false; p.level = pinSingle ? .floating : .normal
             p.contentView = NSHostingView(rootView: MainView(embedded: true).environmentObject(self).environmentObject(engine))
             p.delegate = self
             w.addChildWindow(p, ordered: .below)
@@ -450,7 +504,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         for w in [roomWin, chatWin, mailWin, letterWin, settingsWin] { if let w { forceClose.insert(ObjectIdentifier(w)); w.close() } }
         roomWin = nil; chatWin = nil; mailWin = nil; letterWin = nil; settingsWin = nil
         chat = []; past = []; unread = 0; chatOpen = false; mailOpen = false; lastHands = 0; lastLetter = ""; letterDismissed = ""
-        tab = .room
+        tab = .room; roomHot = false
     }
     func requestLeave(from w: NSWindow?) {
         let a = NSAlert(); a.messageText = "この部屋を退出しますか？"; a.informativeText = "窓を閉じると、部屋から退出します。"
@@ -507,4 +561,11 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         else if w === roomWin { roomWin = nil }
         forceClose.remove(ObjectIdentifier(w))
     }
+}
+
+/// ごあいさつの画面のリンク用（押しても、画面は閉じない）
+final class LinkOpener: NSObject {
+    let url: URL
+    init(url: URL) { self.url = url }
+    @objc func open() { NSWorkspace.shared.open(url) }
 }

@@ -46,7 +46,7 @@ struct SinglePaneView: View {
     var tabBar: some View {
         let r = engine.room
         let mailHot = r.mailOpen && model.tab != .mail
-        var tabs: [(String, PaneTab, Bool, Color)] = [("部屋", .room, false, tealColor), ("ひとこと", .chat, model.unread > 0, tealColor)]
+        var tabs: [(String, PaneTab, Bool, Color)] = [("部屋", .room, model.roomHot, tealColor), ("ひとこと", .chat, model.unread > 0, tealColor)]
         if r.bcast { tabs.append(("おたより", .mail, mailHot, orangeColor)) }
         tabs.append(("設定", .settings, false, tealColor))
         return HStack(spacing: 0) {
@@ -54,6 +54,9 @@ struct SinglePaneView: View {
                 tabCell(t.0, t.1, hot: t.2, hotColor: t.3)
                 if i < tabs.count - 1 { Rectangle().fill(Color.primary.opacity(0.25)).frame(width: 1, height: 14) }
             }
+            // 最前面の切り替え（設定の右）
+            Rectangle().fill(Color.primary.opacity(0.25)).frame(width: 1, height: 14)
+            PinButton().padding(.horizontal, 6)
         }
         .background(Color(nsColor: .controlBackgroundColor))
     }

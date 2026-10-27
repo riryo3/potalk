@@ -12,6 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engine.start()
         buildMenu()
         model.buildMainWindow()
+        if ProcessInfo.processInfo.environment["POTALK_DEBUG"] != "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in self?.model.showThanksIfFirst() }
+        }
         if ProcessInfo.processInfo.environment["POTALK_DEBUG"] == "1" {
             let d = DebugChannel(engine: engine)
             d.snapshots["main"] = { [weak self] in self?.model.mainWin?.contentView }
@@ -62,6 +65,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         m.alignTop(w, to: gw)
                         print("align result:", w.frame.maxY == g.maxY, w.frame.maxY, g.maxY)
                     }
+                case "thanks": UserDefaults.standard.set(false, forKey: "thanksShown"); m.showThanksIfFirst()
+                case "fakeJoin": m.roomHot = true
                 case "toggleDrawer": m.drawerOpen.toggle()
                 case "singleOn": m.singlePane = true
                 case "singleOff": m.singlePane = false
