@@ -14,13 +14,18 @@ struct MainView: View {
         let id = rest.split(whereSeparator: { $0 == "&" || $0 == " " }).first.map(String.init) ?? ""
         return id.removingPercentEncoding ?? id
     }
+    /// 検索用にそろえる：全角・半角（英数・カナ）、大文字・小文字、ひらがな・カタカナの違いを、区別しない
+    static func fold(_ s: String) -> String {
+        let w = s.folding(options: [.caseInsensitive, .widthInsensitive], locale: nil)
+        return w.applyingTransform(.hiraganaToKatakana, reverse: false) ?? w     // ひらがなは、カタカナにそろえる
+    }
     private var filtered: [LobbyRoom] {
         let v = model.search.trimmingCharacters(in: .whitespacesAndNewlines)
         if v.isEmpty { return engine.lobby.rooms }
         if let id = linkID { return engine.lobby.rooms.filter { $0.id == id } }
-        let q = v.lowercased()
+        let q = Self.fold(v)
         return engine.lobby.rooms.filter { r in
-            ([r.name, r.sub, r.subBy] + r.people.map { $0.name }).contains { $0.lowercased().contains(q) }
+            ([r.name, r.sub, r.subBy] + r.people.map { $0.name }).contains { Self.fold($0).contains(q) }
         }
     }
 
