@@ -88,6 +88,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     private var seenRooms = Set<String>()
     private var armed = false
     private var quietGen = 0
+    private var lastRid = ""      // いまいる部屋の ID（部屋から部屋へ移ったことを見分ける）
     private var lastHands = 0
     private var lastLetter = ""
     private var letterDismissed = ""
@@ -177,7 +178,13 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             drawerOpen = false
             fitSingleFrame(joined: r.joined)
         }
+        if !r.joined { lastRid = "" }
         guard r.joined else { return }
+        // 部屋から部屋へ、いったん退出せずに移ったときも、前の部屋のひとことを残さない
+        if let rid = r.rid, !rid.isEmpty, rid != lastRid {
+            if !lastRid.isEmpty { clearChat() }
+            lastRid = rid
+        }
         if singlePane, r.card != nil || r.ignoreAsk != nil { tab = .room }
         // 雑談部屋に、新しい人が入ったら、「部屋」のタブに色をつける（入室して数秒は、もとからいた人なので、数えない）
         let names = Set(r.members.map { $0.id })
@@ -246,8 +253,10 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent n: UNNotification) async -> UNNotificationPresentationOptions { [.banner] }
 
     // MARK: 指示
-    func join(_ r: LobbyRoom, quiet q: Bool) { quiet(for: 6); joinedRoomID = r.id; drawerOpen = false; pendingMute = (Date(), muteOnJoin); engine.cmd(["type": "join", "id": r.id, "quiet": q]); joinCandidate = nil }
-    func createRoom(name: String, broadcast: Bool) { quiet(for: 6); joinedRoomID = ""; pendingMute = (Date(), muteOnCreate); engine.cmd(["type": "create", "name": name, "kind": broadcast ? "bc" : "chat"]); createOpen = false }
+    /// ひとこと（前の部屋のぶん）を空にする
+    func clearChat() { chat = []; past = []; unread = 0 }
+    func join(_ r: LobbyRoom, quiet q: Bool) { quiet(for: 6); if engine.room.joined { clearChat() }; joinedRoomID = r.id; drawerOpen = false; pendingMute = (Date(), muteOnJoin); engine.cmd(["type": "join", "id": r.id, "quiet": q]); joinCandidate = nil }
+    func createRoom(name: String, broadcast: Bool) { quiet(for: 6); if engine.room.joined { clearChat() }; joinedRoomID = ""; pendingMute = (Date(), muteOnCreate); engine.cmd(["type": "create", "name": name, "kind": broadcast ? "bc" : "chat"]); createOpen = false }
     /// 部屋のリンク（名前なしでもよい）で入る。入れなかったときは、理由を知らせる
     func openRoomLink(_ text: String) {
         quiet(for: 6)
