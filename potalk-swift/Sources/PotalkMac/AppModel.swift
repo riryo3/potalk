@@ -424,8 +424,23 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if !singlePane, engine.room.joined { openRoom() }
     }
 
+    /// メインウインドウ（複数ウインドウではロビー、シングルペインでは1つの窓）を前に出す
+    func showMain() {
+        NSApp.activate(ignoringOtherApps: true)
+        mainWin?.makeKeyAndOrderFront(nil)
+    }
+    /// シングルペインのタブを、前後に移る（おたよりは、配信部屋のときだけ）
+    func cycleTab(_ step: Int) {
+        guard singlePane, engine.room.joined else { return }
+        var order: [PaneTab] = [.room, .chat]
+        if engine.room.bcast { order.append(.mail) }
+        order.append(.settings)
+        let i = order.firstIndex(of: tab) ?? 0
+        tab = order[(i + step + order.count) % order.count]
+    }
+
     func openRoom() {
-        if singlePane { tab = .room; return }
+        if singlePane { tab = .room; showMain(); return }
         if let w = roomWin { w.orderFront(nil); return }
         let size = NSSize(width: 360, height: 700)
         let h = min(size.height, (mainWin?.screen ?? NSScreen.main)?.visibleFrame.height ?? 700)
@@ -449,7 +464,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     func togglePin() { pinRoom.toggle(); roomWin?.level = pinRoom ? .floating : .normal; roomWin?.isFloatingPanel = pinRoom }
     func openChat() {
-        if singlePane { tab = .chat; return }
+        if singlePane { tab = .chat; showMain(); return }
         unread = 0; chatOpen = true
         if let w = chatWin { w.orderFront(nil); return }
         let p = makePanel(title: "ひとこと", size: NSSize(width: 340, height: 460), origin: rightOf(roomWin ?? mainWin, width: 340, height: 460), floating: true, min: NSSize(width: 260, height: 240), save: "win.chat", ChatView())
@@ -460,7 +475,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if let w = chatWin, w.isVisible { w.close() } else { openChat() }
     }
     func openMail() {
-        if singlePane { tab = .mail; return }
+        if singlePane { if engine.room.bcast { tab = .mail; showMain() }; return }
         mailOpen = true
         if let w = mailWin { w.orderFront(nil); return }
         let p = makePanel(title: "おたより", size: NSSize(width: 360, height: 480), origin: rightOf(roomWin ?? mainWin, width: 360, height: 480, dy: 40), floating: true, min: NSSize(width: 300, height: 280), save: "win.mail", MailView())
@@ -473,7 +488,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         letterWin = p; p.orderFront(nil)
     }
     func openSettings() {
-        if singlePane { tab = .settings; return }
+        if singlePane { tab = .settings; showMain(); return }
         if let w = settingsWin { w.orderFront(nil); return }
         let p = makePanel(title: "部屋の設定", size: NSSize(width: 340, height: 460), origin: rightOf(roomWin, width: 340, height: 460), floating: true, min: NSSize(width: 280, height: 240), RoomSettingsView())
         if let rf = roomWin?.frame { p.setFrameOrigin(NSPoint(x: max(0, rf.minX - 348), y: rf.maxY - 460)) }

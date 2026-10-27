@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     let engine = Engine()
     lazy var model = AppModel(engine: engine)
     var debug: DebugChannel?
@@ -67,6 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 case "thanks": UserDefaults.standard.set(false, forKey: "thanksShown"); m.showThanksIfFirst()
                 case "fakeJoin": m.roomHot = true
+                case let n where n.hasPrefix("menu:"):
+                    let t = String(n.dropFirst(5))
+                    if let it = NSApp.windowsMenu?.items.first(where: { $0.title == t }), let a = it.action { print("menu:", t, "enabled:", self?.validateMenuItem(it) as Any); _ = NSApp.sendAction(a, to: it.target, from: it); print("tab:", m.tab, "singlePane:", m.singlePane) }
+                    else { print("menu: not found", t) }
                 case "toggleDrawer": m.drawerOpen.toggle()
                 case "singleOn": m.singlePane = true
                 case "singleOff": m.singlePane = false
@@ -93,6 +97,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !flag { model.mainWin?.makeKeyAndOrderFront(nil) }; return true
     }
 
+    @objc func showMain() { model.showMain() }
+    @objc func showRoom() { model.openRoom() }
+    @objc func showChat() { model.openChat() }
+    @objc func showMail() { model.openMail() }
+    @objc func showSettings() { model.openSettings() }
+    @objc func toggleDrawer() { if model.singlePane { model.drawerOpen.toggle() } }
+    @objc func nextTab() { model.cycleTab(1) }
+    @objc func prevTab() { model.cycleTab(-1) }
+    /// 入室していないあいだは、部屋まわりの項目を、グレーにする
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        let joined = model.engine.room.joined
+        switch item.action {
+        case #selector(showRoom), #selector(showChat), #selector(showSettings): return joined
+        case #selector(showMail): return joined && model.engine.room.bcast
+        case #selector(toggleDrawer), #selector(nextTab), #selector(prevTab): return joined && model.singlePane
+        default: return true
+        }
+    }
+
     @objc func showAbout() {
         let credits = NSAttributedString(string: "ぽっと通話（potalk.app）の非公式クライアントです。\nサイトの作者とは関係ありません。通話の仕組みは potalk.app をそのまま利用しています。\nご参考：github.com/po-talk/po-talk.github.io", attributes: [.font: NSFont.systemFont(ofSize: 12)])
         NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Potalker", .credits: credits])
@@ -115,6 +138,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         edit.addItem(withTitle: "すべてを選択", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         let winItem = NSMenuItem(); main.addItem(winItem)
         let win = NSMenu(title: "ウインドウ"); winItem.submenu = win
+        func item(_ title: String, _ sel: Selector, _ key: String, _ mods: NSEvent.ModifierFlags = [.command]) {
+            let m = NSMenuItem(title: title, action: sel, keyEquivalent: key); m.keyEquivalentModifierMask = mods; m.target = self; win.addItem(m)
+        }
+        item("メインウインドウ", #selector(showMain), "1")
+        win.addItem(.separator())
+        item("部屋", #selector(showRoom), "2")
+        item("ひとこと", #selector(showChat), "3")
+        item("おたより", #selector(showMail), "4")
+        item("部屋の設定", #selector(showSettings), "5")
+        win.addItem(.separator())
+        item("部屋一覧を開く／閉じる", #selector(toggleDrawer), "l")
+        item("次のタブ", #selector(nextTab), "]")
+        item("前のタブ", #selector(prevTab), "[")
+        win.addItem(.separator())
         win.addItem(withTitle: "しまう", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
         win.addItem(.separator())
         let reset = NSMenuItem(title: "ウインドウのレイアウトを初期化", action: #selector(AppModel.resetWindowLayoutAction), keyEquivalent: "")
