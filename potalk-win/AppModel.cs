@@ -192,7 +192,12 @@ public sealed class AppModel
         var r = E.Room;
         bool joined = r.B("joined");
         var rid = joined ? r.S("rid") : "";
-        if (rid != lastRid) { lastRid = rid; LobbyRefresh?.Invoke(); }
+        if (rid != lastRid)
+        {
+            // 退出を経ずに、別の部屋へ移ったとき：前の部屋のチャット（ひとこと）を持ち越さない
+            if (lastRid.Length > 0 && rid.Length > 0) { ChatLines.Clear(); Past.Clear(); Unread = 0; knownMembers = new HashSet<string>(); joinedAt = DateTime.Now; ChatChanged?.Invoke(); }
+            lastRid = rid; LobbyRefresh?.Invoke();
+        }
         if (joined != wasJoined)
         {
             wasJoined = joined; Quiet(6);

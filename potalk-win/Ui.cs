@@ -160,6 +160,14 @@ public static class Links
         return false;
     }
 
+    /// <summary>リンクを右クリックすると、「リンクをコピー」が出る。</summary>
+    public static void CopyMenu(System.Windows.Documents.Hyperlink h, string url)
+    {
+        var mi = new MenuItem { Header = "リンクをコピー" };
+        mi.Click += (_, _) => { try { Clipboard.SetText(url); } catch { } };
+        h.ContextMenu = new ContextMenu { Items = { mi } };
+    }
+
     public static void Fill(TextBlock tb, string text, Action<string> open)
     {
         tb.Inlines.Clear(); tb.Text = "";
@@ -169,7 +177,7 @@ public static class Links
             if (m.Index > pos) tb.Inlines.Add(new System.Windows.Documents.Run(text[pos..m.Index]));
             var u = m.Value;
             var h = new System.Windows.Documents.Hyperlink(new System.Windows.Documents.Run(u)) { ToolTip = u };
-            h.Click += (_, _) => open(u);
+            h.Click += (_, _) => open(u); CopyMenu(h, u);
             tb.Inlines.Add(h); pos = m.Index + m.Length;
         }
         if (pos < text.Length) tb.Inlines.Add(new System.Windows.Documents.Run(text[pos..]));

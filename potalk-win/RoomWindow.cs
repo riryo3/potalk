@@ -376,7 +376,7 @@ public sealed class RoomWindow : Window
             var u = s.S("u");
             var tb = new TextBlock { Margin = new Thickness(0, 0, 10, 2), FontSize = 13 };
             var hl = new System.Windows.Documents.Hyperlink(new System.Windows.Documents.Run(s.S("t").Length == 0 ? u : s.S("t")));
-            hl.Click += (_, _) => M.ConfirmOpen(u, this); tb.Inlines.Add(hl); soc.Children.Add(tb);
+            hl.Click += (_, _) => M.ConfirmOpen(u, this); Links.CopyMenu(hl, u); tb.Inlines.Add(hl); soc.Children.Add(tb);
         }
         sp.Children.Add(soc);
         var foot = Ui.Txt(c.S("foot"), 12, bold: true, wrap: true); foot.Margin = new Thickness(0, 10, 0, 0); sp.Children.Add(foot);

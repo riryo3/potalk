@@ -14,7 +14,7 @@ public static class HelpWindows
     {
         var tb = new TextBlock { FontSize = 12.5, Margin = new Thickness(0, 3, 0, 3) };
         var h = new System.Windows.Documents.Hyperlink(new System.Windows.Documents.Run(text));
-        h.Click += (_, _) => Engine.OpenExternal(url);
+        h.Click += (_, _) => Engine.OpenExternal(url); Links.CopyMenu(h, url);
         tb.Inlines.Add(h);
         return tb;
     }
