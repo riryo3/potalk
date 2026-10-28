@@ -55,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "roomFrame": fputs("minSize: \(String(describing: m.mainWin?.contentMinSize)) frame: \(String(describing: m.mainWin?.frame)) drawer: \(String(describing: m.drawerWin?.frame)) side: \(m.drawerSide)\n", stderr); print("roomFrame:", m.roomWin?.frame as Any, "main:", m.mainWin?.frame as Any, "drawer:", m.drawerWin?.frame as Any, "level:", m.mainWin?.level.rawValue as Any, m.drawerWin?.level.rawValue as Any)
                 case "openLinkGreeter": if let r = m.engine.lobby.rooms.first(where: { $0.name.contains("ようこそ") }) { m.openRoomLink("https://potalk.app/#room=\(r.id)") }
                 case "createRoom": m.createRoom(name: "ミュート試験", broadcast: false)
+                case "createTest": m.createRoom(name: "Potalker 動作試験（すぐ閉じます）", broadcast: false)
                 case "setMuteOnCreate": m.muteOnCreate = false
                 case "setMuteOnJoin": m.muteOnJoin = false
                 case "joinGreeter": if let r = m.engine.lobby.rooms.first(where: { $0.name.contains("ようこそ") }) { m.join(r, quiet: false) }
@@ -84,6 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "fakeErr": m.engine.room.state = "接続に失敗しました。もう一度入り直してください"
                 case "fakeNotice": m.engine.room.notice = "🎙 マイクを使えませんでした。システム設定でマイクを許可してください"
                 case "fakeAudio": m.engine.room.audioWarn = "🔈 ミント の音がまだ届いていません。「つなぎ直す」を試してみてください"
+                case "showNotice": fputs("notice=[\(m.engine.room.notice)] audioWarn=[\(m.engine.room.audioWarn)] state=[\(m.engine.room.state)]\n", stderr)
                 case "fakeOk": m.engine.room.state = "通話中：お茶の部屋"
                 case "scale70": m.scalePct = 70
                 case "scale100": m.scalePct = 100
