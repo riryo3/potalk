@@ -11,7 +11,7 @@ else
   BIN=".build/$CFG/PotalkMac"
 fi
 NAME="Potalker"
-VER="0.3.2"
+VER="0.3.3-beta"
 APP="build/$NAME.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
