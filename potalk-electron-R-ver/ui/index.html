@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'">
+<title>Potalker</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="lobby" class="view">
+  <header class="bar">
+    <span id="me" class="chip"></span>
+    <span class="grow"></span>
+    <button id="btnRefresh" class="chip-btn">更新</button>
+  </header>
+  <div class="create">
+    <input id="newName" maxlength="30" placeholder="部屋の名前">
+    <button id="btnCreate" class="primary">部屋を作る</button>
+  </div>
+  <div id="rooms" class="rooms"></div>
+  <footer class="foot"><span id="viewers"></span></footer>
+</div>
+
+<div id="room" class="view" hidden>
+  <div id="banner" class="banner" hidden></div>
+  <header class="head">
+    <div id="roomTitle" class="title"></div>
+    <div class="row2">
+      <span id="roomStatus" class="badge"></span>
+      <span id="roomCount" class="muted"></span>
+      <span class="grow"></span>
+      <button id="btnRetry" class="chip-btn">🔄 つなぎ直す</button>
+    </div>
+  </header>
+  <div id="tagRow" class="tag" hidden></div>
+  <div id="members" class="members"></div>
+  <div id="eq" class="eq"></div>
+  <div id="reactions" class="reactions"></div>
+  <div class="actions">
+    <button id="btnMute" class="wide"></button>
+    <button id="btnLeave" class="danger">退出</button>
+  </div>
+</div>
+<script src="renderer.js"></script>
+</body>
+</html>
