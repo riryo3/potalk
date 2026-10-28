@@ -61,12 +61,27 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     /// シングルペインで、窓の下から開くひとことのドロワー。開いている間は新着を既読にする
     @Published var chatDrawer = false {
-        didSet { chatOpen = chatDrawer; if chatDrawer { unread = 0 } }
+        didSet { chatOpen = chatDrawer; if chatDrawer { unread = 0 }; applyChatExtra() }
+    }
+    /// ひとこと用ドロワーの分だけ、窓を下に伸ばしている高さ（部屋の画面を潰さないため）
+    private var chatExtra: CGFloat = 0
+    func applyChatExtra() {
+        guard singlePane, let w = mainWin else { return }
+        let want: CGFloat = (chatDrawer && engine.room.joined) ? chatH + 40 : 0
+        let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        var f = w.frame
+        let room = max(0, f.minY - screen.minY)
+        let delta = min(want - chatExtra, want > chatExtra ? room : .infinity)
+        chatExtra += delta
+        w.contentMinSize = NSSize(width: 340, height: (engine.room.joined ? 560 : 420) + chatExtra)
+        guard delta != 0 else { return }
+        f.size.height += delta; f.origin.y -= delta
+        w.setFrame(f, display: true)
     }
     @Published var chatH: CGFloat = {
         let v = UserDefaults.standard.double(forKey: "single.chatH"); return v >= 120 ? CGFloat(v) : 220
     }() {
-        didSet { UserDefaults.standard.set(Double(chatH), forKey: "single.chatH") }
+        didSet { UserDefaults.standard.set(Double(chatH), forKey: "single.chatH"); if chatDrawer { applyChatExtra() } }
     }
     /// シングルペインで、左から出す部屋一覧（ドロワー）が開いているか
     @Published var drawerOpen = false {
@@ -377,7 +392,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     /// シングルペイン：入室前は縦長の一覧、入室したら部屋の小窓くらいの幅にする。右端と上端の位置は動かさない
     func fitSingleFrame(joined: Bool) {
         guard singlePane, let w = mainWin else { return }
-        w.contentMinSize = joined ? NSSize(width: 340, height: 560) : NSSize(width: 360, height: 420)
+        if !joined, chatExtra != 0 { chatDrawer = false }
+        w.contentMinSize = joined ? NSSize(width: 340, height: 560 + chatExtra) : NSSize(width: 360, height: 420)
         var f = w.frame
         let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let right = f.maxX     // 右端を基準に、幅を変える
