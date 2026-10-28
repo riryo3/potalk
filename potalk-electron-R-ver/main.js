@@ -1,5 +1,5 @@
 'use strict'
-const { app, BrowserWindow, ipcMain, net, session, shell, screen, dialog, Notification, Menu } = require('electron')
+const { app, BrowserWindow, ipcMain, net, session, shell, screen, dialog, Notification, Menu, clipboard } = require('electron')
 const fs = require('fs')
 const path = require('path')
 const patcher = require('./engine/patcher')
@@ -73,13 +73,14 @@ const BASE = {      // 表示サイズ 100% のときの大きさ（w, h）と�
 const TITLE = { single: 'Potalker', lobby: 'Potalker', room: '部屋', chat: 'ひとこと', mail: 'おたより', settings: '設定' }
 const wins = {}
 let pinned = false         // 最前面
+let drawerSideNow = 'left', drawerShift = 0     // 部屋一覧のドロワーを出す側／左に余地がなくて、本体を右にずらしたぶん
 let spkMuted = false       // スピーカーのミュート（橋の spk 命令。部屋を出ても、そのまま）
 let quitting = false
 const mainKind = () => prefs.mode === 'split' ? 'lobby' : 'single'
 const sc = () => prefs.scale / 100
 const allWins = () => Object.values(wins).filter(w => w && !w.isDestroyed())
 const send = (t, d) => { for (const w of allWins()) w.webContents.send('state', { t, d }) }
-const winsState = () => ({ mode: prefs.mode, scale: prefs.scale, pinned, spk: spkMuted, chat: !!wins.chat, mail: !!wins.mail, settings: !!wins.settings })
+const winsState = () => ({ mode: prefs.mode, scale: prefs.scale, pinned, spk: spkMuted, drawer: !!wins.drawer, drawerSide: drawerSideNow, chat: !!wins.chat, mail: !!wins.mail, settings: !!wins.settings })
 const sendWins = () => send('wins', winsState())
 const isJoined = () => !!(state.room && state.room.joined)
 
@@ -98,8 +99,8 @@ function createWin(kind, pos) {
   w.webContents.on('did-finish-load', () => { if (!w.isDestroyed()) w.webContents.setZoomFactor(sc()) })
   w.loadFile(path.join(__dirname, 'ui', 'index.html'), { query: { w: kind } })
   w.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' } })
-  w.on('move', () => { scheduleSnap(w); schedulePos(w) })
-  w.on('resize', () => schedulePos(w))
+  w.on('move', () => { scheduleSnap(w); schedulePos(w); if (kind === 'single') syncDrawer() })
+  w.on('resize', () => { schedulePos(w); if (kind === 'single') syncDrawer() })
   w.on('close', e => onClose(e, w))
   w.on('closed', () => {
     if (wins[kind] !== w) return            // 切り替えで、すでに外した窓
@@ -171,6 +172,7 @@ const toggleAux = kind => { if (wins[kind]) closeAux([kind]); else openAux(kind)
 // ひとつの窓／分けた窓の切り替え。新しい窓を先に作ってから、古い窓を外す（窓がなくなって終了、とならないように）
 function setMode(mode) {
   if (mode === prefs.mode || (mode !== 'single' && mode !== 'split')) return
+  closeDrawer()
   const old = allWins(), ob = (old.find(w => w._kind === mainKind()) || old[0] || { getBounds: () => null }).getBounds()
   prefs.mode = mode; savePrefs()
   createWin(mainKind(), ob ? { x: ob.x, y: ob.y } : undefined)
@@ -182,6 +184,7 @@ function setMode(mode) {
 // 表示サイズ：全部の窓の大きさと、中身の拡大率を、そろえて変える
 function applyScale(pct) {
   if (!SCALES.includes(pct) || pct === prefs.scale) return
+  closeDrawer()
   const old = sc(); prefs.scale = pct; savePrefs()
   const s = sc(), r = s / old
   // 並べていた窓が離れないように、本体の左上を基準に、位置も同じ比率で動かす
@@ -202,6 +205,70 @@ function toggleSpk() {
   sendWins(); buildMenu()
 }
 
+// ---- 部屋一覧のドロワー（ひとつの窓の、取っ手から開く）：本体の窓の横に、別の窓として開く。本体の大きさは変えない ----
+const DRAWER_W = () => Math.round(360 * sc())
+const drawerRectFor = (b, side) => ({ x: side === 'left' ? b.x - DRAWER_W() : b.x + b.width, y: b.y, width: DRAWER_W(), height: b.height })
+const drawerFits = (b, side, wa) => { const r = drawerRectFor(b, side); return r.x >= wa.x - 1 && r.x + r.width <= wa.x + wa.width + 1 }
+// 左に出せる、または、右にも出せないなら、左。そうでなければ、右
+const chooseSide = (b, wa) => (b.x - wa.x >= DRAWER_W() || wa.x + wa.width - (b.x + b.width) < DRAWER_W()) ? 'left' : 'right'
+function updateDrawerSide() {
+  const mw = wins.single
+  if (!mw || wins.drawer) return
+  const b = mw.getBounds(), side = chooseSide(b, screen.getDisplayMatching(b).workArea)
+  if (side !== drawerSideNow) { drawerSideNow = side; sendWins() }
+}
+function syncDrawer() {
+  const mw = wins.single, d = wins.drawer
+  if (!mw) return
+  if (!d || d.isDestroyed()) return updateDrawerSide()
+  const b = mw.getBounds(), wa = screen.getDisplayMatching(b).workArea
+  if (!drawerFits(b, drawerSideNow, wa)) { const other = drawerSideNow === 'left' ? 'right' : 'left'; if (drawerFits(b, other, wa)) { drawerSideNow = other; sendWins() } }
+  d.setBounds(drawerRectFor(b, drawerSideNow))
+}
+function openDrawer() {
+  const mw = wins.single
+  if (prefs.mode !== 'single' || !mw || !isJoined() || wins.drawer) return
+  updateDrawerSide()
+  let b = mw.getBounds(); const wa = screen.getDisplayMatching(b).workArea
+  // 左にも右にも出す余地がないときだけ、本体を右にずらして、左に出す
+  if (drawerSideNow === 'left') {
+    const deficit = Math.max(0, wa.x - (b.x - DRAWER_W()))
+    drawerShift = Math.min(deficit, Math.max(0, wa.x + wa.width - (b.x + b.width)))
+    if (drawerShift > 0) { mw.setBounds({ ...b, x: b.x + drawerShift }); b = mw.getBounds() }
+  }
+  const d = new BrowserWindow({
+    ...drawerRectFor(b, drawerSideNow), frame: false, resizable: false, minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true,
+    parent: mw, alwaysOnTop: pinned, title: '部屋一覧', icon: path.join(__dirname, 'build', 'icon.png'),
+    webPreferences: { preload: path.join(__dirname, 'ui', 'preload.js'), contextIsolation: true, sandbox: true },
+  })
+  d._kind = 'drawer'; wins.drawer = d
+  d.webContents.on('did-finish-load', () => { if (!d.isDestroyed()) d.webContents.setZoomFactor(sc()) })
+  d.loadFile(path.join(__dirname, 'ui', 'index.html'), { query: { w: 'drawer' } })
+  d.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' } })
+  d.on('closed', () => { if (wins.drawer === d) { delete wins.drawer; sendWins() } })
+  sendWins()
+}
+function closeDrawer() {
+  const d = wins.drawer, shift = drawerShift
+  drawerShift = 0
+  if (!d) return
+  delete wins.drawer
+  if (!d.isDestroyed()) d.destroy()
+  const mw = wins.single
+  if (shift > 0 && mw) { const b = mw.getBounds(); mw.setBounds({ ...b, x: b.x - shift }) }
+  sendWins()
+}
+const toggleDrawer = () => { if (wins.drawer) closeDrawer(); else openDrawer() }
+ipcMain.handle('toggleDrawer', () => toggleDrawer())
+// ドロワーで選んだ部屋に移るかの確認は、本体の窓に出す
+ipcMain.handle('askJoin', (_e, room) => { if (room && typeof room.id === 'string') uiTo(wins.single, 'join', { id: room.id, name: String(room.name || ''), bc: !!room.bc }) })
+ipcMain.handle('joinRoom', (_e, id, quiet) => {
+  if (typeof id !== 'string') return
+  if (isJoined()) { state.chat = []; send('chatClear', null) }
+  closeDrawer()
+  cmd({ type: 'join', id, quiet: !!quiet })
+})
+
 function togglePin() {
   pinned = !pinned
   for (const w of allWins()) w.setAlwaysOnTop(pinned)
@@ -220,7 +287,7 @@ function snapWin(w) {
   const f = w.getBounds(), wa = screen.getDisplayMatching(f).workArea, T = SNAP
   const xs = [wa.x - f.x, wa.x + wa.width - (f.x + f.width)], ys = [wa.y - f.y, wa.y + wa.height - (f.y + f.height)], tops = []
   for (const o of allWins()) {
-    if (o === w || !o.isVisible()) continue
+    if (o === w || o._kind === 'drawer' || !o.isVisible()) continue
     const g = o.getBounds()
     // 縦に重なっているときだけ、横の吸着（隣・端そろえ）を考える。横も同じ
     if (g.y + g.height > f.y - T && g.y < f.y + f.height + T) xs.push(g.x + g.width - f.x, g.x - (f.x + f.width), g.x - f.x, g.x + g.width - (f.x + f.width))
@@ -243,7 +310,7 @@ function onRoom() {
   if (j === wasJoined) return
   wasJoined = j
   buildMenu()
-  if (!j) { state.chat = []; if (prefs.mode === 'split') closeAux(['room', 'chat', 'mail', 'settings']) }
+  if (!j) { state.chat = []; closeDrawer(); if (prefs.mode === 'split') closeAux(['room', 'chat', 'mail', 'settings']) }
   else if (prefs.mode === 'split') openAux('room')
 }
 function handlePm(m) {
@@ -273,6 +340,14 @@ ipcMain.handle('growBy', (e, dh) => {
   const y = Math.max(wa.y, Math.min(b.y, wa.y + wa.height - h))
   w.setBounds({ x: b.x, y, width: b.width, height: h })
 })
+// 名刺のリンクなど：http(s) だけ、確認してから、既定のブラウザで開く
+ipcMain.handle('openExternal', async (e, url) => {
+  const u = String(url || '')
+  if (!/^https?:\/\//i.test(u)) return
+  const r = await dialog.showMessageBox(BrowserWindow.fromWebContents(e.sender), { type: 'question', buttons: ['開く', 'キャンセル'], defaultId: 1, cancelId: 1, message: 'このリンクを開きますか？', detail: u.length > 300 ? u.slice(0, 300) + '…' : u })
+  if (r.response === 0) shell.openExternal(u)
+})
+ipcMain.handle('copyText', (_e, t) => { if (typeof t === 'string' && t.length < 2000) clipboard.writeText(t) })
 ipcMain.handle('notify', (_e, title, body) => { if (Notification.isSupported()) new Notification({ title: String(title), body: String(body) }).show() })
 
 // 自衛ワードの書き出し・読み込み（UTF-8・BOM なし・LF・1行に1ワード・先頭が最新。ファイル名は日付つき）
@@ -346,6 +421,7 @@ function buildMenu() {
         { label: 'おたより', accelerator: 'CmdOrCtrl+4', enabled: isJoined() && !!(state.room && state.room.bcast), click: showMail },
         { label: '部屋の設定', accelerator: 'CmdOrCtrl+5', enabled: isJoined(), click: showSettings },
         { type: 'separator' },
+        { label: '部屋一覧を開く／閉じる', accelerator: 'CmdOrCtrl+L', enabled: prefs.mode === 'single' && isJoined(), click: toggleDrawer },
         { label: '次のタブ', accelerator: 'CmdOrCtrl+]', enabled: prefs.mode === 'single' && isJoined(), click: () => uiTo(wins.single, 'cycle', 1) },
         { label: '前のタブ', accelerator: 'CmdOrCtrl+[', enabled: prefs.mode === 'single' && isJoined(), click: () => uiTo(wins.single, 'cycle', -1) },
         { type: 'separator' },
@@ -385,7 +461,7 @@ app.whenReady().then(() => {
           if (st.mode) setMode(st.mode)
           if (st.scale) applyScale(st.scale)
           if (st.pm) handlePm(st.pm)
-          if (st.fn) ({ showRoom, showChat, showMail, showSettings, showBanned, showMain, resetLayout, toggleSpk })[st.fn]()
+          if (st.fn) ({ showRoom, showChat, showMail, showSettings, showBanned, showMain, resetLayout, toggleSpk, toggleDrawer })[st.fn]()
           if (st.open) openAux(st.open)
           if (st.move) wins[st.move.win].setPosition(st.move.x, st.move.y)
           if (st.ui) { const r = await tw().webContents.executeJavaScript(st.ui); if (r !== undefined) console.log('[ui]', JSON.stringify(r)) }

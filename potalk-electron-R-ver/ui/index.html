@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src https: data:">
 <title>Potalker</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -31,6 +31,9 @@
     <button data-tab="settings">設定</button>
     <button id="btnPin" class="pin" title="最前面に表示する／しない"><span class="emoji">📌</span></button>
   </nav>
+  <div class="mainrow">
+  <button id="handle" class="handle" title="部屋の一覧を開く／閉じる（Ctrl+L）" hidden></button>
+  <div class="maincol">
   <div id="panes" class="panes">
     <section id="paneRoom" class="pane">
       <header class="head">
@@ -61,7 +64,10 @@
   <div class="actions">
     <button id="btnMute" class="wide"></button>
     <button id="btnSpk" class="round" title="スピーカーのミュート"><span class="emoji">🔊</span></button>
+    <button id="btnShare" class="round" title="この部屋のURLをコピー"><span class="emoji">🔗</span></button>
     <button id="btnLeave" class="danger">退出</button>
+  </div>
+  </div>
   </div>
   <div id="chatBox" class="chatbox">
     <div class="chat-grip"></div>
@@ -73,6 +79,9 @@
   </div>
 </div>
 
+<div id="joinOv" class="sheet center" hidden></div>
+<div id="cardOv" class="sheet center" hidden></div>
+<div id="ignoreOv" class="sheet center" hidden></div>
 <div id="banned" class="sheet" hidden>
   <div class="sheet-body">
     <div class="sheet-head"><strong>🛡 自衛ワード</strong><span class="grow"></span><button id="bannedClose" class="chip-btn">閉じる</button></div>

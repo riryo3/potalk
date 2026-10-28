@@ -54,7 +54,7 @@ function renderLobby() {
     const people = el('div', 'people')
     for (const m of (r.people || [])) { const p = el('span', 'person'); p.append(el('span', 'emoji', m.em), m.name); if (m.muted) p.append(micOff()); people.append(p) }
     card.append(people)
-    card.onclick = () => { if (r.id) window.potalk.cmd({ type: 'join', id: r.id, quiet: false }) }
+    card.onclick = () => { if (!r.id) return; if (KIND === 'drawer') window.potalk.askJoin({ id: r.id, name: r.name, bc: !!r.bc }); else window.potalk.cmd({ type: 'join', id: r.id, quiet: false }) }
     box.append(card)
   }
   if (!rooms.length) box.append(el('div', 'empty', l && l.rooms.length ? '表示できる部屋は、ありません' : '通話中の部屋は、まだありません'))
@@ -106,21 +106,31 @@ function renderRoom() {
   if (!r.notice) S.dismissed = ''
 
   const box = $('members'); box.replaceChildren()
-  r.members.forEach(m => {
+  r.members.forEach((m, idx) => {
     const row = el('div', 'member' + (m.speaking ? ' speaking' : '') + (m.you ? ' you' : ''))
     const mic = el('span', 'mic'); if (m.muted) mic.append(micOff())
-    row.append(el('span', 'em', m.em), mic,
+    const em = el('span', 'em', m.em)
+    row.append(em, mic,
       (() => { const c = el('span', 'conn'); if (m.conn === 'relay' || m.conn === 'direct') c.append(connIcon(m.conn)); return c })(),
-      el('span', 'name', m.name + (m.you ? '（あなた）' : '')))
-    if (m.mark) row.append(el('span', 'mark', m.mark))
+      el('span', 'name', (m.mark ? m.mark + ' ' : '') + m.name + (m.you ? '（あなた）' : '')))
+    if (m.stage) row.append(el('span', 'stage', m.stage))
+    if (m.grant) { const g = el('button', 'chip-btn grant' + (m.grant.on ? ' on' : ''), m.grant.on ? '🎙 登壇中' : '🎙 登壇'); g.title = m.grant.title || ''; g.onclick = e => { e.stopPropagation(); window.potalk.cmd({ type: 'grant', i: idx }) }; row.append(g) }
+    if (m.ig) { const h = el('button', 'heart' + (m.ig.off ? ' off' : ''), m.ig.off ? '♡' : '♥'); h.title = m.ig.title || ''; h.onclick = e => { e.stopPropagation(); window.potalk.cmd({ type: 'ignoreRow', i: idx }) }; row.append(h) }
+    else row.append(el('span', 'heart-ph'))
+    // 行のどこを押しても、名刺が開く（♥・登壇のボタンは別）
+    if (m.tap) { row.classList.add('tap'); row.title = '名刺を見る'; row.onclick = () => window.potalk.cmd({ type: 'card', i: idx }) }
     box.append(row)
   })
   renderLegend()
   if (r.more) box.append(el('div', 'muted small', r.more))
   const rx = $('reactions'); rx.replaceChildren()
   r.reactions.forEach((e, i) => { const x = el('button', 'react', e); x.onclick = () => window.potalk.cmd({ type: 'react', i }); rx.append(x) })
-  const mute = $('btnMute'); mute.hidden = !r.canMute; mute.textContent = r.muted ? '🔇 ミュート解除' : '🎙 ミュート'
-  mute.className = 'wide' + (r.muted ? ' muted' : '')
+  const mute = $('btnMute'); mute.disabled = false
+  if (r.raise && r.raise.show) { mute.hidden = false; mute.dataset.act = 'raise'; mute.textContent = '🙋 ' + (r.raise.label || '通話希望'); mute.className = 'wide' }
+  else if (r.speak && r.speak.show) { mute.hidden = false; mute.dataset.act = 'speak'; mute.textContent = '🎙 ' + (r.speak.label || 'マイクを使う'); mute.disabled = !!r.speak.disabled; mute.className = 'wide' }
+  else { mute.hidden = !r.canMute; mute.dataset.act = 'mute'; mute.textContent = r.muted ? '🔇 ミュート解除' : '🎙 ミュート'; mute.className = 'wide' + (r.muted ? ' muted' : '') }
+  $('btnShare').disabled = !r.share
+  renderOverlays()
   if (KIND === 'single') { renderTabs(); renderSettings(); renderMail() }
   renderWinBtns()
 }
@@ -150,6 +160,48 @@ function renderEq(t) {
   for (const c of String(t || '')) box.append(el('span', '', c))
 }
 
+// 本文の URL を、押せるリンクにする（開く前に、確認が出る）
+function linkify(text) {
+  const f = document.createDocumentFragment(), re = /https?:\/\/[^\s<>"'）)」』]+/g
+  let last = 0, m
+  while ((m = re.exec(text))) {
+    if (m.index > last) f.append(text.slice(last, m.index))
+    f.append(linkEl(m[0], m[0])); last = m.index + m[0].length
+  }
+  if (last < text.length) f.append(text.slice(last))
+  return f
+}
+function linkEl(url, label) { const a = el('a', '', label); a.href = url; a.onclick = e => { e.preventDefault(); window.potalk.openExternal(url) }; return a }
+
+// 名刺（メンバーの絵文字を押すと開く）と、無視の確認。ページの窓の状態を、そのまま写す
+function renderOverlays() {
+  if (KIND !== 'single' && KIND !== 'room') return
+  const r = S.room, cv = $('cardOv'), iv = $('ignoreOv'), c = r.card, a = r.ignoreAsk
+  if ((c || a) && KIND === 'single' && S.tab !== 'room') { S.tab = 'room'; renderTabs() }
+  cv.hidden = !c; cv.replaceChildren()
+  if (c) {
+    const box = el('div', 'card-box'), head = el('div', 'card-head'), av = el('div', 'card-av')
+    if (c.img) { const im = el('img'); im.src = c.img; im.alt = ''; im.onerror = () => { av.replaceChildren(c.emoji) }; av.append(im) } else av.textContent = c.emoji
+    const nm = el('div'); nm.append(el('div', 'card-name', c.name), el('div', 'card-state', c.state))
+    const x = el('button', 'card-x', '✕'); x.onclick = () => window.potalk.cmd({ type: 'cardClose' })
+    head.append(av, nm, x); box.append(head, el('hr', 'card-hr'))
+    if (c.bio) { const b = el('div', 'card-bio'); b.append(linkify(c.bio)); box.append(b) }
+    if (c.socials && c.socials.length) { const s = el('div', 'card-soc'); for (const so of c.socials) s.append(linkEl(so.u, so.t || so.u)); box.append(s) }
+    box.append(el('hr', 'card-hr'), el('div', 'card-foot', c.foot || ''))
+    if (c.ignore) { const g = el('button', 'card-ig', '♥ ' + c.ignore.text); g.disabled = !!c.ignore.disabled; g.onclick = () => window.potalk.cmd({ type: 'cardIgnore' }); box.append(g) }
+    cv.append(box)
+  }
+  iv.hidden = !a; iv.replaceChildren()
+  if (a) {
+    const box = el('div', 'card-box'), ul = el('ul', 'ask-list'), bt = el('div', 'ask-btns')
+    for (const t of a.items) ul.append(el('li', '', t))
+    const yes = el('button', 'yes', a.yes), no = el('button', '', a.no)
+    yes.onclick = () => window.potalk.cmd({ type: 'ignoreYes' }); no.onclick = () => window.potalk.cmd({ type: 'ignoreNo' })
+    bt.append(yes, no); box.append(el('div', 'card-name', a.title), ul, bt); iv.append(box)
+  }
+}
+$('cardOv').onclick = e => { if (e.target === $('cardOv')) window.potalk.cmd({ type: 'cardClose' }) }
+
 // 部屋の窓：ひとこと・おたより・設定の窓を開くボタン（新着があると色がつく）
 function chatVisible() { return KIND === 'single' ? S.chatOpen : KIND === 'chat' ? true : !!S.wins.chat }
 function renderWinBtns() {
@@ -164,10 +216,33 @@ function renderSpk() { const b = $('btnSpk'), on = !!S.wins.spk; b.classList.tog
 // メニュー・ショートカットからの操作（ひとつの窓のタブ・ひとこと、自衛ワードの登録）
 function uiAction({ a, v }) {
   if (a === 'banned') return openBanned()
+  if (a === 'join' && KIND === 'single') { S.joinAsk = v; return renderJoin() }
   if (KIND !== 'single' || !S.room || !S.room.joined) return
   if (a === 'tab') { if (v === 'mail' && !S.room.bcast) return; S.tab = v; renderTabs() }
   else if (a === 'chat') setChatOpen(!S.chatOpen)
   else if (a === 'cycle') { const tabs = ['room', ...(S.room.bcast ? ['mail'] : []), 'settings']; const i = Math.max(0, tabs.indexOf(S.tab)); S.tab = tabs[(i + v + tabs.length) % tabs.length]; renderTabs() }
+}
+// 取っ手（部屋の画面の端。押すと、部屋一覧の窓が、横に開く）
+function renderHandle() {
+  const h = $('handle'); if (!h) return
+  const side = S.wins.drawerSide || 'left', open = !!S.wins.drawer
+  document.querySelector('.mainrow').classList.toggle('right', side === 'right')
+  h.replaceChildren(el('span', 'chev', open === (side === 'left') ? '›' : '‹'), el('span', 'htxt', '部屋一覧'))
+  h.classList.toggle('on', open)
+  h.hidden = KIND !== 'single'
+}
+// ドロワーで選んだ部屋に、移るかの確認（本体の窓に出る）
+function renderJoin() {
+  const a = S.joinAsk, ov = $('joinOv'); ov.hidden = !a; ov.replaceChildren()
+  if (!a) return
+  let quiet = false
+  const box = el('div', 'card-box'), bt = el('div', 'ask-btns')
+  box.append(el('div', 'card-name', `「${/^[🏠📣]/u.test(a.name) ? '' : a.bc ? '📣 ' : ''}${a.name}」に移りますか？`), el('div', 'card-state', '今の部屋を退出します。' + (a.bc ? '聞き役で入室します（マイクは使いません）。' : 'ミュート状態で入室します。')))
+  if (a.bc) { const lab = el('label', 'set-row'), c = el('input'); c.type = 'checkbox'; c.onchange = () => { quiet = c.checked }; lab.append(c, el('span', '', '🤫 静かに入る（名前を出さずに聞きます）')); box.append(lab) }
+  const yes = el('button', 'yes-blue', '移る'), no = el('button', '', 'やめる')
+  yes.onclick = () => { S.joinAsk = null; renderJoin(); window.potalk.joinRoom(a.id, quiet) }
+  no.onclick = () => { S.joinAsk = null; renderJoin() }
+  bt.append(no, yes); box.append(bt); ov.append(box)
 }
 function renderPin() { for (const id of ['btnPin', 'btnPin2']) $(id).classList.toggle('on', !!S.wins.pinned) }
 
@@ -281,8 +356,8 @@ function render() {
   const joined = !!(S.room && S.room.joined)
   if (S.wasJoined && !joined) { S.chat = []; S.unread = 0; S.warned.clear(); if (KIND === 'single') S.tab = 'room'; if (S.chatOpen) setChatOpen(false) }
   S.wasJoined = joined
-  renderPin(); renderSpk()
-  if (KIND === 'lobby') { $('lobby').hidden = false; $('room').hidden = true; renderLobby(); return }
+  renderPin(); renderSpk(); renderHandle()
+  if (KIND === 'lobby' || KIND === 'drawer') { $('lobby').hidden = false; $('room').hidden = true; renderLobby(); return }
   $('lobby').hidden = KIND !== 'single' || joined; $('room').hidden = !joined
   if (!joined) { if (KIND === 'single') renderLobby(); return }
   if (KIND === 'single' || KIND === 'room') { renderRoom(); renderEq(S.eq) }
@@ -295,6 +370,7 @@ function render() {
 window.potalk.onState(({ t, d }) => {
   if (t === 'eq') { S.eq = d || ''; if (S.room && S.room.joined) renderEq(S.eq); return }
   if (t === 'ui') { uiAction(d || {}); return }
+  if (t === 'chatClear') { S.chat = []; S.unread = 0; S.warned.clear(); if (S.room && S.room.joined) renderChat(); return }
   if (t === 'wins') { const was = S.wins.chat; S.wins = d || {}; if (S.wins.chat && !was) S.unread = 0; render(); return }
   if (t === 'chat' && d) { S.chat.push(d); if (!d.sys && !d.hist && !chatVisible()) S.unread++; if (S.room && S.room.joined && (KIND === 'single' || KIND === 'chat' || KIND === 'room')) renderChat(); return }
   if (!['lobby', 'profile', 'room'].includes(t)) return
@@ -314,10 +390,18 @@ $('btnNew').onclick = () => { const r = $('createRow'); r.hidden = !r.hidden; if
 $('btnCreate').onclick = () => { const n = $('newName').value.trim(); if (n) { window.potalk.cmd({ type: 'create', name: n, kind: 'chat' }); $('newName').value = ''; $('createRow').hidden = true } }
 $('newName').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) $('btnCreate').click() }
 $('btnRetry').onclick = () => window.potalk.cmd({ type: 'reconnect' })
-$('btnMute').onclick = () => window.potalk.cmd({ type: 'mute' })
+$('btnMute').onclick = () => window.potalk.cmd({ type: $('btnMute').dataset.act || 'mute' })
 $('btnLeave').onclick = () => window.potalk.cmd({ type: 'leave' })
 $('btnPin').onclick = $('btnPin2').onclick = () => window.potalk.togglePin()
+let shareTimer = 0
+$('btnShare').onclick = () => {
+  const u = S.room && S.room.share; if (!u) return
+  window.potalk.copyText(u)
+  const b = $('btnShare'); b.replaceChildren(el('span', '', '✓')); b.title = 'コピーしました'; b.classList.add('done')
+  clearTimeout(shareTimer); shareTimer = setTimeout(() => { b.replaceChildren(el('span', 'emoji', '🔗')); b.title = 'この部屋のURLをコピー'; b.classList.remove('done') }, 1600)
+}
 $('btnSpk').onclick = () => window.potalk.toggleSpk()
+$('handle').onclick = () => window.potalk.toggleDrawer()
 $('btnChatWin').onclick = () => window.potalk.toggleWin('chat')
 $('btnMailWin').onclick = () => window.potalk.toggleWin('mail')
 $('btnSetWin').onclick = () => window.potalk.toggleWin('settings')
