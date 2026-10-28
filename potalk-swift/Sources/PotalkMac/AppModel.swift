@@ -108,8 +108,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let v = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         var f = w.frame
         let top = f.maxY
-        let minH = w.frameRect(forContentRect: NSRect(origin: .zero, size: w.contentMinSize)).height
-        f.size.height = min(max(h, minH), top - v.minY)
+        let minH = minFrameSize(w).height
+        f.size.height = max(minH, min(h, top - v.minY))
         f.origin.y = top - f.height
         if f != w.frame { w.setFrame(f, display: true) }
     }
@@ -526,11 +526,16 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         }
     }
     /// シングルペインの窓の最小の大きさを守る（表示を縮めているときも、幅や高さがなくならないように）
-    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-        guard singlePane, sender === mainWin else { return frameSize }
+    /// シングルペインの窓の、枠を含めた最小の大きさ
+    func minFrameSize(_ w: NSWindow) -> NSSize {
         let joined = engine.room.joined
         let c = NSSize(width: (joined ? 340 : 360) * uiScale, height: (joined ? minPaneH : 420) * uiScale)
-        let m = sender.frameRect(forContentRect: NSRect(origin: .zero, size: c)).size
+        return w.frameRect(forContentRect: NSRect(origin: .zero, size: c)).size
+    }
+    /// シングルペインの窓の最小の大きさ（幅・高さ）を守る（表示を縮めているときも、なくならないように）
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        guard singlePane, sender === mainWin else { return frameSize }
+        let m = minFrameSize(sender)
         return NSSize(width: max(frameSize.width, m.width), height: max(frameSize.height, m.height))
     }
     func windowDidResize(_ n: Notification) {
