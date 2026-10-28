@@ -155,6 +155,7 @@ struct SinglePaneView: View {
             Button("🚪 退出") { model.requestLeave(from: model.roomHost) }
                 .buttonStyle(PillButton(fill: Color(red: 0.72, green: 0.11, blue: 0.11), fg: .white)).frame(width: 80)
         }.padding(.horizontal, 12).padding(.vertical, 8)
+        .background(GeometryReader { g in Color.clear.onAppear { model.miniH = g.size.height + 1 }.onChange(of: g.size.height) { _, h in model.miniH = h + 1 } })
     }
 }
 
