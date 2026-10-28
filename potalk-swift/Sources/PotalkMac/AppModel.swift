@@ -99,7 +99,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     private var chatGrown: CGFloat = 0     // ひとこと用に、窓を下へ伸ばしているぶん
     /// 部屋の画面（上のタブからひとことまで）が、切れずに収まるのに要る高さ。これより窓を縮められないようにする
     @Published var paneNeedH: CGFloat = 0 { didSet { if oldValue != paneNeedH { applyMinSize() } } }
-    var minPaneH: CGFloat { paneNeedH > 0 ? paneNeedH : 560 }
+    /// ひとことを閉じているときの必要な高さ（paneNeedH）に、開いているときは、ひとことの高さを足す
+    var minPaneH: CGFloat { (paneNeedH > 0 ? paneNeedH : 560) + (chatDrawer ? chatH + 1 : 0) }
     func applyMinSize() {
         guard singlePane, engine.room.joined, let w = mainWin else { return }
         w.contentMinSize = NSSize(width: 340 * uiScale, height: minPaneH * uiScale)
@@ -133,8 +134,6 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             f.origin.y -= delta; f.size.height += delta
             w.setFrame(f, display: true)
             chatGrown += delta
-            // 窓の最小の高さも、ひとことのぶんだけ増減させる（再測定の前に、古い最小値で窓が元の大きさへ戻らないように）
-            if paneNeedH > 0 { paneNeedH = max(1, paneNeedH + delta / uiScale) }
         }
         applyMinSize()
         let cap: CGFloat = chatGrown < want ? max(60, chatGrown / uiScale - 1) : .infinity

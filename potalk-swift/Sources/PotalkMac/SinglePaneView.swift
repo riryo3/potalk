@@ -11,7 +11,7 @@ struct SinglePaneView: View {
             if engine.room.joined {
                 // 部屋一覧は、左の取っ手から、窓の左にドロワーとして開く（別の小窓。窓の大きさは変えない）
                 VStack(spacing: 0) {
-                    tabBar
+                    tabBar.background(GeometryReader { g in Color.clear.onAppear { tabH = g.size.height; measure() }.onChange(of: g.size.height) { _, h in tabH = h; measure() } })
                     Divider()
                     HStack(spacing: 0) {
                         handle
@@ -24,9 +24,7 @@ struct SinglePaneView: View {
                     chatDrawer
                 }
                 .frame(minWidth: 340, minHeight: 300)
-                .background(GeometryReader { g in Color.clear.onAppear { stackH = g.size.height; measure() }.onChange(of: g.size.height) { _, h in stackH = h; measure() } })
                 .onChange(of: model.tab) { _, t in if t == .room { measure() } }
-                .onChange(of: model.chatDrawer) { _, _ in measure() }
                 .onChange(of: roomNeed) { _, _ in measure() }
             } else {
                 MainView()      // 入室前は、複数ウインドウの本体と同じ縦長の一覧
@@ -38,7 +36,8 @@ struct SinglePaneView: View {
     let handleW: CGFloat = 16
     @State private var dragStartWinH: CGFloat? = nil
     @State private var areaSize = CGSize(width: 340, height: 500)   // 部屋の画面に割り当てられている大きさ
-    @State private var stackH: CGFloat = 0                           // 並べた中身が、実際に要る高さ
+    @State private var tabH: CGFloat = 0                            // 上のタブの高さ
+    @State private var barH: CGFloat = 0                            // ひとこと（閉じているとき）の見出しの高さ
     @State private var roomNeed: CGFloat = 0                         // 部屋の画面が、詰めずに収まるのに要る高さ
 
     /// 部屋の画面の、詰めない高さを測る（見えない複製。大きさだけ使う）
@@ -52,8 +51,9 @@ struct SinglePaneView: View {
     }
     /// 上のタブ・ひとこと・部屋の画面を合わせて、切れずに収まる高さを、窓の下限にする
     func measure() {
-        guard model.tab == .room, roomNeed > 0, stackH > 0 else { return }
-        model.paneNeedH = (stackH - areaSize.height + roomNeed + model.miniH).rounded(.up)   // 部屋以外のタブの、下の帯のぶんも含めて、どのタブでも同じ高さにする
+        guard model.tab == .room, roomNeed > 0, tabH > 0, barH > 0 else { return }
+        // 上のタブ＋部屋の画面＋ひとことの見出し（仕切りの線は、タブの下と見出しの上の2本）＋部屋以外のタブで出る下の帯
+        model.paneNeedH = (tabH + 1 + roomNeed + 1 + barH + model.miniH).rounded(.up)
     }
     var shownChatH: CGFloat { min(model.chatH, model.chatCap) }
 
@@ -61,6 +61,7 @@ struct SinglePaneView: View {
     var chatDrawer: some View {
         VStack(spacing: 0) {
             // 開閉で位置が動かないように、仕切りの帯は、閉じていても同じ高さで置く（つかめるのは、開いているときだけ）
+            VStack(spacing: 0) {
             Rectangle().fill(Color.primary.opacity(0.12)).frame(height: 6)
                 .overlay(Capsule().fill(Color.secondary.opacity(0.6)).frame(width: 36, height: 3))
                 .contentShape(Rectangle())
@@ -84,6 +85,7 @@ struct SinglePaneView: View {
                 .background(hot ? tealColor : Color.clear)
                 .contentShape(Rectangle())
             }.buttonStyle(.plain).help("ひとことを開く／閉じる（⌘3）")
+            }.background(GeometryReader { g in Color.clear.onAppear { barH = g.size.height; measure() }.onChange(of: g.size.height) { _, h in barH = h; measure() } })
             if model.chatDrawer {
                 Divider()
                 ChatView().frame(height: shownChatH)
