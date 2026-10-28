@@ -97,6 +97,15 @@ def main() -> int:
     app.processEvents()
     room.grab().save(os.path.join(OUT, f"room-{MODE}.png"), "PNG")
     print("saved room", MODE, flush=True)
+
+    # 単一窓モードの部屋（左端の帯＋ひとこと引き出し）
+    room.set_pane_mode(True)
+    room.set_drawer_open_hint(True)
+    room.bump_unread()
+    room.bump_unread()
+    app.processEvents()
+    room.grab().save(os.path.join(OUT, f"room-pane-{MODE}.png"), "PNG")
+    print("saved room-pane", MODE, flush=True)
     return 0
 
 

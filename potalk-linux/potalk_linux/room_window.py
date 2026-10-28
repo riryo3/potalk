@@ -1,8 +1,7 @@
 """部屋の窓と、その部品（ひとこと・部屋の設定）。
 
-ひとこと（ChatPanel）と部屋の設定（SettingsPanel）は独立した部品にしてある。
-単一窓モードでは、設定はタブに、ひとことは下の引き出しに、それぞれ移動して使う
-（Windows 版 PaneView と同じ考え方）。
+通話中の部屋が中心。設定は上部のタブ、ひとことは下の引き出し、
+部屋一覧は左端の帯から開く引き出し（ロビー）として、部屋に付随する。
 """
 from __future__ import annotations
 
@@ -22,7 +21,9 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMenu,
     QPushButton,
+    QSizePolicy,
     QSlider,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -136,19 +137,77 @@ class SettingsPanel(QWidget):
 
 
 class RoomWindow(QWidget):
+    """部屋の窓。通話中の部屋が中心で、単一窓モードでは両脇に引き出しを持つ。
+
+    - 上部: 部屋／設定のタブと 📌（最前面）
+    - 左端の細い帯（単一窓モードのみ）: 部屋一覧の引き出しの取っ手
+    - 下部: ひとことは引き出し（単一窓モードのみ。窓モードでは常時表示）
+    """
+
     mail_requested = Signal()
+    pin_toggled = Signal(bool)
+    drawer_toggle_requested = Signal()
+    chat_toggled = Signal(bool)
+    close_requested = Signal()
+    geometry_changed = Signal()
 
     def __init__(self, engine: Engine):
         super().__init__()
         self.engine = engine
         self.setWindowTitle("部屋")
-        self.resize(360, 620)
+        self.resize(400, 640)
         self._spk_on = False
         self._room = RoomState()
         self._fx_anims: list = []
+        self._pane = False
+        self.chat_open = False
+        self._unread = 0
 
-        lay = QVBoxLayout(self)
-        self.main_layout = lay
+        outer = QVBoxLayout(self)
+        self.main_layout = outer
+
+        # 上部: タブと最前面
+        head = QHBoxLayout()
+        self.tab_room = QPushButton("部屋")
+        self.tab_room.setCheckable(True)
+        self.tab_room.setChecked(True)
+        self.tab_room.setFlat(True)
+        self.tab_room.clicked.connect(lambda: self.set_tab(0))
+        self.tab_settings = QPushButton("設定")
+        self.tab_settings.setCheckable(True)
+        self.tab_settings.setFlat(True)
+        self.tab_settings.clicked.connect(lambda: self.set_tab(1))
+        self.pin_check = QCheckBox("📌 最前面")
+        self.pin_check.toggled.connect(lambda on: self.pin_toggled.emit(on))
+        head.addWidget(self.tab_room)
+        head.addWidget(self.tab_settings)
+        head.addStretch(1)
+        head.addWidget(self.pin_check)
+        outer.addLayout(head)
+
+        body = QHBoxLayout()
+        outer.addLayout(body, 1)
+
+        # 左端の帯（部屋一覧の引き出しの取っ手、単一窓モードのみ）
+        self.strip = QPushButton("›\n部\n屋\n一\n覧")
+        self.strip.setFixedWidth(22)
+        self.strip.setStyleSheet("padding: 6px 0px;")
+        self.strip.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        self.strip.clicked.connect(lambda: self.drawer_toggle_requested.emit())
+        self.strip.hide()
+        body.addWidget(self.strip)
+
+        self.stack = QStackedWidget()
+        body.addWidget(self.stack, 1)
+
+        page = QWidget()
+        self.room_page = page
+        lay = QVBoxLayout(page)
+        self.page_layout = lay
+        self.stack.addWidget(page)
+        self.settings_panel = SettingsPanel(engine)
+        self.stack.addWidget(self.settings_panel)
+
         self.state_label = QLabel("")
         self.state_label.setObjectName("roomTitle")
         self.state_label.setWordWrap(True)
@@ -221,9 +280,12 @@ class RoomWindow(QWidget):
         ctl3.addWidget(b_leave, 1)
         lay.addLayout(ctl3)
 
-        # 部品（単一窓では外して使う）
-        self.settings_panel = SettingsPanel(engine)
-        lay.addWidget(self.settings_panel)
+        # ひとこと（単一窓では下の引き出し、窓モードでは常時表示）
+        self.chat_head = QPushButton("💬 ひとこと ▲")
+        self.chat_head.setFlat(True)
+        self.chat_head.clicked.connect(lambda: self.set_chat_open(not self.chat_open))
+        self.chat_head.hide()
+        lay.addWidget(self.chat_head)
         self.chat_label = QLabel("ひとこと")
         lay.addWidget(self.chat_label)
         self.chat_panel = ChatPanel(engine)
@@ -232,6 +294,68 @@ class RoomWindow(QWidget):
 
         engine.room_changed.connect(self._on_room)
         engine.eq_changed.connect(self.eq_label.setText)
+
+    # ---- 単一窓モードとの切り替え ----
+
+    def set_pane_mode(self, on: bool):
+        self._pane = on
+        self.strip.setVisible(on)
+        self.chat_head.setVisible(on)
+        if on:
+            self.chat_label.hide()
+            self.chat_panel.setVisible(self.chat_open)
+        else:
+            self.chat_label.show()
+            self.chat_panel.setMaximumHeight(200)
+            self.chat_panel.show()
+
+    def set_tab(self, idx: int):
+        self.stack.setCurrentIndex(idx)
+        for i, b in enumerate((self.tab_room, self.tab_settings)):
+            b.blockSignals(True)
+            b.setChecked(i == idx)
+            b.blockSignals(False)
+
+    def cycle_tab(self, d: int):
+        self.set_tab((self.stack.currentIndex() + d) % self.stack.count())
+
+    def set_chat_open(self, on: bool):
+        self.chat_open = on
+        if on:
+            self._unread = 0
+        if self._pane:
+            self.chat_panel.setVisible(on)
+        self._sync_chat_head()
+        self.chat_toggled.emit(on)
+
+    def bump_unread(self):
+        self._unread += 1
+        self._sync_chat_head()
+
+    def _sync_chat_head(self):
+        if self.chat_open:
+            self.chat_head.setText("💬 ひとこと ▼")
+        elif self._unread > 0:
+            self.chat_head.setText(f"💬 ひとこと（新着 {self._unread}）▲")
+        else:
+            self.chat_head.setText("💬 ひとこと ▲")
+
+    def set_drawer_open_hint(self, open_: bool):
+        self.strip.setText(("‹" if open_ else "›") + "\n部\n屋\n一\n覧")
+
+    # ---- 窓の出来事 ----
+
+    def closeEvent(self, event):  # noqa: N802 (Qt naming)
+        event.ignore()
+        self.close_requested.emit()
+
+    def moveEvent(self, event):  # noqa: N802
+        super().moveEvent(event)
+        self.geometry_changed.emit()
+
+    def resizeEvent(self, event):  # noqa: N802
+        super().resizeEvent(event)
+        self.geometry_changed.emit()
 
     # ---- 状態の反映 ----
 
@@ -275,7 +399,7 @@ class RoomWindow(QWidget):
         self.btn_raise.setText(raise_.get("label") or "✋ 手を挙げる")
         self._rebuild_reactions(st.reactions)
         self.settings_panel.rebuild(raw.get("settings") or [])
-        # 窓の出し隠しは App 側が担う（単一窓モードでは埋め込まれるため）
+        # 窓の出し隠しは App 側が担う
 
     def _rebuild_reactions(self, reactions: list[str]):
         if [b.text() for b in self._react_btns] == reactions:
