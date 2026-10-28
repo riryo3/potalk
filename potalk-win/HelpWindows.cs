@@ -71,6 +71,8 @@ public static class HelpWindows
             ("Ctrl+3", "ひとこと"),
             ("Ctrl+4", "おたより（配信部屋のとき）"),
             ("Ctrl+5", "部屋の設定"),
+            ("Ctrl+Shift+M", "マイクのミュート"),
+            ("Ctrl+Shift+S", "スピーカーのミュート"),
             ("Ctrl+L", "部屋一覧を開く／閉じる（シングルペイン）"),
             ("Ctrl+]　Ctrl+[", "次のタブ／前のタブ（シングルペイン）"),
         };

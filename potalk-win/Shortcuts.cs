@@ -19,6 +19,8 @@ public static class Shortcuts
             bool handled = true;
 
             if (mods == (ModifierKeys.Control | ModifierKeys.Shift) && k == Key.P) m.SetSinglePane(!m.S.SinglePane);
+            else if (mods == (ModifierKeys.Control | ModifierKeys.Shift) && k == Key.S) { if (joined) m.ToggleSpeaker(); else handled = false; }
+            else if (mods == (ModifierKeys.Control | ModifierKeys.Shift) && k == Key.M) { if (joined) m.ToggleMic(); else handled = false; }
             else if (mods == ModifierKeys.Control)
             {
                 switch (k)

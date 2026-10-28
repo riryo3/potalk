@@ -20,6 +20,7 @@ public sealed class RoomWindow : Window
     readonly System.Windows.Controls.Primitives.UniformGrid eq = new() { Rows = 1, Height = 26, Margin = new Thickness(10, 2, 10, 2) };
     readonly StackPanel legend = new() { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
     readonly Border mailBanner, tagRow;
+    System.Windows.Controls.Primitives.UniformGrid row1;
     readonly Button pin, tagBtn, chatBtn, mailBtn, muteBtn, shareBtn, leaveBtn, spkBtn;
     readonly TextBox tagInput = Ui.Input("", 30);
     readonly StackPanel members = new() { Margin = new Thickness(10, 6, 10, 6) }, reactions = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 8, 0, 8) };
@@ -68,7 +69,7 @@ public sealed class RoomWindow : Window
         muteBtn = Ui.Btn("🎤 ミュート", null, size: 13, bold: true); muteBtn.Padding = new Thickness(10, 8, 10, 8);
         shareBtn = Ui.Btn("🔗 URLを共有", ShareUrl, size: 13, bold: true); shareBtn.Padding = new Thickness(10, 8, 10, 8);
         leaveBtn = Ui.Btn("🚪 退出", () => M.RequestLeave(this), Ui.Red, Ui.White, 13, true); leaveBtn.Padding = new Thickness(10, 8, 10, 8);
-        var row1 = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Margin = new Thickness(0, 0, 0, 6) };
+        row1 = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Margin = new Thickness(0, 0, 0, 6) };
         chatBtn.Margin = new Thickness(0, 0, 3, 0); mailBtn.Margin = new Thickness(3, 0, 0, 0); row1.Children.Add(chatBtn); row1.Children.Add(mailBtn);
         var row3 = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Margin = new Thickness(0, 6, 0, 0) };
         shareBtn.Margin = new Thickness(0, 0, 3, 0); leaveBtn.Margin = new Thickness(3, 0, 0, 0); row3.Children.Add(shareBtn); row3.Children.Add(leaveBtn);
@@ -249,6 +250,12 @@ public sealed class RoomWindow : Window
         }
         shareBtn.IsEnabled = r.S("share").Length > 0;
         mailBtn.Visibility = r.B("bcast") ? Visibility.Visible : Visibility.Collapsed;
+        // シングルペインでは、「ひとこと」はタブにあるので、ここのボタンは出さない（その分、人の一覧を広くする）
+        bool single = M.S.SinglePane;
+        chatBtn.Visibility = single ? Visibility.Collapsed : Visibility.Visible;
+        row1.Columns = single ? 1 : 2;
+        mailBtn.Margin = single ? new Thickness(0) : new Thickness(3, 0, 0, 0);
+        row1.Visibility = single && !r.B("bcast") ? Visibility.Collapsed : Visibility.Visible;
         bool hot = r.B("mailOpen") && !M.MailOpen;
         int mails = r.P("mail").A("body").Count(b => b.B("item"));
         mailBtn.Content = (hot ? "📮 おたより募集中" : "📮 おたより") + (mails > 0 ? $" ({mails})" : "");

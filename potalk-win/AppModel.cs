@@ -189,6 +189,8 @@ public sealed class AppModel
     /// <summary>スピーカー（聞こえてくる音）のミュート。ページを読み込み直すと解ける。</summary>
     public bool SpeakerMuted { get; private set; }
     public event Action SpeakerChanged;
+    /// <summary>マイクのミュート（ボタンが「ミュート」のときだけ。通話希望やマイクを使う、のときは何もしない）。</summary>
+    public void ToggleMic() { if (E.Joined && E.Room.B("canMute")) E.Cmd(new { type = "mute" }); }
     public void ToggleSpeaker()
     {
         if (!E.Joined) return;
