@@ -197,7 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         item("次のタブ", #selector(nextTab), "]")
         item("前のタブ", #selector(prevTab), "[")
         win.addItem(.separator())
-        item("禁止ワードの登録…", #selector(showBanned), "")
+        item("自衛ワードの登録…", #selector(showBanned), "")
         win.addItem(.separator())
         win.addItem(withTitle: "しまう", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
         win.addItem(.separator())

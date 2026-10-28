@@ -329,7 +329,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let g = quietGen
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in if let self, g == self.quietGen { self.armed = true } }
     }
-    /// 禁止ワードを含む名前の人が、いまの部屋にいたら、1人につき1回だけ知らせる（入室時にもういた人も、あとから入った人も）
+    /// 自衛ワードを含む名前の人が、いまの部屋にいたら、1人につき1回だけ知らせる（入室時にもういた人も、あとから入った人も）
     private var warnedBanned = Set<String>()
     func matchedBannedWord(_ name: String) -> String? {
         let h = MainView.fold(name)
@@ -339,7 +339,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if ProcessInfo.processInfo.environment["POTALK_DEBUG"] == "1" { fputs("notify banned: \(name) \(word)\n", stderr) }
         NSSound(named: "Basso")?.play()
         let c = UNMutableNotificationContent()
-        c.title = "禁止ワードを含む名前の人がいます"; c.body = "\(name)（登録ワード：\(word)）"; c.sound = nil
+        c.title = "自衛ワードを含む名前の人がいます"; c.body = "\(name)（登録ワード：\(word)）"; c.sound = nil
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil))
     }
     func notify(newRoom r: LobbyRoom) {
@@ -674,8 +674,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         p.setFrameAutosaveName("win.settings")
         settingsWin = p; p.orderFront(nil)
     }
-    // MARK: 禁止ワード（Potalker 独自：含む部屋を、一覧に出さない）
-    /// 登録した禁止ワード。新しく登録したものが先頭
+    // MARK: 自衛ワード（Potalker 独自：含む部屋を、一覧に出さない）
+    /// 登録した自衛ワード。新しく登録したものが先頭
     @Published var bannedWords: [String] = UserDefaults.standard.stringArray(forKey: "bannedWords") ?? [] {
         didSet { UserDefaults.standard.set(bannedWords, forKey: "bannedWords") }
     }
@@ -687,7 +687,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         return true
     }
     func removeBanned(_ w: String) { bannedWords.removeAll { $0 == w } }
-    /// 部屋の名前・話題タグ・タグを付けた人・いまいる人の名前に、禁止ワードが含まれるか
+    /// 部屋の名前・話題タグ・タグを付けた人・いまいる人の名前に、自衛ワードが含まれるか
     func isBanned(_ r: LobbyRoom) -> Bool {
         guard !bannedWords.isEmpty else { return false }
         let hay = ([r.name, r.sub, r.subBy] + r.people.map { $0.name }).map { MainView.fold($0) }
@@ -696,7 +696,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     func openBanned() {
         if let w = bannedWin { w.makeKeyAndOrderFront(nil); return }
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 460), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-        w.title = "禁止ワード"; w.isReleasedWhenClosed = false
+        w.title = "自衛ワード"; w.isReleasedWhenClosed = false
         w.contentView = NSHostingView(rootView: BannedWordsView().environmentObject(self))
         w.contentMinSize = NSSize(width: 320, height: 300)
         w.center(); w.setFrameAutosaveName("win.banned"); w.delegate = self; bannedWin = w; w.makeKeyAndOrderFront(nil)

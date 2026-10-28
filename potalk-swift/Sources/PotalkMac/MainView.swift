@@ -21,7 +21,7 @@ struct MainView: View {
     }
     private var filtered: [LobbyRoom] {
         let v = model.search.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let id = linkID, !v.isEmpty { return engine.lobby.rooms.filter { $0.id == id } }      // 部屋のURLを貼ったときは、禁止ワードがあっても出す
+        if let id = linkID, !v.isEmpty { return engine.lobby.rooms.filter { $0.id == id } }      // 部屋のURLを貼ったときは、自衛ワードがあっても出す
         let shown = engine.lobby.rooms.filter { !model.isBanned($0) }
         if v.isEmpty { return shown }
         let q = Self.fold(v)

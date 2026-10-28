@@ -182,7 +182,7 @@ struct ProfileView: View {
                 }
             }
             Button("📇 名刺（プロフィールカード）を設定…") { engine.cmd(["type": "cardEdit"]) }.frame(maxWidth: .infinity)
-            Button("🚫 禁止ワードを登録…（含む部屋を一覧に出さない）") { model.openBanned() }.frame(maxWidth: .infinity)
+            Button("🛡 自衛ワードを登録…（含む部屋を一覧に出さない）") { model.openBanned() }.frame(maxWidth: .infinity)
             VStack(alignment: .leading, spacing: 6) {
                 Text("ウインドウの使い方").font(.caption).foregroundColor(.secondary)
                 Toggle("シングルペイン（1つの窓にまとめる）", isOn: $model.singlePane)
@@ -231,7 +231,7 @@ struct HelpView: View {
 }
 
 
-// MARK: 禁止ワード（Potalker 独自）
+// MARK: 自衛ワード（Potalker 独自）
 struct BannedWordsView: View {
     @EnvironmentObject var model: AppModel
     @State private var text = ""
@@ -242,7 +242,7 @@ struct BannedWordsView: View {
             Text("ここに登録した言葉を含む部屋は、部屋の一覧に出しません。").font(.system(size: 13))
             Text("部屋の名前・話題タグ・いまいる人の名前を見ます。全角半角・大文字小文字・ひらがなカタカナは、区別しません。").font(.caption).foregroundColor(.secondary)
             HStack {
-                TextField("禁止ワード", text: $text).textFieldStyle(.roundedBorder).onSubmit(add)
+                TextField("自衛ワード", text: $text).textFieldStyle(.roundedBorder).onSubmit(add)
                 Button("登録", action: add).keyboardShortcut(.defaultAction).disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             if dup { Text("すでに登録されています。").font(.caption).foregroundColor(.orange) }
