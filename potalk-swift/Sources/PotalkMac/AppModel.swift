@@ -686,6 +686,24 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         bannedWords.insert(t, at: 0)
         return true
     }
+    /// ファイルに書き出す形式：UTF-8（BOMなし）・LF・1行に1ワード・先頭が最新。ファイル名は、日付つき
+    static func bannedFileName(_ date: Date = Date()) -> String {
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"
+        return "jiei-words-" + f.string(from: date) + ".txt"
+    }
+    func exportBanned(to url: URL) throws {
+        try (bannedWords.joined(separator: "\n") + "\n").write(to: url, atomically: true, encoding: .utf8)
+    }
+    /// 読み込んで足す。LF・CRLF・CRのどれでも、先頭にBOMがあっても読める。すでにあるワードは飛ばす。(足した数, 飛ばした数)
+    func importBanned(from url: URL) throws -> (added: Int, skipped: Int) {
+        var text = try String(contentsOf: url, encoding: .utf8)
+        if text.hasPrefix("\u{FEFF}") { text.removeFirst() }
+        let lines = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+            .split(separator: "\n", omittingEmptySubsequences: true).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        var added = 0, skipped = 0
+        for w in lines.reversed() { if addBanned(w) { added += 1 } else { skipped += 1 } }      // ファイルの先頭が最新なので、後ろから足して、並びを保つ
+        return (added, skipped)
+    }
     func removeBanned(_ w: String) { bannedWords.removeAll { $0 == w } }
     /// 部屋の名前・話題タグ・タグを付けた人・いまいる人の名前に、自衛ワードが含まれるか
     func isBanned(_ r: LobbyRoom) -> Bool {

@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import AppKit
 
 // MARK: ひとこと
@@ -237,6 +238,7 @@ struct BannedWordsView: View {
     @State private var text = ""
     @State private var target: String?
     @State private var dup = false
+    @State private var note = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("ここに登録した言葉を含む部屋は、部屋の一覧に出しません。").font(.system(size: 13))
@@ -246,6 +248,12 @@ struct BannedWordsView: View {
                 Button("登録", action: add).keyboardShortcut(.defaultAction).disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             if dup { Text("すでに登録されています。").font(.caption).foregroundColor(.orange) }
+            HStack {
+                Button("書き出し…", action: exportFile).disabled(model.bannedWords.isEmpty)
+                Button("読み込み…", action: importFile)
+                Text(note).font(.caption).foregroundColor(.secondary).lineLimit(2)
+                Spacer()
+            }
             Divider()
             HStack {
                 Text("登録したワード（新しい順）").font(.caption).foregroundColor(.secondary)
@@ -277,6 +285,23 @@ struct BannedWordsView: View {
         } message: { w in
             Text("「\(w)」を消すと、このワードを含む部屋が、また一覧に出ます。")
         }
+    }
+    func exportFile() {
+        let p = NSSavePanel()
+        p.nameFieldStringValue = AppModel.bannedFileName(); p.allowedContentTypes = [.plainText]; p.canCreateDirectories = true
+        p.message = "自衛ワードを、1行に1ワードのテキストで書き出します（先頭が最新）"
+        guard p.runModal() == .OK, let url = p.url else { return }
+        do { try model.exportBanned(to: url); note = "\(model.bannedWords.count)件を書き出しました。" } catch { note = "書き出せませんでした。" }
+    }
+    func importFile() {
+        let p = NSOpenPanel()
+        p.allowedContentTypes = [.plainText]; p.allowsMultipleSelection = false; p.canChooseDirectories = false
+        p.message = "自衛ワードのファイル（1行に1ワード）を選んでください"
+        guard p.runModal() == .OK, let url = p.url else { return }
+        do {
+            let r = try model.importBanned(from: url)
+            note = "\(r.added)件を足しました" + (r.skipped > 0 ? "（登録済み・重複 \(r.skipped)件は飛ばしました）。" : "。")
+        } catch { note = "読み込めませんでした（UTF-8のテキストか確認してください）。" }
     }
     func add() {
         if model.addBanned(text) { text = ""; dup = false } else if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { dup = true }

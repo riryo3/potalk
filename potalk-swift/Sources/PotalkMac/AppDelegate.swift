@@ -93,6 +93,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "openSettings": m.openSettings()
                 case "openProfile": m.openProfile()
                 case "openBanned": m.openBanned()
+                case "bannedIO":
+                    let u = URL(fileURLWithPath: "/tmp/claude-501/in-words.txt")
+                    try? "\u{FEFF}新しい\r\n真ん中\r\n\r\nふるい\r\nシンシイ\r\n".write(to: u, atomically: true, encoding: .utf8)
+                    m.bannedWords = ["古い"]
+                    let r = try? m.importBanned(from: u)
+                    let o = URL(fileURLWithPath: "/tmp/claude-501/" + AppModel.bannedFileName())
+                    try? m.exportBanned(to: o)
+                    fputs("bannedIO: \(String(describing: r)) words=\(m.bannedWords) file=\(o.lastPathComponent)\n", stderr)
                 case "addBanned": for w in ["お茶", "ラジオ"] { m.addBanned(w) }
                 case "openHelp": m.openHelp()
                 case "openCreate": m.createOpen = true
