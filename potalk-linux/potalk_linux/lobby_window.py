@@ -1,8 +1,14 @@
-"""ロビー（本体の窓）。部屋の一覧・検索・作成・プロフィールの入口。"""
+"""ロビー（本体の窓）。部屋の一覧・検索・作成・プロフィールの入口。
+
+並びは Mac 版・Windows 版に倣っている: 最上段にプロフィールとマイク、
+ボタン行、検索＋更新、カード型の部屋一覧、下段に通知とテーマ。
+"""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtGui import QClipboard, QDesktopServices
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -19,8 +25,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .engine import HOME as HOME_URL
 from .engine import Engine
 from .model import LobbyState, ProfileState, filter_rooms
+from .room_card import ROOM_ROLE, RoomCardDelegate
+
+THEME_ITEMS = [("システムに合わせる", "system"), ("ライト", "light"), ("ダーク", "dark")]
 
 
 class ProfileDialog(QDialog):
@@ -64,12 +74,40 @@ class ProfileDialog(QDialog):
             b.setChecked(i == idx)
 
 
+class AboutDialog(QDialog):
+    """「これはなに？」の説明。"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("これはなに？")
+        lay = QVBoxLayout(self)
+        text = QLabel(
+            "Potalker は、ぽっと通話（potalk.app）の非公式クライアントです。\n"
+            "Mac 版・Windows 版と同じ仕組みで、画面に出ない WebView で potalk.app を"
+            "そのまま動かし、画面だけを Linux 向けに作り直しています。\n"
+            "ぽっと通話本体とは関係のない有志のクライアントです。"
+            "利用は自己責任でお願いします。"
+        )
+        text.setWordWrap(True)
+        lay.addWidget(text)
+        row = QHBoxLayout()
+        b_open = QPushButton("potalk.app を開く")
+        b_open.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(HOME_URL)))
+        box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        box.rejected.connect(self.reject)
+        row.addWidget(b_open)
+        row.addStretch(1)
+        row.addWidget(box)
+        lay.addLayout(row)
+
+
 class LobbyWindow(QWidget):
     join_requested = Signal(str)     # room id（App 側で二重入室などを捌く場合に使う）
     create_requested = Signal(str, str)
     mic_changed = Signal(str)        # 選んだマイクの名前
     close_requested = Signal()       # 終了の確認は App 側で行う
     single_pane_toggled = Signal(bool)
+    theme_changed = Signal(str)      # system / light / dark
 
     notify_on = False                # 「部屋の通知」のチェック状態（App が効果音にも使う）
 
@@ -81,46 +119,65 @@ class LobbyWindow(QWidget):
         super().__init__()
         self.engine = engine
         self.setWindowTitle("Potalker")
-        self.resize(380, 560)
+        self.resize(400, 600)
 
         lay = QVBoxLayout(self)
 
-        # プロフィール
+        # 最上段: プロフィールとマイク
         prof = QHBoxLayout()
         self.emoji_label = QLabel("🙂")
         self.emoji_label.setStyleSheet("font-size: 28px;")
         self.name_label = QLabel("名前・アバターを設定")
+        self.mic_combo = QComboBox()
+        self.mic_combo.addItem("（既定）", "")
+        self.mic_combo.setMaximumWidth(170)
+        self.mic_combo.currentIndexChanged.connect(
+            lambda _i: self.mic_changed.emit(self.mic_combo.currentData() or "")
+        )
+        prof.addWidget(self.emoji_label)
+        prof.addWidget(self.name_label, 1)
+        prof.addWidget(QLabel("🎤"))
+        prof.addWidget(self.mic_combo)
+        lay.addLayout(prof)
+
+        # ボタン行
+        btn_row = QHBoxLayout()
+        b_about = QPushButton("？ これはなに？")
+        b_about.clicked.connect(lambda: AboutDialog(self).exec())
+        b_create = QPushButton("🏠 部屋を作る")
+        b_create.clicked.connect(lambda: self._create("chat"))
         btn_prof = QPushButton("名前・アバター…")
         btn_prof.clicked.connect(self._open_profile)
         btn_card = QPushButton("名刺…")
         btn_card.clicked.connect(lambda: engine.cmd({"type": "cardEdit"}))
-        prof.addWidget(self.emoji_label)
-        prof.addWidget(self.name_label, 1)
-        prof.addWidget(btn_prof)
-        prof.addWidget(btn_card)
-        lay.addLayout(prof)
+        btn_row.addWidget(b_about)
+        btn_row.addWidget(b_create)
+        btn_row.addStretch(1)
+        btn_row.addWidget(btn_prof)
+        btn_row.addWidget(btn_card)
+        lay.addLayout(btn_row)
 
-        # 検索
-        self.search = QLineEdit()
-        self.search.setPlaceholderText("部屋・タグ・人の名前で検索（部屋のURLでも可）")
-        self.search.textChanged.connect(lambda _t: self._refresh_rooms())
-        lay.addWidget(self.search)
-
-        # 作成
+        # 部屋名と配信部屋
         create_row = QHBoxLayout()
         self.new_name = QLineEdit()
         self.new_name.setPlaceholderText("部屋の名前（空でも作れます）")
         self.new_name.setMaxLength(30)
-        create_row.addWidget(self.new_name, 1)
-        lay.addLayout(create_row)
-        kind_row = QHBoxLayout()
-        b_chat = QPushButton("🏠 雑談部屋を作る")
         b_bc = QPushButton("📣 配信部屋を作る")
-        b_chat.clicked.connect(lambda: self._create("chat"))
         b_bc.clicked.connect(lambda: self._create("bc"))
-        kind_row.addWidget(b_chat)
-        kind_row.addWidget(b_bc)
-        lay.addLayout(kind_row)
+        create_row.addWidget(self.new_name, 1)
+        create_row.addWidget(b_bc)
+        lay.addLayout(create_row)
+
+        # 検索＋更新
+        search_row = QHBoxLayout()
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("部屋・タグ・人の名前で検索（部屋のURLでも可）")
+        self.search.textChanged.connect(lambda _t: self._refresh_rooms())
+        b_refresh = QPushButton("🔄 更新")
+        b_refresh.clicked.connect(lambda: engine.cmd({"type": "refreshLobby"}))
+        search_row.addWidget(self.search, 1)
+        search_row.addWidget(b_refresh)
+        lay.addLayout(search_row)
 
         # リンクで入る
         link_row = QHBoxLayout()
@@ -132,45 +189,57 @@ class LobbyWindow(QWidget):
         link_row.addWidget(b_link)
         lay.addLayout(link_row)
 
-        # 一覧
-        self.quiet = QCheckBox("静かに入る")
-        lay.addWidget(self.quiet)
+        # 一覧（カード型）
         self.list = QListWidget()
+        self.list.setMouseTracking(True)
+        delegate = RoomCardDelegate(self.list)
+        delegate.share_clicked.connect(self._share_room)
+        self.list.setItemDelegate(delegate)
         self.list.itemDoubleClicked.connect(self._join_item)
         lay.addWidget(self.list, 1)
 
-        # マイクの選択
-        mic_row = QHBoxLayout()
-        mic_row.addWidget(QLabel("マイク"))
-        self.mic_combo = QComboBox()
-        self.mic_combo.addItem("（既定）", "")
-        self.mic_combo.currentIndexChanged.connect(
-            lambda _i: self.mic_changed.emit(self.mic_combo.currentData() or "")
-        )
-        mic_row.addWidget(self.mic_combo, 1)
-        lay.addLayout(mic_row)
-
-        # 下段
+        # 下段: 通知と見ている人数
         foot = QHBoxLayout()
-        self.notify = QCheckBox("部屋の通知（音）")
+        self.notify = QPushButton("🔔 部屋の通知：オフ")
+        self.notify.setObjectName("pillButton")
+        self.notify.setCheckable(True)
         self.notify.toggled.connect(self._on_notify_toggled)
-        b_refresh = QPushButton("更新")
-        b_refresh.clicked.connect(lambda: engine.cmd({"type": "refreshLobby"}))
+        self.quiet = QCheckBox("静かに入る")
+        self.viewers_label = QLabel("")
         foot.addWidget(self.notify)
+        foot.addWidget(self.quiet)
         foot.addStretch(1)
-        foot.addWidget(b_refresh)
+        foot.addWidget(self.viewers_label)
         lay.addLayout(foot)
+
+        # 最下段: 単一窓とテーマ
+        foot2 = QHBoxLayout()
         self.single_pane = QCheckBox("単一窓モード（Ctrl+Shift+P）")
         self.single_pane.toggled.connect(lambda on: self.single_pane_toggled.emit(on))
-        lay.addWidget(self.single_pane)
+        self.theme_combo = QComboBox()
+        for label, mode in THEME_ITEMS:
+            self.theme_combo.addItem(label, mode)
+        self.theme_combo.currentIndexChanged.connect(
+            lambda _i: self.theme_changed.emit(self.theme_combo.currentData() or "system")
+        )
+        foot2.addWidget(self.single_pane)
+        foot2.addStretch(1)
+        foot2.addWidget(QLabel("テーマ"))
+        foot2.addWidget(self.theme_combo)
+        lay.addLayout(foot2)
         self.status_label = QLabel("")
-        self.viewers_label = QLabel("")
         lay.addWidget(self.status_label)
-        lay.addWidget(self.viewers_label)
 
         engine.lobby_changed.connect(self._on_lobby)
         engine.profile_changed.connect(self._on_profile)
         self._lobby = LobbyState()
+
+    def set_theme_mode(self, mode: str):
+        """テーマのプルダウンを、保存済みの設定に合わせる（信号は止める）。"""
+        idx = self.theme_combo.findData(mode)
+        self.theme_combo.blockSignals(True)
+        self.theme_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self.theme_combo.blockSignals(False)
 
     # ---- 状態の反映 ----
 
@@ -188,24 +257,23 @@ class LobbyWindow(QWidget):
         rooms = filter_rooms(self._lobby.rooms, self.search.text())
         self.list.clear()
         for r in rooms:
-            head = ("📣 " if r.bc else "") + (r.name or "（名前なし）")
+            head = ("📣 " if r.bc else "🏠 ") + (r.name or "（名前なし）")
             if r.count:
-                head += f"（{r.count}）"
-            lines = [head]
-            if r.sub:
-                lines.append("  " + r.sub + (f" — {r.sub_by}" if r.sub_by else ""))
-            people = " ".join(f"{p.em}{p.name}" + ("🔇" if p.muted else "") for p in r.people)
-            if people:
-                lines.append("  " + people)
-            if r.dur:
-                lines.append("  ⏱ " + r.dur)
-            item = QListWidgetItem("\n".join(lines))
+                head += f"（{r.count}人）"
+            item = QListWidgetItem(head)
             item.setData(Qt.ItemDataRole.UserRole, r.id)
+            item.setData(ROOM_ROLE, r)
             self.list.addItem(item)
 
     def _on_notify_toggled(self, on: bool):
         self.notify_on = on
+        self.notify.setText("🔔 部屋の通知：オン" if on else "🔔 部屋の通知：オフ")
         self.engine.cmd({"type": "sndRoom", "on": on})
+
+    def _share_room(self, rid: str):
+        if rid:
+            QApplication.clipboard().setText(HOME_URL + "#room=" + rid, QClipboard.Mode.Clipboard)
+            self.status_label.setText("部屋のリンクをコピーしました")
 
     # ---- マイク ----
 

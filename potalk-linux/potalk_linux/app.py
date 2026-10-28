@@ -118,6 +118,28 @@ class App(QObject):
         self._setup_tray()
         self._setup_shortcuts()
 
+        # テーマ（ライト／ダーク／システム）
+        from . import theme as _theme
+
+        self._theme_mod = _theme
+        self.theme_mode = self.settings.value("ui/theme", "system") or "system"
+        self.lobby.set_theme_mode(self.theme_mode)
+        self.lobby.theme_changed.connect(self._on_theme_changed)
+        _theme.apply_theme(self.qapp, self.theme_mode)
+        try:
+            self.qapp.styleHints().colorSchemeChanged.connect(
+                lambda _s: self.theme_mode == "system"
+                and _theme.apply_theme(self.qapp, self.theme_mode)
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _on_theme_changed(self, mode: str):
+        self.theme_mode = mode
+        self.settings.setValue("ui/theme", mode)
+        self._theme_mod.apply_theme(self.qapp, mode)
+        self.lobby.list.viewport().update()
+
     # ---- 起動とモード ----
 
     def start(self):

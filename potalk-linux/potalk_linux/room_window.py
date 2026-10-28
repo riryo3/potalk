@@ -150,20 +150,16 @@ class RoomWindow(QWidget):
         lay = QVBoxLayout(self)
         self.main_layout = lay
         self.state_label = QLabel("")
+        self.state_label.setObjectName("roomTitle")
         self.state_label.setWordWrap(True)
         lay.addWidget(self.state_label)
 
-        self.members = QListWidget()
-        self.members.itemClicked.connect(self._member_clicked)
-        self.members.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.members.customContextMenuRequested.connect(self._member_menu)
-        lay.addWidget(self.members, 1)
-
-        # 話題タグ
+        # 話題タグ（見出しの直下の帯）
         tag_row = QHBoxLayout()
         self.tag_label = QLabel("")
         self.tag_label.setWordWrap(True)
-        b_tag = QPushButton("話題タグ…")
+        b_tag = QPushButton("変える")
+        b_tag.setObjectName("pillButton")
         b_tag.clicked.connect(self._edit_tag)
         tag_row.addWidget(self.tag_label, 1)
         tag_row.addWidget(b_tag)
@@ -171,46 +167,59 @@ class RoomWindow(QWidget):
         self.tag_widget.setLayout(tag_row)
         lay.addWidget(self.tag_widget)
 
+        self.members = QListWidget()
+        self.members.itemClicked.connect(self._member_clicked)
+        self.members.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.members.customContextMenuRequested.connect(self._member_menu)
+        lay.addWidget(self.members, 1)
+
+        # 接続の様子（ページの #eq を中央のピルで出す）
+        eq_row = QHBoxLayout()
+        self.eq_label = QLabel("")
+        self.eq_label.setObjectName("pillLabel")
+        self.eq_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        eq_row.addStretch(1)
+        eq_row.addWidget(self.eq_label)
+        eq_row.addStretch(1)
+        lay.addLayout(eq_row)
+
         # リアクション
         self.react_row = QHBoxLayout()
         lay.addLayout(self.react_row)
         self._react_btns: list[QPushButton] = []
 
-        # 操作
-        ctl = QHBoxLayout()
+        # 操作（Mac/Win の並び: 大きなマイク、発言まわり、共有と退出）
         self.btn_mic = QPushButton("🎙 マイク")
+        self.btn_mic.setObjectName("warnButton")
         self.btn_mic.setCheckable(True)
         self.btn_mic.clicked.connect(lambda: engine.cmd({"type": "mute"}))
         self.btn_spk = QPushButton("🔊 スピーカー")
         self.btn_spk.setCheckable(True)
         self.btn_spk.clicked.connect(self.toggle_speaker)
+        ctl = QHBoxLayout()
+        ctl.addWidget(self.btn_mic, 1)
+        ctl.addWidget(self.btn_spk)
+        lay.addLayout(ctl)
         self.btn_speak = QPushButton("🎤 発言する")
         self.btn_speak.clicked.connect(lambda: engine.cmd({"type": "speak"}))
         self.btn_raise = QPushButton("✋ 手を挙げる")
         self.btn_raise.clicked.connect(lambda: engine.cmd({"type": "raise"}))
-        ctl.addWidget(self.btn_mic)
-        ctl.addWidget(self.btn_spk)
-        lay.addLayout(ctl)
+        self.btn_mail = QPushButton("✉ おたより")
+        self.btn_mail.clicked.connect(lambda: self.mail_requested.emit())
         ctl2 = QHBoxLayout()
         ctl2.addWidget(self.btn_speak)
         ctl2.addWidget(self.btn_raise)
+        ctl2.addWidget(self.btn_mail)
         lay.addLayout(ctl2)
-        ctl3 = QHBoxLayout()
-        b_share = QPushButton("部屋のURLをコピー")
+        b_share = QPushButton("🔗 URLを共有")
         b_share.clicked.connect(self._copy_url)
-        self.btn_mail = QPushButton("✉ おたより")
-        self.btn_mail.clicked.connect(lambda: self.mail_requested.emit())
-        b_leave = QPushButton("退出")
+        b_leave = QPushButton("🚪 退出")
+        b_leave.setObjectName("dangerButton")
         b_leave.clicked.connect(lambda: engine.cmd({"type": "leave"}))
-        ctl3.addWidget(b_share)
-        ctl3.addWidget(self.btn_mail)
-        ctl3.addWidget(b_leave)
+        ctl3 = QHBoxLayout()
+        ctl3.addWidget(b_share, 1)
+        ctl3.addWidget(b_leave, 1)
         lay.addLayout(ctl3)
-
-        # ページの #eq（話している人の表示など）をそのまま出す
-        self.eq_label = QLabel("")
-        self.eq_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self.eq_label)
 
         # 部品（単一窓では外して使う）
         self.settings_panel = SettingsPanel(engine)
@@ -251,7 +260,7 @@ class RoomWindow(QWidget):
             self.members.addItem(QListWidgetItem(st.more))
         self.btn_mic.setEnabled(st.can_mute)
         self.btn_mic.setChecked(st.muted)
-        self.btn_mic.setText("🔇 マイク（オフ）" if st.muted else "🎙 マイク")
+        self.btn_mic.setText("🔇 ミュート解除" if st.muted else "🎙 ミュート")
         raw = st.raw
         tag = raw.get("tag") or {}
         self.tag_widget.setVisible(bool(tag.get("show")))
@@ -277,6 +286,10 @@ class RoomWindow(QWidget):
         self._react_btns = []
         for i, r in enumerate(reactions):
             b = QPushButton(r)
+            b.setObjectName("pillButton")
+            f = b.font()
+            f.setPointSize(f.pointSize() + 3)
+            b.setFont(f)
             b.clicked.connect(lambda _=False, idx=i: self.engine.cmd({"type": "react", "i": idx}))
             self.react_row.addWidget(b)
             self._react_btns.append(b)
