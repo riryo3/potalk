@@ -12,34 +12,64 @@
   <header class="bar">
     <span id="me" class="chip"></span>
     <span class="grow"></span>
+    <button id="btnBanned" class="chip-btn" title="自衛ワードを登録">🛡</button>
     <button id="btnRefresh" class="chip-btn">更新</button>
   </header>
   <div class="create">
     <input id="newName" maxlength="30" placeholder="部屋の名前">
     <button id="btnCreate" class="primary">部屋を作る</button>
   </div>
+  <div class="search"><input id="search" placeholder="部屋を検索"></div>
   <div id="rooms" class="rooms"></div>
   <footer class="foot"><span id="viewers"></span></footer>
 </div>
 
 <div id="room" class="view" hidden>
-  <div id="banner" class="banner" hidden></div>
-  <header class="head">
-    <div id="roomTitle" class="title"></div>
-    <div class="row2">
-      <span id="roomStatus" class="badge"></span>
-      <span id="roomCount" class="muted"></span>
-      <span class="grow"></span>
-      <button id="btnRetry" class="chip-btn">🔄 つなぎ直す</button>
-    </div>
-  </header>
-  <div id="tagRow" class="tag" hidden></div>
-  <div id="members" class="members"></div>
-  <div id="eq" class="eq"></div>
-  <div id="reactions" class="reactions"></div>
+  <nav id="tabs" class="tabs">
+    <button data-tab="room" class="on">部屋</button>
+    <button data-tab="mail" id="tabMail" hidden>おたより</button>
+    <button data-tab="settings">設定</button>
+  </nav>
+  <div id="panes" class="panes">
+    <section id="paneRoom" class="pane">
+      <header class="head">
+        <div id="roomTitle" class="title"></div>
+        <div class="row2">
+          <span id="roomStatus" class="badge"></span>
+          <span id="roomCount" class="muted"></span>
+          <span class="grow"></span>
+          <button id="btnRetry" class="chip-btn">🔄 つなぎ直す</button>
+        </div>
+      </header>
+      <div id="tagRow" class="tag" hidden></div>
+      <div id="banner" class="banner" hidden></div>
+      <div id="members" class="members"></div>
+      <div id="eq" class="eq"></div>
+      <div id="reactions" class="reactions"></div>
+    </section>
+    <section id="paneMail" class="pane" hidden></section>
+    <section id="paneSettings" class="pane" hidden></section>
+  </div>
   <div class="actions">
     <button id="btnMute" class="wide"></button>
     <button id="btnLeave" class="danger">退出</button>
+  </div>
+  <div id="chatBox" class="chatbox">
+    <button id="chatToggle" class="chat-toggle">▴ ひとこと</button>
+    <div id="chatOpen" class="chat-open" hidden>
+      <div id="chatLog" class="chat-log"></div>
+      <div class="chat-in"><input id="chatText" maxlength="60" placeholder="ひとこと"><span id="chatCount" class="muted">0/60</span><button id="chatSend" class="primary">送る</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="banned" class="sheet" hidden>
+  <div class="sheet-body">
+    <div class="sheet-head"><strong>🛡 自衛ワード</strong><span class="grow"></span><button id="bannedClose" class="chip-btn">閉じる</button></div>
+    <p class="muted small">名前・話題・いまいる人の名前にこのワードを含む部屋を、一覧に出しません。</p>
+    <div class="create"><input id="bannedInput" placeholder="ワード"><button id="bannedAdd" class="primary">登録</button></div>
+    <div class="row2"><button id="bannedOut" class="chip-btn">書き出し…</button><button id="bannedIn" class="chip-btn">読み込み…</button><span id="bannedMsg" class="muted small"></span></div>
+    <div id="bannedChips" class="chips"></div>
   </div>
 </div>
 <script src="renderer.js"></script>

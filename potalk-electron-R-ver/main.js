@@ -1,5 +1,6 @@
 'use strict'
-const { app, BrowserWindow, ipcMain, net, session, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, net, session, shell, screen, dialog, Notification } = require('electron')
+const fs = require('fs')
 const path = require('path')
 const patcher = require('./engine/patcher')
 
@@ -70,6 +71,32 @@ ipcMain.handle('cmd', (_e, c) => {
   return engineWin.webContents.executeJavaScript('window.__pm && window.__pm.cmd(' + JSON.stringify(c) + ')').catch(() => {})
 })
 ipcMain.handle('reload', () => loadEngine())
+
+// ひとこと用ドロワーの開閉で、窓を、その高さのぶんだけ伸び縮みさせる（上の端は動かさない。下に余地がなければ、窓を上にずらす）
+ipcMain.handle('growBy', (_e, dh) => {
+  if (!uiWin || typeof dh !== 'number') return
+  const b = uiWin.getBounds(), wa = screen.getDisplayMatching(b).workArea
+  const h = Math.min(Math.max(b.height + dh, 200), wa.height)
+  const y = Math.max(wa.y, Math.min(b.y, wa.y + wa.height - h))
+  uiWin.setBounds({ x: b.x, y, width: b.width, height: h })
+})
+ipcMain.handle('notify', (_e, title, body) => { if (Notification.isSupported()) new Notification({ title: String(title), body: String(body) }).show() })
+
+// 自衛ワードの書き出し・読み込み（UTF-8・BOM なし・LF・1行に1ワード・先頭が最新。ファイル名は日付つき）
+const bannedFileName = () => { const d = new Date(), p2 = n => String(n).padStart(2, '0'); return `jiei-words-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}.txt` }
+ipcMain.handle('bannedExport', async (_e, words) => {
+  const r = await dialog.showSaveDialog(uiWin, { defaultPath: bannedFileName(), filters: [{ name: 'テキスト', extensions: ['txt'] }] })
+  if (r.canceled || !r.filePath) return null
+  fs.writeFileSync(r.filePath, (words.length ? words.join('\n') + '\n' : ''), 'utf8')
+  return words.length
+})
+ipcMain.handle('bannedImport', async () => {
+  const r = await dialog.showOpenDialog(uiWin, { properties: ['openFile'], filters: [{ name: 'テキスト', extensions: ['txt'] }] })
+  if (r.canceled || !r.filePaths[0]) return null
+  let text = fs.readFileSync(r.filePaths[0], 'utf8')
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
+  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(x => x.trim()).filter(Boolean)
+})
 ipcMain.handle('snapshot', () => ({ lobby: state.lobby, profile: state.profile, room: state.room, eq: state.eq, ready: state.ready, patched: state.patched }))
 
 app.whenReady().then(() => {
@@ -81,14 +108,17 @@ app.whenReady().then(() => {
   ses.setPermissionCheckHandler((wc, perm) => ok(wc, perm))
   createEngine()
   createUi()
-  // 開発用：POTALK_SNAP=画像のパス を付けて起動すると、数秒後に画面を保存する（POTALK_SNAP_CMD で、その前に命令も1つ送れる）
-  if (process.env.POTALK_SNAP) {
-    const fs = require('fs')
-    const shot = async (file) => { const img = await uiWin.webContents.capturePage(); fs.writeFileSync(file, img.toPNG()) }
-    setTimeout(() => shot(process.env.POTALK_SNAP).then(() => { if (!process.env.POTALK_SNAP_CMD) app.quit() }), 12000)
-    if (process.env.POTALK_SNAP_CMD) {
-      setTimeout(() => engineWin.webContents.executeJavaScript('window.__pm.cmd(' + process.env.POTALK_SNAP_CMD + ')'), 14000)
-      setTimeout(() => shot(process.env.POTALK_SNAP.replace('.png', '-2.png')).then(() => { engineWin.webContents.executeJavaScript("window.__pm.cmd({type:'leave'})"); setTimeout(() => app.quit(), 4000) }), 30000)
+  // 開発用：POTALK_STEPS='[{"at":ミリ秒,"ui":"JS"|"eng":"JS"|"shot":"画像のパス"|"quit":1}, ...]' を付けて起動すると、順に実行する
+  if (process.env.POTALK_STEPS) {
+    for (const st of JSON.parse(process.env.POTALK_STEPS)) {
+      setTimeout(async () => {
+        try {
+          if (st.ui) await uiWin.webContents.executeJavaScript(st.ui)
+          if (st.eng) await engineWin.webContents.executeJavaScript(st.eng)
+          if (st.shot) fs.writeFileSync(st.shot, (await uiWin.webContents.capturePage()).toPNG())
+        } catch (e) { console.error('[step]', e.message) }
+        if (st.quit) app.quit()
+      }, st.at)
     }
   }
 })
