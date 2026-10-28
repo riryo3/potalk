@@ -82,7 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "singleOn": m.singlePane = true
                 case "singleOff": m.singlePane = false
                 case "tabRoom": m.tab = .room
-                case "tabChat": m.tab = .chat
+                case "tabChat": m.chatDrawer.toggle()
                 case "tabMail": m.tab = .mail
                 case "tabSettings": m.tab = .settings
                 case "openChat": m.openChat()

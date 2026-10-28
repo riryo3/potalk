@@ -18,6 +18,8 @@ struct SinglePaneView: View {
                         content.frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     if model.tab != .room { Divider(); miniBar }
+                    Divider()
+                    chatDrawer
                 }
                 .frame(minWidth: 340, minHeight: 560)
             } else {
@@ -28,6 +30,41 @@ struct SinglePaneView: View {
     }
 
     let handleW: CGFloat = 16
+    @State private var dragStartH: CGFloat? = nil
+
+    /// 窓の下から開くひとこと。見出しを押すと開閉し、開いているときは上の縁をドラッグして高さを変えられる
+    var chatDrawer: some View {
+        VStack(spacing: 0) {
+            if model.chatDrawer {
+                Rectangle().fill(Color.primary.opacity(0.12)).frame(height: 6)
+                    .overlay(Capsule().fill(Color.secondary.opacity(0.6)).frame(width: 36, height: 3))
+                    .contentShape(Rectangle())
+                    .onHover { if $0 { NSCursor.resizeUpDown.push() } else { NSCursor.pop() } }
+                    .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                        .onChanged { g in
+                            let s = dragStartH ?? model.chatH
+                            dragStartH = s
+                            model.chatH = min(480, max(120, s - g.translation.height))
+                        }
+                        .onEnded { _ in dragStartH = nil })
+            }
+            Button { model.chatDrawer.toggle() } label: {
+                let hot = model.unread > 0
+                HStack(spacing: 6) {
+                    Image(systemName: model.chatDrawer ? "chevron.down" : "chevron.up").font(.system(size: 10, weight: .bold))
+                    Text(hot ? "ひとこと 新着 \(model.unread)" : "ひとこと").font(.system(size: 12, weight: hot ? .semibold : .regular))
+                }
+                .foregroundColor(hot ? .black : .secondary)
+                .frame(maxWidth: .infinity).padding(.vertical, 6)
+                .background(hot ? tealColor : Color.clear)
+                .contentShape(Rectangle())
+            }.buttonStyle(.plain).help("ひとことを開く／閉じる（⌘3）")
+            if model.chatDrawer {
+                Divider()
+                ChatView().frame(height: model.chatH)
+            }
+        }
+    }
 
     /// 左端の取っ手。押すと、部屋の一覧が左から出入りする
     var handle: some View {
@@ -46,7 +83,7 @@ struct SinglePaneView: View {
     var tabBar: some View {
         let r = engine.room
         let mailHot = r.mailOpen && model.tab != .mail
-        var tabs: [(String, PaneTab, Bool, Color)] = [("部屋", .room, model.roomHot, tealColor), ("ひとこと", .chat, model.unread > 0, tealColor)]
+        var tabs: [(String, PaneTab, Bool, Color)] = [("部屋", .room, model.roomHot, tealColor)]
         if r.bcast { tabs.append(("おたより", .mail, mailHot, orangeColor)) }
         tabs.append(("設定", .settings, false, tealColor))
         return HStack(spacing: 0) {
@@ -77,7 +114,6 @@ struct SinglePaneView: View {
     @ViewBuilder var content: some View {
         switch model.tab {
         case .room: RoomView(embedded: true)
-        case .chat: ChatView()
         case .mail: MailView()
         case .settings: RoomSettingsView()
         }

@@ -4,7 +4,7 @@ import Combine
 import UserNotifications
 import AVFoundation
 
-enum PaneTab: Hashable { case room, chat, mail, settings }
+enum PaneTab: Hashable { case room, mail, settings }
 
 struct FlyEffect: Identifiable { let id = UUID(); let emoji: String; let who: String; let isSelf: Bool; let dx: CGFloat }
 
@@ -56,9 +56,17 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         didSet {
             guard singlePane else { return }
             if tab == .room { roomHot = false }
-            chatOpen = (tab == .chat); mailOpen = (tab == .mail)
-            if tab == .chat { unread = 0 }
+            mailOpen = (tab == .mail)
         }
+    }
+    /// シングルペインで、窓の下から開くひとことのドロワー。開いている間は新着を既読にする
+    @Published var chatDrawer = false {
+        didSet { chatOpen = chatDrawer; if chatDrawer { unread = 0 } }
+    }
+    @Published var chatH: CGFloat = {
+        let v = UserDefaults.standard.double(forKey: "single.chatH"); return v >= 120 ? CGFloat(v) : 220
+    }() {
+        didSet { UserDefaults.standard.set(Double(chatH), forKey: "single.chatH") }
     }
     /// シングルペインで、左から出す部屋一覧（ドロワー）が開いているか
     @Published var drawerOpen = false {
@@ -437,7 +445,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             roomWin = nil; chatWin = nil; mailWin = nil; letterWin = nil; settingsWin = nil
             tab = .room
         } else {
-            chatOpen = false; mailOpen = false
+            chatDrawer = false; chatOpen = false; mailOpen = false
         }
         buildMainWindow()
         if !singlePane, engine.room.joined { openRoom() }
@@ -451,7 +459,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     /// シングルペインのタブを、前後に移る（おたよりは、配信部屋のときだけ）
     func cycleTab(_ step: Int) {
         guard singlePane, engine.room.joined else { return }
-        var order: [PaneTab] = [.room, .chat]
+        var order: [PaneTab] = [.room]
         if engine.room.bcast { order.append(.mail) }
         order.append(.settings)
         let i = order.firstIndex(of: tab) ?? 0
@@ -483,14 +491,14 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     func togglePin() { pinRoom.toggle(); roomWin?.level = pinRoom ? .floating : .normal; roomWin?.isFloatingPanel = pinRoom }
     func openChat() {
-        if singlePane { tab = .chat; showMain(); return }
+        if singlePane { chatDrawer = true; showMain(); return }
         unread = 0; chatOpen = true
         if let w = chatWin { w.orderFront(nil); return }
         let p = makePanel(title: "ひとこと", size: NSSize(width: 340, height: 460), origin: rightOf(roomWin ?? mainWin, width: 340, height: 460), floating: true, min: NSSize(width: 260, height: 240), save: "win.chat", ChatView())
         chatWin = p; p.orderFront(nil)
     }
     func toggleChat() {
-        if singlePane { tab = (tab == .chat) ? .room : .chat; return }
+        if singlePane { chatDrawer.toggle(); return }
         if let w = chatWin, w.isVisible { w.close() } else { openChat() }
     }
     func openMail() {
@@ -552,7 +560,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     func closeRoomGroup() {
         for w in [roomWin, chatWin, mailWin, letterWin, settingsWin] { if let w { forceClose.insert(ObjectIdentifier(w)); w.close() } }
         roomWin = nil; chatWin = nil; mailWin = nil; letterWin = nil; settingsWin = nil
-        chat = []; past = []; unread = 0; chatOpen = false; mailOpen = false; lastHands = 0; lastLetter = ""; letterDismissed = ""
+        chat = []; past = []; unread = 0; chatDrawer = false; chatOpen = false; mailOpen = false; lastHands = 0; lastLetter = ""; letterDismissed = ""
         tab = .room; roomHot = false
     }
     func requestLeave(from w: NSWindow?) {
