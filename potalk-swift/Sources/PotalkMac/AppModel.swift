@@ -428,7 +428,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let k = uiScale
         let size = singlePane && engine.room.joined ? NSSize(width: 400 * k, height: 720 * k) : NSSize(width: 520 * k, height: 820 * k)
         let w = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
-        w.title = "Potalker（ぽっと通話 非公式クライアント）"
+        w.title = "Potalker"
         let root: AnyView = singlePane ? AnyView(SinglePaneView().uiScaled(self).environmentObject(self).environmentObject(engine))
                                        : AnyView(MainView().environmentObject(self).environmentObject(engine))
         // 窓の最小の大きさは、こちらで決める（SwiftUI側の最小値に任せると、縮めた表示で、幅がなくなってしまう）
@@ -462,13 +462,13 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let right = f.maxX     // 右端を基準に、幅を変える
         f.size.width = min(joined ? roomW : lobbyW, screen.width)
         f.origin.x = right - f.width
-        let minH = minPaneH * uiScale
+        let minH = minFrameSize(w).height
         if joined, resetHeight ? f.height != minH : f.height < minH { f.origin.y += f.height - minH; f.size.height = minH }      // 入室したら、必要な高さ（メンバー4人分くらい）にそろえる
         if f.maxX > screen.maxX { f.origin.x = max(screen.minX, screen.maxX - f.width) }
         if f.minX < screen.minX { f.origin.x = screen.minX }
         if f.minY < screen.minY { f.origin.y = screen.minY }
         if f != w.frame { w.setFrame(f, display: true, animate: true) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.keepOnScreen(w) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.applyMinSize(); self?.keepOnScreen(w) }     // 測り終わったあと、最小の高さを守らせる
     }
     /// 窓が画面の外に出ていたら、画面の中に戻す（大きさが画面より大きければ、収まる大きさにする）
     func keepOnScreen(_ w: NSWindow) {

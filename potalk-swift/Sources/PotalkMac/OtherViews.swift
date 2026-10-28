@@ -10,10 +10,6 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 6) {
-                        if model.chat.isEmpty && model.past.isEmpty {
-                            Text("まだひとことはありません。\n下の欄から送れます。").multilineTextAlignment(.center).foregroundColor(.secondary)
-                                .frame(maxWidth: .infinity).padding(.top, 60)
-                        }
                         ForEach(model.past) { line($0, dim: true) }
                         ForEach(model.chat) { line($0, dim: false) }
                         Color.clear.frame(height: 1).id("end")
