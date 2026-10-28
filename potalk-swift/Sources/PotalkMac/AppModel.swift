@@ -484,27 +484,36 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             let deficit = max(0, screen.minX - (w.frame.minX - drawerW))
             drawerShift = min(deficit, max(0, screen.maxX - w.frame.maxX))
             if drawerShift > 0 { var f = w.frame; f.origin.x += drawerShift; w.setFrame(f, display: true, animate: true) }
-            // 本体の窓の後ろに隠れた細い帯から、左へ伸びて開く（右にはみ出さない）
-            let p = DrawerPanel(contentRect: NSRect(x: w.frame.minX, y: w.frame.minY, width: drawerOverlap, height: w.frame.height),
-                                styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+            // 窓の大きさは最初から最後まで変えず、中身を、本体の窓の左の縁から、マスク（はみ出しを切る）の中へ滑り出させる
+            let full = NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: drawerW + drawerOverlap, height: w.frame.height)
+            let p = DrawerPanel(contentRect: full, styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
             p.titleVisibility = .hidden; p.titlebarAppearsTransparent = true
             for b in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] { p.standardWindowButton(b)?.isHidden = true }
             p.isMovable = false; p.isReleasedWhenClosed = false; p.hidesOnDeactivate = false; p.level = pinSingle ? .floating : .normal
-            p.contentView = NSHostingView(rootView: MainView(embedded: true).uiScaled(self).padding(.trailing, drawerOverlap).background(Color(nsColor: .windowBackgroundColor)).environmentObject(self).environmentObject(engine))
+            p.isOpaque = false; p.backgroundColor = .clear
+            let box = NSView(frame: NSRect(origin: .zero, size: full.size))
+            box.wantsLayer = true; box.layer?.masksToBounds = true; box.autoresizingMask = [.width, .height]
+            let host = NSHostingView(rootView: MainView(embedded: true).uiScaled(self).padding(.trailing, drawerOverlap).background(Color(nsColor: .windowBackgroundColor)).environmentObject(self).environmentObject(engine))
+            host.autoresizingMask = [.width, .height]
+            host.frame = box.bounds.offsetBy(dx: drawerW, dy: 0)
+            box.addSubview(host); p.contentView = box
             p.delegate = self
             w.addChildWindow(p, ordered: .below)
             p.orderFront(nil)
+            NSAnimationContext.runAnimationGroup { c in
+                c.duration = 0.25; c.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                host.animator().frame = box.bounds
+            }
             drawerWin = p
-            p.setFrame(NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: drawerW + drawerOverlap, height: w.frame.height), display: true, animate: true)
         } else {
             guard let p = drawerWin else { return }
             drawerWin = nil
             let main = p.parent
-            let back = NSRect(x: (main?.frame.minX ?? p.frame.maxX - drawerOverlap), y: p.frame.minY, width: drawerOverlap, height: p.frame.height)
+            let host = p.contentView?.subviews.first
             let shift = drawerShift; drawerShift = 0
             NSAnimationContext.runAnimationGroup({ c in
-                c.duration = 0.2
-                p.animator().setFrame(back, display: true)
+                c.duration = 0.2; c.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                if let h = host, let box = h.superview { h.animator().frame = box.bounds.offsetBy(dx: drawerW, dy: 0) }
             }, completionHandler: {
                 MainActor.assumeIsolated {
                     main?.removeChildWindow(p); p.orderOut(nil); p.close()
