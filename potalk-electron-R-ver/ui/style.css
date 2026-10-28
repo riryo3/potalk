@@ -92,6 +92,8 @@ input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in sr
 .actions { display: flex; gap: 8px; padding: 10px 14px 14px; border-top: 1px solid var(--line); }
 .wide { flex: 1; border: 1px solid var(--line); border-radius: 12px; padding: 11px; background: var(--card); font-weight: 600; font-size: 14px; }
 .wide.muted { background: var(--mute-btn); color: #fff; border-color: transparent; }
+.round { flex: none; width: 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); font-size: 17px; }
+.round.on { background: var(--mute-btn); border-color: transparent; }
 .danger { border: 0; border-radius: 12px; padding: 11px 20px; background: var(--leave-btn); color: #fff; font-weight: 600; font-size: 14px; }
 .small { font-size: 12px; }
 .set-row { display: flex; align-items: center; gap: 10px; }

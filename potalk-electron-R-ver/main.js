@@ -47,7 +47,7 @@ function loadEngine(hash = '') {
 const cmd = c => engineWin ? engineWin.webContents.executeJavaScript('window.__pm && window.__pm.cmd(' + JSON.stringify(c) + ')').catch(() => {}) : undefined
 
 // ---- 設定（表示のしかた・表示サイズ）。次に起動したときも、そのまま ----
-const prefs = { mode: 'single', scale: 100 }       // mode: 'single'（ひとつの窓）／'split'（分けた窓）
+const prefs = { mode: 'single', scale: 100, pos: {} }       // mode: 'single'（ひとつの窓）／'split'（分けた窓）。pos: 窓の種類ごとの、前回の位置と大きさ
 const SCALES = [50, 60, 70, 80, 90, 100]
 const prefsFile = () => path.join(app.getPath('userData'), 'settings.json')
 function loadPrefs() {
@@ -55,6 +55,7 @@ function loadPrefs() {
     const j = JSON.parse(fs.readFileSync(prefsFile(), 'utf8'))
     if (j.mode === 'single' || j.mode === 'split') prefs.mode = j.mode
     if (SCALES.includes(j.scale)) prefs.scale = j.scale
+    if (j.pos && typeof j.pos === 'object') prefs.pos = j.pos
   } catch {}
 }
 const savePrefs = () => { try { fs.writeFileSync(prefsFile(), JSON.stringify(prefs)) } catch {} }
@@ -72,28 +73,33 @@ const BASE = {      // 表示サイズ 100% のときの大きさ（w, h）と�
 const TITLE = { single: 'Potalker', lobby: 'Potalker', room: '部屋', chat: 'ひとこと', mail: 'おたより', settings: '設定' }
 const wins = {}
 let pinned = false         // 最前面
+let spkMuted = false       // スピーカーのミュート（橋の spk 命令。部屋を出ても、そのまま）
 let quitting = false
 const mainKind = () => prefs.mode === 'split' ? 'lobby' : 'single'
 const sc = () => prefs.scale / 100
 const allWins = () => Object.values(wins).filter(w => w && !w.isDestroyed())
 const send = (t, d) => { for (const w of allWins()) w.webContents.send('state', { t, d }) }
-const winsState = () => ({ mode: prefs.mode, scale: prefs.scale, pinned, chat: !!wins.chat, mail: !!wins.mail, settings: !!wins.settings })
+const winsState = () => ({ mode: prefs.mode, scale: prefs.scale, pinned, spk: spkMuted, chat: !!wins.chat, mail: !!wins.mail, settings: !!wins.settings })
 const sendWins = () => send('wins', winsState())
 const isJoined = () => !!(state.room && state.room.joined)
 
 function createWin(kind, pos) {
-  const b = BASE[kind], s = sc()
+  const b = BASE[kind], s = sc(), rec = savedBounds(kind)
+  const minW = Math.round(b.mw * s), minH = Math.round(b.mh * s)
   const w = new BrowserWindow({
-    width: Math.round(b.w * s), height: Math.round(b.h * s), minWidth: Math.round(b.mw * s), minHeight: Math.round(b.mh * s),
-    title: TITLE[kind], alwaysOnTop: pinned, ...(pos || {}),
+    width: Math.max(minW, rec && rec.width ? rec.width : Math.round(b.w * s)), height: Math.max(minH, rec && rec.height ? rec.height : Math.round(b.h * s)), minWidth: minW, minHeight: minH,
+    title: TITLE[kind], alwaysOnTop: pinned, icon: path.join(__dirname, 'build', 'icon.png'), ...(pos || (rec ? { x: rec.x, y: rec.y } : {})),
+    autoHideMenuBar: kind !== 'lobby' && kind !== 'single',      // 補助の窓は、メニューを隠す（Alt で出る。Windows・Linux のみ。Mac は、上のメニューバー）
     webPreferences: { preload: path.join(__dirname, 'ui', 'preload.js'), contextIsolation: true, sandbox: true },
   })
   w._kind = kind; wins[kind] = w
+  if (kind !== 'lobby' && kind !== 'single') w.removeMenu()       // 補助の窓には、メニューを付けない（autoHideMenuBar は、GNOME の Ubuntu で隠れなかった。Mac は、窓にメニューを持たないので、変わらない）
   w.on('page-title-updated', e => e.preventDefault())
   w.webContents.on('did-finish-load', () => { if (!w.isDestroyed()) w.webContents.setZoomFactor(sc()) })
   w.loadFile(path.join(__dirname, 'ui', 'index.html'), { query: { w: kind } })
   w.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' } })
-  w.on('move', () => scheduleSnap(w))
+  w.on('move', () => { scheduleSnap(w); schedulePos(w) })
+  w.on('resize', () => schedulePos(w))
   w.on('close', e => onClose(e, w))
   w.on('closed', () => {
     if (wins[kind] !== w) return            // 切り替えで、すでに外した窓
@@ -120,14 +126,32 @@ function onClose(e, w) {
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, Math.max(lo, hi)))
 
+// ---- 窓の位置と大きさの記憶（種類ごと）。画面の外に出てしまう位置は、使わない ----
+function savedBounds(kind) {
+  const r = prefs.pos[kind]
+  if (!r || !Number.isFinite(r.x) || !Number.isFinite(r.y)) return null
+  const ok = screen.getAllDisplays().some(d => { const a = d.workArea; return r.x + 80 < a.x + a.width && r.x + (r.width || 200) - 80 > a.x && r.y >= a.y - 10 && r.y < a.y + a.height - 40 })
+  return ok ? r : null
+}
+function schedulePos(w) {
+  clearTimeout(w._posTimer)
+  w._posTimer = setTimeout(() => {
+    if (w.isDestroyed() || wins[w._kind] !== w) return
+    const b = w.getBounds(), rec = { x: b.x, y: b.y, width: b.width, height: b.height }
+    if (w._kind === 'single') delete rec.height        // ひとことのドロワーで伸びた高さは、覚えない
+    prefs.pos[w._kind] = rec; savePrefs()
+  }, 500)
+}
+
 // 分けた窓を開く。いちばん右の窓の右隣へ（入らなければ、いちばん左の窓の左隣へ）、上の高さをそろえて
 function openAux(kind) {
   if (prefs.mode !== 'split' || !BASE[kind] || kind === 'lobby') return
   if (wins[kind]) { wins[kind].show(); wins[kind].focus(); return wins[kind] }
   const b = BASE[kind], s = sc(), W = Math.round(b.w * s), H = Math.round(b.h * s)
   const others = allWins()
-  let pos
-  if (others.length) {
+  const rec = savedBounds(kind)
+  let pos = rec ? { x: rec.x, y: rec.y } : undefined
+  if (!pos && others.length) {
     const bs = others.map(o => o.getBounds()), wa = screen.getDisplayMatching(bs[0]).workArea
     const right = bs.reduce((a, r) => r.x + r.width > a.x + a.width ? r : a), left = bs.reduce((a, r) => r.x < a.x ? r : a)
     if (right.x + right.width + W <= wa.x + wa.width) pos = { x: right.x + right.width, y: right.y }
@@ -172,6 +196,12 @@ function applyScale(pct) {
   sendWins(); buildMenu()
 }
 
+function toggleSpk() {
+  spkMuted = !spkMuted
+  cmd({ type: 'spk', on: spkMuted })
+  sendWins(); buildMenu()
+}
+
 function togglePin() {
   pinned = !pinned
   for (const w of allWins()) w.setAlwaysOnTop(pinned)
@@ -212,6 +242,7 @@ function onRoom() {
   const j = isJoined()
   if (j === wasJoined) return
   wasJoined = j
+  buildMenu()
   if (!j) { state.chat = []; if (prefs.mode === 'split') closeAux(['room', 'chat', 'mail', 'settings']) }
   else if (prefs.mode === 'split') openAux('room')
 }
@@ -230,6 +261,7 @@ ipcMain.handle('cmd', (_e, c) => { if (typeof c === 'object' && c !== null) retu
 ipcMain.handle('reload', () => loadEngine())
 ipcMain.handle('toggleWin', (_e, kind) => { if (['chat', 'mail', 'settings'].includes(kind)) toggleAux(kind) })
 ipcMain.handle('togglePin', () => togglePin())
+ipcMain.handle('toggleSpk', () => toggleSpk())
 
 // ひとこと用ドロワーの開閉で、窓を、その高さのぶんだけ伸び縮みさせる（上の端は動かさない。下に余地がなければ、窓を上にずらす）
 ipcMain.handle('growBy', (e, dh) => {
@@ -260,6 +292,26 @@ ipcMain.handle('bannedImport', async e => {
 })
 ipcMain.handle('snapshot', () => ({ lobby: state.lobby, profile: state.profile, room: state.room, eq: state.eq, chat: state.chat, wins: winsState(), ready: state.ready, patched: state.patched }))
 
+// ---- メニュー・ショートカットの動作 ----
+const uiTo = (w, a, v) => { if (w && !w.isDestroyed()) { w.show(); w.focus(); w.webContents.send('state', { t: 'ui', d: { a, v } }) } }
+const showMain = () => { const w = wins[mainKind()]; if (w) { w.show(); w.focus() } }
+const showRoom = () => prefs.mode === 'split' ? openAux('room') : uiTo(wins.single, 'tab', 'room')
+const showChat = () => prefs.mode === 'split' ? openAux('chat') : uiTo(wins.single, 'chat')
+const showMail = () => prefs.mode === 'split' ? openAux('mail') : uiTo(wins.single, 'tab', 'mail')
+const showSettings = () => prefs.mode === 'split' ? openAux('settings') : uiTo(wins.single, 'tab', 'settings')
+const showBanned = () => uiTo(wins[mainKind()], 'banned')
+// 窓の並び・大きさを、初期の状態に戻す（開いていた補助の窓は、開き直す）
+function resetLayout() {
+  prefs.pos = {}; savePrefs()
+  const open = ['room', 'chat', 'mail', 'settings'].filter(k => wins[k])
+  closeAux(open)
+  const mw = wins[mainKind()]; if (!mw) return
+  const b = BASE[mainKind()], s = sc(), wa = screen.getDisplayMatching(mw.getBounds()).workArea
+  const W = Math.round(b.w * s), H = Math.min(Math.round(b.h * s), wa.height)
+  mw.setBounds({ x: wa.x + Math.round((wa.width - W) / 2), y: wa.y + Math.round((wa.height - H) / 2), width: W, height: H })
+  for (const k of open) openAux(k)
+}
+
 // 日本語のメニュー（Mac では上のメニューバー、Windows・Linux では窓の上）
 function buildMenu() {
   const mac = process.platform === 'darwin'
@@ -278,7 +330,34 @@ function buildMenu() {
         { role: 'togglefullscreen', label: 'フルスクリーン' },
       ]
     },
-    { label: 'ウインドウ', submenu: [{ role: 'minimize', label: '最小化' }, ...(mac ? [{ role: 'zoom', label: '拡大／縮小' }] : []), { role: 'close', label: '閉じる' }] },
+    {
+      label: '通話', submenu: [
+        { label: 'マイクのミュート', accelerator: 'CmdOrCtrl+Shift+M', enabled: isJoined(), click: () => cmd({ type: 'mute' }) },
+        { label: 'スピーカーのミュート', type: 'checkbox', checked: spkMuted, accelerator: 'CmdOrCtrl+Shift+S', enabled: isJoined(), click: () => toggleSpk() },
+      ]
+    },
+    {
+      label: 'ウインドウ', submenu: [
+        { label: 'メインウインドウ', accelerator: 'CmdOrCtrl+1', click: showMain },
+        { label: prefs.mode === 'split' ? 'ひとつの窓で表示' : '分けた窓で表示', accelerator: 'CmdOrCtrl+Shift+P', click: () => setMode(prefs.mode === 'split' ? 'single' : 'split') },
+        { type: 'separator' },
+        { label: '部屋', accelerator: 'CmdOrCtrl+2', enabled: isJoined(), click: showRoom },
+        { label: 'ひとこと', accelerator: 'CmdOrCtrl+3', enabled: isJoined(), click: showChat },
+        { label: 'おたより', accelerator: 'CmdOrCtrl+4', enabled: isJoined() && !!(state.room && state.room.bcast), click: showMail },
+        { label: '部屋の設定', accelerator: 'CmdOrCtrl+5', enabled: isJoined(), click: showSettings },
+        { type: 'separator' },
+        { label: '次のタブ', accelerator: 'CmdOrCtrl+]', enabled: prefs.mode === 'single' && isJoined(), click: () => uiTo(wins.single, 'cycle', 1) },
+        { label: '前のタブ', accelerator: 'CmdOrCtrl+[', enabled: prefs.mode === 'single' && isJoined(), click: () => uiTo(wins.single, 'cycle', -1) },
+        { type: 'separator' },
+        { label: '自衛ワードの登録…', click: showBanned },
+        { type: 'separator' },
+        { role: 'minimize', label: 'しまう' },
+        ...(mac ? [{ role: 'zoom', label: '拡大／縮小' }] : []),
+        { role: 'close', label: '閉じる' },
+        { type: 'separator' },
+        { label: 'ウインドウのレイアウトを初期化', click: resetLayout },
+      ]
+    },
     { label: 'ヘルプ', submenu: [{ label: '公式サイト（potalk.app）を開く', click: () => shell.openExternal('https://potalk.app/') }, { label: 'GitHub（riryo3/potalk）を開く', click: () => shell.openExternal('https://github.com/riryo3/potalk') }] }
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(t))
@@ -306,6 +385,7 @@ app.whenReady().then(() => {
           if (st.mode) setMode(st.mode)
           if (st.scale) applyScale(st.scale)
           if (st.pm) handlePm(st.pm)
+          if (st.fn) ({ showRoom, showChat, showMail, showSettings, showBanned, showMain, resetLayout, toggleSpk })[st.fn]()
           if (st.open) openAux(st.open)
           if (st.move) wins[st.move.win].setPosition(st.move.x, st.move.y)
           if (st.ui) { const r = await tw().webContents.executeJavaScript(st.ui); if (r !== undefined) console.log('[ui]', JSON.stringify(r)) }

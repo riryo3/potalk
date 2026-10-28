@@ -160,6 +160,15 @@ function renderWinBtns() {
   m.hidden = !S.room.bcast; m.classList.toggle('hot-orange', mh); m.classList.toggle('on', !!S.wins.mail)
   $('btnSetWin').classList.toggle('on', !!S.wins.settings)
 }
+function renderSpk() { const b = $('btnSpk'), on = !!S.wins.spk; b.classList.toggle('on', on); b.replaceChildren(el('span', 'emoji', on ? '🔇' : '🔊')) }
+// メニュー・ショートカットからの操作（ひとつの窓のタブ・ひとこと、自衛ワードの登録）
+function uiAction({ a, v }) {
+  if (a === 'banned') return openBanned()
+  if (KIND !== 'single' || !S.room || !S.room.joined) return
+  if (a === 'tab') { if (v === 'mail' && !S.room.bcast) return; S.tab = v; renderTabs() }
+  else if (a === 'chat') setChatOpen(!S.chatOpen)
+  else if (a === 'cycle') { const tabs = ['room', ...(S.room.bcast ? ['mail'] : []), 'settings']; const i = Math.max(0, tabs.indexOf(S.tab)); S.tab = tabs[(i + v + tabs.length) % tabs.length]; renderTabs() }
+}
 function renderPin() { for (const id of ['btnPin', 'btnPin2']) $(id).classList.toggle('on', !!S.wins.pinned) }
 
 function renderTabs() {
@@ -272,7 +281,7 @@ function render() {
   const joined = !!(S.room && S.room.joined)
   if (S.wasJoined && !joined) { S.chat = []; S.unread = 0; S.warned.clear(); if (KIND === 'single') S.tab = 'room'; if (S.chatOpen) setChatOpen(false) }
   S.wasJoined = joined
-  renderPin()
+  renderPin(); renderSpk()
   if (KIND === 'lobby') { $('lobby').hidden = false; $('room').hidden = true; renderLobby(); return }
   $('lobby').hidden = KIND !== 'single' || joined; $('room').hidden = !joined
   if (!joined) { if (KIND === 'single') renderLobby(); return }
@@ -285,6 +294,7 @@ function render() {
 
 window.potalk.onState(({ t, d }) => {
   if (t === 'eq') { S.eq = d || ''; if (S.room && S.room.joined) renderEq(S.eq); return }
+  if (t === 'ui') { uiAction(d || {}); return }
   if (t === 'wins') { const was = S.wins.chat; S.wins = d || {}; if (S.wins.chat && !was) S.unread = 0; render(); return }
   if (t === 'chat' && d) { S.chat.push(d); if (!d.sys && !d.hist && !chatVisible()) S.unread++; if (S.room && S.room.joined && (KIND === 'single' || KIND === 'chat' || KIND === 'room')) renderChat(); return }
   if (!['lobby', 'profile', 'room'].includes(t)) return
@@ -307,6 +317,7 @@ $('btnRetry').onclick = () => window.potalk.cmd({ type: 'reconnect' })
 $('btnMute').onclick = () => window.potalk.cmd({ type: 'mute' })
 $('btnLeave').onclick = () => window.potalk.cmd({ type: 'leave' })
 $('btnPin').onclick = $('btnPin2').onclick = () => window.potalk.togglePin()
+$('btnSpk').onclick = () => window.potalk.toggleSpk()
 $('btnChatWin').onclick = () => window.potalk.toggleWin('chat')
 $('btnMailWin').onclick = () => window.potalk.toggleWin('mail')
 $('btnSetWin').onclick = () => window.potalk.toggleWin('settings')

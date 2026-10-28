@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('potalk', {
   growBy: dh => ipcRenderer.invoke('growBy', dh),
   toggleWin: k => ipcRenderer.invoke('toggleWin', k),
   togglePin: () => ipcRenderer.invoke('togglePin'),
+  toggleSpk: () => ipcRenderer.invoke('toggleSpk'),
   notify: (t, b) => ipcRenderer.invoke('notify', t, b),
   bannedExport: w => ipcRenderer.invoke('bannedExport', w),
   bannedImport: () => ipcRenderer.invoke('bannedImport'),
