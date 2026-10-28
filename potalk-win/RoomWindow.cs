@@ -20,7 +20,7 @@ public sealed class RoomWindow : Window
     readonly System.Windows.Controls.Primitives.UniformGrid eq = new() { Rows = 1, Height = 26, Margin = new Thickness(10, 2, 10, 2) };
     readonly StackPanel legend = new() { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
     readonly Border mailBanner, tagRow;
-    readonly Button pin, tagBtn, chatBtn, mailBtn, muteBtn, shareBtn, leaveBtn;
+    readonly Button pin, tagBtn, chatBtn, mailBtn, muteBtn, shareBtn, leaveBtn, spkBtn;
     readonly TextBox tagInput = Ui.Input("", 30);
     readonly StackPanel members = new() { Margin = new Thickness(10, 6, 10, 6) }, reactions = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 8, 0, 8) };
     readonly Grid root = new();
@@ -73,7 +73,11 @@ public sealed class RoomWindow : Window
         var row3 = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Margin = new Thickness(0, 6, 0, 0) };
         shareBtn.Margin = new Thickness(0, 0, 3, 0); leaveBtn.Margin = new Thickness(3, 0, 0, 0); row3.Children.Add(shareBtn); row3.Children.Add(leaveBtn);
         var actions = new StackPanel { Margin = new Thickness(10, 0, 10, 12) };
-        actions.Children.Add(row1); actions.Children.Add(muteBtn); actions.Children.Add(row3);
+        spkBtn = Ui.Btn("🔈", M.ToggleSpeaker, size: 15, bold: true); spkBtn.Padding = new Thickness(12, 5, 12, 5); spkBtn.Margin = new Thickness(6, 0, 0, 0);
+        void SyncSpk() { spkBtn.Content = M.SpeakerMuted ? "🔇" : "🔈"; spkBtn.Background = M.SpeakerMuted ? Ui.Orange : Ui.Chip; spkBtn.Foreground = M.SpeakerMuted ? Ui.White : Ui.Fg; spkBtn.ToolTip = M.SpeakerMuted ? "スピーカーのミュートを解除" : "スピーカーをミュート"; }
+        M.SpeakerChanged += SyncSpk; Closed += (_, _) => M.SpeakerChanged -= SyncSpk; SyncSpk();
+        var muteRow = new DockPanel(); DockPanel.SetDock(spkBtn, Dock.Right); muteRow.Children.Add(spkBtn); muteRow.Children.Add(muteBtn);
+        actions.Children.Add(row1); actions.Children.Add(muteRow); actions.Children.Add(row3);
 
         var bottom = new StackPanel();
         BuildLegend(false);

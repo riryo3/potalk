@@ -22,7 +22,7 @@ public sealed class PaneView : UserControl
     readonly Border handle;
     readonly Border miniBar;
     readonly TextBlock speaking = Ui.Txt("", 12, Ui.Dim);
-    readonly Button mute, leave, pin;
+    readonly Button mute, leave, pin, spk;
     readonly Grid body = new();
     Action muteAction = () => { };
     bool drawerShown;
@@ -48,8 +48,11 @@ public sealed class PaneView : UserControl
         mute = Ui.Btn("", () => muteAction(), size: 12, bold: true); mute.Width = 130; mute.Margin = new Thickness(8, 0, 8, 0);
         leave = Ui.Btn("🚪 退出", () => M.RequestLeave(Window.GetWindow(this) ?? M.Main), Ui.Red, Ui.White, 12, true); leave.Width = 80;
         var mb = new DockPanel { Margin = new Thickness(12, 8, 12, 8) };
-        DockPanel.SetDock(leave, Dock.Right); DockPanel.SetDock(mute, Dock.Right);
-        mb.Children.Add(leave); mb.Children.Add(mute); mb.Children.Add(speaking);
+        spk = Ui.Btn("🔈", M.ToggleSpeaker, size: 12, bold: true); spk.Width = 36;
+        void SyncSpk() { spk.Content = M.SpeakerMuted ? "🔇" : "🔈"; spk.Background = M.SpeakerMuted ? Ui.Orange : Ui.Chip; spk.Foreground = M.SpeakerMuted ? Ui.White : Ui.Fg; spk.ToolTip = M.SpeakerMuted ? "スピーカーのミュートを解除" : "スピーカーをミュート"; }
+        M.SpeakerChanged += SyncSpk; Unloaded += (_, _) => M.SpeakerChanged -= SyncSpk; Loaded += (_, _) => { M.SpeakerChanged -= SyncSpk; M.SpeakerChanged += SyncSpk; SyncSpk(); };
+        DockPanel.SetDock(leave, Dock.Right); DockPanel.SetDock(mute, Dock.Right); DockPanel.SetDock(spk, Dock.Right);
+        mb.Children.Add(leave); mb.Children.Add(mute); mb.Children.Add(spk); mb.Children.Add(speaking);
         miniBar = new Border { Child = mb, BorderBrush = Ui.Line, BorderThickness = new Thickness(0, 1, 0, 0), Visibility = Visibility.Collapsed };
 
         pin = Ui.Btn("📌", M.TogglePinSingle, Brushes.Transparent, size: 12); pin.BorderThickness = new Thickness(0); pin.ToolTip = "最前面にする／しない"; pin.Padding = new Thickness(6, 4, 6, 4);

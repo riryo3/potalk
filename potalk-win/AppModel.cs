@@ -138,7 +138,7 @@ public sealed class AppModel
         E.OnCards += CardsChanged;
         // 読み込み直し（つなぎ直し・マイクの入り直しなど）のたびに、数秒のあいだは、新しい部屋の通知を出さない。
         // そのあいだに見えた部屋は「見た部屋」に入るので、あとから「新しい部屋」として通知されることもない
-        E.OnReloading += () => Quiet(null);
+        E.OnReloading += () => { Quiet(null); ResetSpeaker(); };
         E.OnReady += () =>
         {
             E.Cmd(new { type = "setMicLabel", label = S.MicLabel });
@@ -186,6 +186,16 @@ public sealed class AppModel
         ChatChanged?.Invoke(); PaneChanged?.Invoke();
     }
 
+    /// <summary>スピーカー（聞こえてくる音）のミュート。ページを読み込み直すと解ける。</summary>
+    public bool SpeakerMuted { get; private set; }
+    public event Action SpeakerChanged;
+    public void ToggleSpeaker()
+    {
+        if (!E.Joined) return;
+        SpeakerMuted = !SpeakerMuted; E.Cmd(new { type = "spk", on = SpeakerMuted }); SpeakerChanged?.Invoke();
+    }
+    void ResetSpeaker() { if (SpeakerMuted) { SpeakerMuted = false; SpeakerChanged?.Invoke(); } }
+
     string lastRid = "";
     void RoomChanged()
     {
@@ -206,7 +216,7 @@ public sealed class AppModel
             else CloseRoomGroup();
             Main?.ApplyMode();
         }
-        if (!joined) return;
+        if (!joined) { if (SpeakerMuted) { SpeakerMuted = false; E.Cmd(new { type = "spk", on = false }); SpeakerChanged?.Invoke(); } return; }
         if (S.SinglePane && (r.P("card").Has() || r.P("ignoreAsk").Has())) Tab = PaneTab.Room;
         // 雑談部屋に、新しい人が入ったら、「部屋」のタブに色をつける（入室して数秒は、もとからいた人なので、数えない）
         var ids = new HashSet<string>(r.A("members").Select(x => $"{x.S("em")}|{x.S("name")}|{x.B("you")}"));

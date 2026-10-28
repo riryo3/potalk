@@ -157,11 +157,21 @@
       // ---- 小窓などからの操作 ----
       const click = el => { if (el) el.click(); };
       const rowAt = i => document.querySelectorAll('#members .member')[i | 0];
+      // スピーカーのミュート（ページの音量の設定には触らない＝保存されない）。
+      // ページが後から作る・戻す音の要素にも効くよう、ミュート中は 100ms ごとにかけ直す。解除では、こちらがミュートにした要素だけを戻す
+      const spk = { on: false, ours: new WeakSet(), timer: 0 };
+      const spkApply = () => document.querySelectorAll('audio,video').forEach(e => { if (!e.muted) { e.muted = true; spk.ours.add(e); } });
+      const spkSet = on => {
+        spk.on = !!on;
+        if (spk.on) { spkApply(); if (!spk.timer) spk.timer = setInterval(spkApply, 100); }
+        else { clearInterval(spk.timer); spk.timer = 0; document.querySelectorAll('audio,video').forEach(e => { if (spk.ours.has(e)) { e.muted = false; spk.ours.delete(e); } }); }
+      };
       window.__pm = {
         react: (u, i, e, n) => post('react', { u: String(u), i: i, e: e, n: n || '' }),
         cmd: (c) => {
           switch (c.type) {
             case 'mute': click($('mute')); break;
+            case 'spk': spkSet(c.on); break;
             case 'react': click(document.querySelectorAll('#reactions button')[c.i | 0]); break;
             case 'leave': click($('leave')); setTimeout(() => click($('leaveYes')), 80); break;
             case 'grant': click(rowAt(c.i) && rowAt(c.i).querySelector('.m-mic')); break;
