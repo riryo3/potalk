@@ -52,13 +52,14 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             guard oldValue != scalePct, singlePane else { return }
             let r = CGFloat(scalePct) / CGFloat(oldValue)
             drawerOpen = false
-            roomW *= r; lobbyW *= r
+            roomW *= r; lobbyW *= r; chatGrown *= r
             if let w = mainWin {
                 var f = w.frame; let h = f.height * r
                 f.origin.y += f.height - h; f.size.height = h
                 w.setFrame(f, display: true)
             }
             fitSingleFrame(joined: engine.room.joined)
+            syncChatGrow()
         }
     }
     var uiScale: CGFloat { singlePane ? CGFloat(scalePct) / 100 : 1 }
@@ -83,12 +84,36 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     /// シングルペインで、窓の下から開くひとことのドロワー。開いている間は新着を既読にする
     @Published var chatDrawer = false {
-        didSet { chatOpen = chatDrawer; if chatDrawer { unread = 0 } }
+        didSet { chatOpen = chatDrawer; if chatDrawer { unread = 0 }; syncChatGrow() }
     }
     @Published var chatH: CGFloat = {
-        let v = UserDefaults.standard.double(forKey: "single.chatH"); return v >= 120 ? CGFloat(v) : 220
+        let v = UserDefaults.standard.double(forKey: "single.chatH"); return v >= 60 ? CGFloat(v) : 220
     }() {
-        didSet { UserDefaults.standard.set(Double(chatH), forKey: "single.chatH") }
+        didSet { UserDefaults.standard.set(Double(chatH), forKey: "single.chatH"); if chatDrawer { syncChatGrow() } }
+    }
+    /// 画面の下に余地がなくて、窓を伸ばしきれなかったときの、ひとことの高さの上限
+    @Published var chatCap: CGFloat = .infinity
+    private var chatGrown: CGFloat = 0     // ひとこと用に、窓を下へ伸ばしているぶん
+    /// ひとことのドロワーの高さのぶんだけ、窓を下に伸ばす（上の部屋の画面は、大きさも位置も変えない）。閉じたら戻す。
+    /// 画面の下に余地がなければ、窓を上にずらし、それでも足りなければ、ひとことのほうを縮める
+    func syncChatGrow() {
+        guard singlePane, engine.room.joined, let w = mainWin else { chatGrown = 0; chatCap = .infinity; return }
+        let want: CGFloat = chatDrawer ? ((chatH + 7) * uiScale).rounded() : 0
+        var f = w.frame
+        var delta = want - chatGrown
+        if delta > 0 {
+            let v = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+            let below = max(0, f.minY - v.minY), up = max(0, v.maxY - f.maxY)
+            delta = min(delta, below + up)
+            f.origin.y += max(0, delta - below)
+        }
+        if delta != 0 {
+            f.origin.y -= delta; f.size.height += delta
+            w.setFrame(f, display: true)
+            chatGrown += delta
+        }
+        let cap: CGFloat = chatGrown < want ? max(60, chatGrown / uiScale - 7) : .infinity
+        if cap != chatCap { chatCap = cap }
     }
     /// シングルペインで、左から出す部屋一覧（ドロワー）が開いているか
     @Published var drawerOpen = false {

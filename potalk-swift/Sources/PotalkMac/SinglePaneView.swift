@@ -22,7 +22,6 @@ struct SinglePaneView: View {
                     chatDrawer
                 }
                 .frame(minWidth: 340, minHeight: 560)
-                .background(GeometryReader { g in Color.clear.onAppear { paneH = g.size.height }.onChange(of: g.size.height) { _, h in paneH = h } })
             } else {
                 MainView()      // 入室前は、複数ウインドウの本体と同じ縦長の一覧
             }
@@ -32,10 +31,7 @@ struct SinglePaneView: View {
 
     let handleW: CGFloat = 16
     @State private var dragStartH: CGFloat? = nil
-    @State private var paneH: CGFloat = 700          // この窓の、縮める前の高さ（ひとことの高さの上限を決める）
-    /// 上の部屋の画面に、これだけは残す高さ。ひとことは、窓の大きさを変えず、残りの中で比率を変える
-    var maxChatH: CGFloat { max(60, paneH - 340) }
-    var shownChatH: CGFloat { min(model.chatH, maxChatH) }
+    var shownChatH: CGFloat { min(model.chatH, model.chatCap) }
 
     /// 窓の下から開くひとこと。見出しを押すと開閉し、開いているときは上の縁をドラッグして高さを変えられる
     var chatDrawer: some View {
@@ -49,7 +45,7 @@ struct SinglePaneView: View {
                         .onChanged { g in
                             let s = dragStartH ?? model.chatH
                             dragStartH = s
-                            model.chatH = min(maxChatH, max(60, s - g.translation.height / model.uiScale))
+                            model.chatH = min(480, max(60, s - g.translation.height / model.uiScale))
                         }
                         .onEnded { _ in dragStartH = nil })
             }
