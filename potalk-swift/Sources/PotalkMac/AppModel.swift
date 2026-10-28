@@ -52,14 +52,13 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             guard oldValue != scalePct, singlePane else { return }
             let r = CGFloat(scalePct) / CGFloat(oldValue)
             drawerOpen = false
-            roomW *= r; lobbyW *= r; chatExtra *= r
+            roomW *= r; lobbyW *= r
             if let w = mainWin {
                 var f = w.frame; let h = f.height * r
                 f.origin.y += f.height - h; f.size.height = h
                 w.setFrame(f, display: true)
             }
             fitSingleFrame(joined: engine.room.joined)
-            applyChatExtra()
         }
     }
     var uiScale: CGFloat { singlePane ? CGFloat(scalePct) / 100 : 1 }
@@ -84,37 +83,12 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     /// シングルペインで、窓の下から開くひとことのドロワー。開いている間は新着を既読にする
     @Published var chatDrawer = false {
-        didSet { chatOpen = chatDrawer; if chatDrawer { unread = 0 }; applyChatExtra() }
-    }
-    /// ひとこと用ドロワーの分だけ、窓を下に伸ばしている高さ（部屋の画面を潰さないため）
-    @Published var chatExtra: CGFloat = 0
-    /// 実際に出せたぶんの高さ（画面の下に余地がないと、wantより小さくなる）
-    var chatShownH: CGFloat { chatExtra > 0 ? max(60, chatExtra / uiScale - 7) : chatH }
-    func applyChatExtra() {
-        guard singlePane, let w = mainWin else { return }
-        let want: CGFloat = (chatDrawer && engine.room.joined) ? ((chatH + 7) * uiScale).rounded() : 0
-        let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        var f = w.frame
-        var delta = want - chatExtra
-        if delta > 0 {
-            // 下に余地がなければ、窓を上にずらして伸ばす（上の端が画面を越えない範囲で）
-            let below = max(0, f.minY - screen.minY)
-            let up = max(0, screen.maxY - f.maxY)
-            let shortage = max(0, delta - below)
-            let shift = min(shortage, up)
-            delta = min(delta, below + shift)
-            f.origin.y += shift
-        }
-        chatExtra += delta
-        w.contentMinSize = NSSize(width: 340 * uiScale, height: (engine.room.joined ? 560 : 420) * uiScale + chatExtra)
-        guard delta != 0 || f != w.frame else { return }
-        f.size.height += delta; f.origin.y -= delta
-        w.setFrame(f, display: true)
+        didSet { chatOpen = chatDrawer; if chatDrawer { unread = 0 } }
     }
     @Published var chatH: CGFloat = {
         let v = UserDefaults.standard.double(forKey: "single.chatH"); return v >= 120 ? CGFloat(v) : 220
     }() {
-        didSet { UserDefaults.standard.set(Double(chatH), forKey: "single.chatH"); if chatDrawer { applyChatExtra() } }
+        didSet { UserDefaults.standard.set(Double(chatH), forKey: "single.chatH") }
     }
     /// シングルペインで、左から出す部屋一覧（ドロワー）が開いているか
     @Published var drawerOpen = false {
@@ -413,6 +387,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         w.center(); w.setFrameAutosaveName(singlePane ? "win.single" : "win.main"); w.makeKeyAndOrderFront(nil)
         mainWin = w
         fitSingleFrame(joined: engine.room.joined)
+        keepOnScreen(w)
     }
     /// シングルペインの窓の幅。入室前（縦長の一覧）と、入室中（部屋の小窓くらい）で、別々に覚える
     private var lobbyW: CGFloat {
@@ -426,8 +401,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     /// シングルペイン：入室前は縦長の一覧、入室したら部屋の小窓くらいの幅にする。右端と上端の位置は動かさない
     func fitSingleFrame(joined: Bool) {
         guard singlePane, let w = mainWin else { return }
-        if !joined, chatExtra != 0 { chatDrawer = false }
-        w.contentMinSize = joined ? NSSize(width: 340 * uiScale, height: 560 * uiScale + chatExtra) : NSSize(width: 360 * uiScale, height: 420 * uiScale)
+        if !joined { chatDrawer = false }
+        w.contentMinSize = joined ? NSSize(width: 340 * uiScale, height: 560 * uiScale) : NSSize(width: 360 * uiScale, height: 420 * uiScale)
         var f = w.frame
         let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let right = f.maxX     // 右端を基準に、幅を変える
@@ -439,6 +414,21 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if f.minX < screen.minX { f.origin.x = screen.minX }
         if f.minY < screen.minY { f.origin.y = screen.minY }
         if f != w.frame { w.setFrame(f, display: true, animate: true) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.keepOnScreen(w) }
+    }
+    /// 窓が画面の外に出ていたら、画面の中に戻す（大きさが画面より大きければ、収まる大きさにする）
+    func keepOnScreen(_ w: NSWindow) {
+        guard w.isVisible else { return }
+        let f = w.frame
+        let screen = NSScreen.screens.max { $0.visibleFrame.intersection(f).width * $0.visibleFrame.intersection(f).height < $1.visibleFrame.intersection(f).width * $1.visibleFrame.intersection(f).height }
+        guard let v = (screen ?? NSScreen.main)?.visibleFrame else { return }
+        var g = f
+        g.size.width = min(g.width, v.width); g.size.height = min(g.height, v.height)
+        if g.maxX > v.maxX { g.origin.x = v.maxX - g.width }
+        if g.minX < v.minX { g.origin.x = v.minX }
+        if g.maxY > v.maxY { g.origin.y = v.maxY - g.height }
+        if g.minY < v.minY { g.origin.y = v.minY }
+        if g != f { w.setFrame(g, display: true) }
     }
     /// 部屋一覧のドロワー：本体の窓の左に、窓の後ろからすべり出る（窓の大きさは変えない）。閉じると、すべって戻る
     func applyDrawer() {
