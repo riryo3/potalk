@@ -50,8 +50,13 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }() {
         didSet {
             UserDefaults.standard.set(scalePct, forKey: "single.scalePct")
-            guard oldValue != scalePct, singlePane else { return }
+            guard oldValue != scalePct else { return }
             let r = CGFloat(scalePct) / CGFloat(oldValue)
+            scaleAuxWindows(by: r)
+            guard singlePane else {
+                if let w = mainWin { scaleWindow(w, by: r); w.contentMinSize = NSSize(width: 360 * uiScale, height: 420 * uiScale) }
+                return
+            }
             drawerOpen = false
             roomW *= r; lobbyW *= r; chatGrown *= r
             if let w = mainWin {
@@ -63,7 +68,25 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             syncChatGrow()
         }
     }
-    var uiScale: CGFloat { singlePane ? CGFloat(scalePct) / 100 : 1 }
+    var uiScale: CGFloat { CGFloat(scalePct) / 100 }
+    /// 窓の左上を動かさずに、大きさと最小の大きさを r 倍する
+    func scaleWindow(_ w: NSWindow, by r: CGFloat) {
+        let c = w.contentRect(forFrameRect: w.frame).size
+        var f = w.frameRect(forContentRect: NSRect(origin: .zero, size: NSSize(width: c.width * r, height: c.height * r)))
+        f.origin = NSPoint(x: w.frame.minX, y: w.frame.maxY - f.height)
+        w.contentMinSize = NSSize(width: w.contentMinSize.width * r, height: w.contentMinSize.height * r)
+        w.setFrame(f, display: true)
+    }
+    /// 本体以外の窓（小窓・設定・自衛ワードなど）の大きさを、表示サイズの変更に合わせる
+    func scaleAuxWindows(by r: CGFloat) {
+        for w in [roomWin, chatWin, mailWin, settingsWin, letterWin, bannedWin, profileWin, helpWin, cardEditWin, cardAuthWin].compactMap({ $0 }) { scaleWindow(w, by: r) }
+    }
+    /// 中身を表示サイズに合わせて縮めて載せる。窓の最小の大きさは、こちらで決める
+    func hosting<V: View>(_ v: V) -> NSHostingView<AnyView> {
+        let hv = NSHostingView(rootView: AnyView(v.uiScaled(self)))
+        hv.sizingOptions = []
+        return hv
+    }
     /// 1つの窓にまとめて使うモード（初期設定のスイッチ）
     @Published var singlePane: Bool {
         didSet {
@@ -326,16 +349,16 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
 
     private func cardsChanged(_ c: CardsState) {
         if c.edit != nil, cardEditWin == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 740), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500 * uiScale, height: 740 * uiScale), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             w.title = "名刺の設定"; w.isReleasedWhenClosed = false
-            w.contentView = NSHostingView(rootView: CardEditView().environmentObject(self).environmentObject(engine))
-            w.contentMinSize = NSSize(width: 460, height: 520)
+            w.contentView = hosting(CardEditView().environmentObject(self).environmentObject(engine))
+            w.contentMinSize = NSSize(width: 460 * uiScale, height: 520 * uiScale)
             w.delegate = self; w.center(); w.setFrameAutosaveName("win.cardedit"); w.makeKeyAndOrderFront(nil); cardEditWin = w
         } else if c.edit == nil, let w = cardEditWin { cardEditWin = nil; w.close() }
         if c.auth != nil, cardAuthWin == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 520), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460 * uiScale, height: 520 * uiScale), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             w.title = "本人確認"; w.isReleasedWhenClosed = false; w.level = .floating
-            w.contentView = NSHostingView(rootView: CardAuthView().environmentObject(self).environmentObject(engine))
+            w.contentView = hosting(CardAuthView().environmentObject(self).environmentObject(engine))
             w.delegate = self; w.center(); w.setFrameAutosaveName("win.cardauth"); w.makeKeyAndOrderFront(nil); cardAuthWin = w
         } else if c.auth == nil, let w = cardAuthWin { cardAuthWin = nil; w.close() }
     }
@@ -448,15 +471,16 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
 
     // MARK: ウィンドウ
     func makePanel<V: View>(title: String, size: NSSize, origin: NSPoint, floating: Bool, min: NSSize? = nil, save: String? = nil, _ view: V) -> NSPanel {
-        let p = NSPanel(contentRect: NSRect(origin: origin, size: size), styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
+        let k = uiScale      // size・min・origin は、100%のときの値で受け取り、ここで表示サイズをかける
+        let p = NSPanel(contentRect: NSRect(origin: origin, size: NSSize(width: size.width * k, height: size.height * k)), styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
         p.title = title
-        p.contentView = NSHostingView(rootView: view.environmentObject(self).environmentObject(engine))
+        p.contentView = hosting(view.environmentObject(self).environmentObject(engine))
         p.isReleasedWhenClosed = false
         p.isFloatingPanel = floating
         if floating { p.level = .floating }
         p.hidesOnDeactivate = false
         p.becomesKeyOnlyIfNeeded = true
-        if let m = min { p.contentMinSize = m }
+        if let m = min { p.contentMinSize = NSSize(width: m.width * k, height: m.height * k) }
         p.delegate = self
         if let save { p.setFrameAutosaveName(save) }   // 前回の位置と大きさを覚える（保存があれば、ここで戻る）
         return p
@@ -478,7 +502,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let w = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
         w.title = "Potalker"
         let root: AnyView = singlePane ? AnyView(SinglePaneView().uiScaled(self).environmentObject(self).environmentObject(engine))
-                                       : AnyView(MainView().environmentObject(self).environmentObject(engine))
+                                       : AnyView(MainView().uiScaled(self).environmentObject(self).environmentObject(engine))
         // 窓の最小の大きさは、こちらで決める（SwiftUI側の最小値に任せると、縮めた表示で、幅がなくなってしまう）
         let hv = NSHostingView(rootView: root)
         hv.sizingOptions = []
@@ -655,9 +679,9 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     func openRoom() {
         if singlePane { tab = .room; showMain(); return }
         if let w = roomWin { w.orderFront(nil); return }
-        let size = NSSize(width: 360, height: 700)
-        let h = min(size.height, (mainWin?.screen ?? NSScreen.main)?.visibleFrame.height ?? 700)
-        let p = makePanel(title: "部屋", size: NSSize(width: 360, height: h), origin: rightOf(mainWin, width: 360, height: h), floating: pinRoom, min: NSSize(width: 320, height: 640), save: "win.room", RoomView())
+        let k = uiScale
+        let h = min(700, ((mainWin?.screen ?? NSScreen.main)?.visibleFrame.height ?? 700) / k)
+        let p = makePanel(title: "部屋", size: NSSize(width: 360, height: h), origin: rightOf(mainWin, width: 360 * k, height: h * k), floating: pinRoom, min: NSSize(width: 320, height: 640), save: "win.room", RoomView())
         roomWin = p; p.orderFront(nil)
         alignToNeighbors(p)
     }
@@ -695,7 +719,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if singlePane { chatDrawer = true; showMain(); return }
         unread = 0; chatOpen = true
         if let w = chatWin { w.orderFront(nil); return }
-        let p = makePanel(title: "ひとこと", size: NSSize(width: 340, height: 460), origin: rightOf(roomWin ?? mainWin, width: 340, height: 460), floating: true, min: NSSize(width: 260, height: 240), save: "win.chat", ChatView())
+        let p = makePanel(title: "ひとこと", size: NSSize(width: 340, height: 460), origin: rightOf(roomWin ?? mainWin, width: 340 * uiScale, height: 460 * uiScale), floating: true, min: NSSize(width: 260, height: 240), save: "win.chat", ChatView())
         chatWin = p; p.orderFront(nil)
         alignToNeighbors(p)
     }
@@ -707,21 +731,21 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if singlePane { if engine.room.bcast { tab = .mail; showMain() }; return }
         mailOpen = true
         if let w = mailWin { w.orderFront(nil); return }
-        let p = makePanel(title: "おたより", size: NSSize(width: 360, height: 480), origin: rightOf(roomWin ?? mainWin, width: 360, height: 480, dy: 40), floating: true, min: NSSize(width: 300, height: 280), save: "win.mail", MailView())
+        let p = makePanel(title: "おたより", size: NSSize(width: 360, height: 480), origin: rightOf(roomWin ?? mainWin, width: 360 * uiScale, height: 480 * uiScale, dy: 40 * uiScale), floating: true, min: NSSize(width: 300, height: 280), save: "win.mail", MailView())
         mailWin = p; p.orderFront(nil)
         alignToNeighbors(p)
     }
     func openLetter() {
         let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let s = NSSize(width: 440, height: 250)
-        let p = makePanel(title: "公開中のお便り", size: s, origin: NSPoint(x: screen.midX - s.width / 2, y: screen.maxY - s.height - 60), floating: true, min: NSSize(width: 300, height: 160), save: "win.letter", LetterView())
+        let p = makePanel(title: "公開中のお便り", size: s, origin: NSPoint(x: screen.midX - s.width * uiScale / 2, y: screen.maxY - s.height * uiScale - 60), floating: true, min: NSSize(width: 300, height: 160), save: "win.letter", LetterView())
         letterWin = p; p.orderFront(nil)
     }
     func openSettings() {
         if singlePane { tab = .settings; showMain(); return }
         if let w = settingsWin { w.orderFront(nil); return }
-        let p = makePanel(title: "部屋の設定", size: NSSize(width: 340, height: 460), origin: rightOf(roomWin, width: 340, height: 460), floating: true, min: NSSize(width: 280, height: 240), RoomSettingsView())
-        if let rf = roomWin?.frame { p.setFrameOrigin(NSPoint(x: max(0, rf.minX - 348), y: rf.maxY - 460)) }
+        let p = makePanel(title: "部屋の設定", size: NSSize(width: 340, height: 460), origin: rightOf(roomWin, width: 340 * uiScale, height: 460 * uiScale), floating: true, min: NSSize(width: 280, height: 240), RoomSettingsView())
+        if let rf = roomWin?.frame { p.setFrameOrigin(NSPoint(x: max(0, rf.minX - 340 * uiScale - 8), y: rf.maxY - 460 * uiScale)) }
         p.setFrameAutosaveName("win.settings")
         settingsWin = p; p.orderFront(nil)
         alignToNeighbors(p)
@@ -765,24 +789,24 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     func openBanned() {
         if let w = bannedWin { w.makeKeyAndOrderFront(nil); return }
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 460), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400 * uiScale, height: 460 * uiScale), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         w.title = "自衛ワード"; w.isReleasedWhenClosed = false
-        w.contentView = NSHostingView(rootView: BannedWordsView().environmentObject(self))
-        w.contentMinSize = NSSize(width: 320, height: 300)
+        w.contentView = hosting(BannedWordsView().environmentObject(self))
+        w.contentMinSize = NSSize(width: 320 * uiScale, height: 300 * uiScale)
         w.center(); w.setFrameAutosaveName("win.banned"); w.delegate = self; bannedWin = w; w.makeKeyAndOrderFront(nil)
     }
     func openProfile() {
         if let w = profileWin { w.makeKeyAndOrderFront(nil); return }
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 600), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420 * uiScale, height: 600 * uiScale), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.title = "初期設定"; w.isReleasedWhenClosed = false
-        w.contentView = NSHostingView(rootView: ProfileView().environmentObject(self).environmentObject(engine))
+        w.contentView = hosting(ProfileView().environmentObject(self).environmentObject(engine))
         w.center(); w.setFrameAutosaveName("win.profile"); w.delegate = self; profileWin = w; w.makeKeyAndOrderFront(nil)
     }
     func openHelp() {
         if let w = helpWin { w.makeKeyAndOrderFront(nil); return }
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 560), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440 * uiScale, height: 560 * uiScale), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         w.title = "ぽっと通話：これはなに？"; w.isReleasedWhenClosed = false
-        w.contentView = NSHostingView(rootView: HelpView())
+        w.contentView = hosting(HelpView())
         w.center(); w.setFrameAutosaveName("win.help"); w.delegate = self; helpWin = w; w.makeKeyAndOrderFront(nil)
     }
     /// 覚えているウィンドウの位置と大きさを消し、開いているウィンドウも初期の配置に戻す
@@ -792,16 +816,17 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let screen = (mainWin?.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         func place(_ w: NSWindow?, _ size: NSSize, _ origin: NSPoint) { w?.setFrame(NSRect(origin: origin, size: size), display: true) }
         if let m = mainWin {
-            let size = singlePane ? NSSize(width: (engine.room.joined ? 400 : 520) * uiScale, height: min((engine.room.joined ? 720 : 820) * uiScale, screen.height)) : NSSize(width: 520, height: min(820, screen.height))
+            let size = singlePane ? NSSize(width: (engine.room.joined ? 400 : 520) * uiScale, height: min((engine.room.joined ? 720 : 820) * uiScale, screen.height)) : NSSize(width: 520 * uiScale, height: min(820 * uiScale, screen.height))
             place(m, size, NSPoint(x: screen.midX - size.width / 2, y: screen.midY - size.height / 2))
         }
-        let rh = min(700, screen.height)
-        place(roomWin, NSSize(width: 360, height: rh), rightOf(mainWin, width: 360, height: rh))
-        place(chatWin, NSSize(width: 340, height: 460), rightOf(roomWin ?? mainWin, width: 340, height: 460))
-        place(mailWin, NSSize(width: 360, height: 480), rightOf(roomWin ?? mainWin, width: 360, height: 480, dy: 40))
-        if let rf = roomWin?.frame { place(settingsWin, NSSize(width: 340, height: 460), NSPoint(x: max(0, rf.minX - 348), y: rf.maxY - 460)) }
-        else { place(settingsWin, NSSize(width: 340, height: 460), rightOf(mainWin, width: 340, height: 460)) }
-        place(letterWin, NSSize(width: 440, height: 250), NSPoint(x: screen.midX - 220, y: screen.maxY - 250 - 60))
+        let k = uiScale
+        let rh = min(700 * k, screen.height)
+        place(roomWin, NSSize(width: 360 * k, height: rh), rightOf(mainWin, width: 360 * k, height: rh))
+        place(chatWin, NSSize(width: 340 * k, height: 460 * k), rightOf(roomWin ?? mainWin, width: 340 * k, height: 460 * k))
+        place(mailWin, NSSize(width: 360 * k, height: 480 * k), rightOf(roomWin ?? mainWin, width: 360 * k, height: 480 * k, dy: 40 * k))
+        if let rf = roomWin?.frame { place(settingsWin, NSSize(width: 340 * k, height: 460 * k), NSPoint(x: max(0, rf.minX - 340 * k - 8), y: rf.maxY - 460 * k)) }
+        else { place(settingsWin, NSSize(width: 340 * k, height: 460 * k), rightOf(mainWin, width: 340 * k, height: 460 * k)) }
+        place(letterWin, NSSize(width: 440 * k, height: 250 * k), NSPoint(x: screen.midX - 220 * k, y: screen.maxY - 250 * k - 60))
         for w in [profileWin, helpWin, bannedWin, cardEditWin, cardAuthWin] { w?.center() }
     }
     @objc func resetWindowLayoutAction() { resetWindowLayout() }
