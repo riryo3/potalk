@@ -168,9 +168,9 @@ public static class Links
         h.ContextMenu = new ContextMenu { Items = { mi } };
     }
 
-    public static void Fill(TextBlock tb, string text, Action<string> open)
+    public static void Fill(TextBlock tb, string text, Action<string> open, bool clear = true)
     {
-        tb.Inlines.Clear(); tb.Text = "";
+        if (clear) { tb.Inlines.Clear(); tb.Text = ""; }
         int pos = 0;
         foreach (System.Text.RegularExpressions.Match m in Url.Matches(text))
         {

@@ -24,6 +24,7 @@ public static class Program
             HelpWindows.ShowThanksIfFirst(model);
         };
         Shortcuts.Install(model);
+        Scaling.Install(model);
         app.SessionEnding += (_, _) => model.Quitting = true;     // Windows のサインアウト・シャットダウンでは、確認しない
         app.Run(main);
     }

@@ -14,6 +14,8 @@ public sealed class Settings
     public bool MuteOnJoin { get; set; } = true;
     /// <summary>部屋のURLをコピーするとき、「&amp;name=…」を省く（ひとこと欄の60文字に収まりやすい）</summary>
     public bool ShortLinks { get; set; } = true;
+    /// <summary>自衛ワード（新しく登録したものが先頭）</summary>
+    public List<string> BannedWords { get; set; } = new();
     /// <summary>初回のごあいさつ（作者への謝辞）を、もう出さない</summary>
     public bool ThanksHidden { get; set; }
     /// <summary>ウィンドウごとの前回の位置と大きさ（左・上・幅・高さ）</summary>
@@ -37,6 +39,10 @@ public sealed class Settings
     /// <summary>シングルペインの窓の幅。入室前（縦長の一覧）と、入室中（部屋の小窓くらい）で、別々に覚える</summary>
     public double SingleLobbyW { get; set; }      // 0 のあいだは、いまの幅のまま（切り替えただけで、窓を広げない）
     public double SingleRoomW { get; set; } = 400;
+    /// <summary>ひとこと用ドロワーの高さ（開いたときに、窓がこの分だけ下に伸びる）</summary>
+    public double SingleChatH { get; set; } = 220;
+    /// <summary>シングルペインの表示サイズ（1.0〜0.5）</summary>
+    public double SingleScale { get; set; } = 1.0;
 
     /// <summary>前回の位置と大きさがあれば戻す。閉じるときに覚える。画面の外に出てしまう位置は使わない。</summary>
     public void Remember(Window w, string key)
@@ -52,7 +58,7 @@ public sealed class Settings
         {
             w.WindowStartupLocation = WindowStartupLocation.Manual;
             w.Left = p[0]; w.Top = p[1];
-            if (w.ResizeMode != ResizeMode.NoResize) { w.Width = Math.Max(p[2], w.MinWidth); w.Height = Math.Max(p[3], w.MinHeight); }
+            if (w.ResizeMode != ResizeMode.NoResize) { w.Width = Math.Max(p[2] * SingleScale, w.MinWidth); w.Height = Math.Max(p[3] * SingleScale, w.MinHeight); Scaling.MarkSized(w); }
         }
     }
 
@@ -60,7 +66,8 @@ public sealed class Settings
     {
         var b = w.WindowState == WindowState.Normal ? new Rect(w.Left, w.Top, w.Width, w.Height) : w.RestoreBounds;
         if (double.IsNaN(b.Left) || double.IsNaN(b.Width)) return;
-        Windows[key] = new[] { b.Left, b.Top, b.Width, b.Height }; Save();
+        // 幅と高さは、表示サイズに関わらない値（100% のときの大きさ）で覚える
+        Windows[key] = new[] { b.Left, b.Top, b.Width / SingleScale, b.Height / SingleScale }; Save();
     }
 
     static bool OnScreen(double[] p)

@@ -226,8 +226,8 @@ public sealed class RoomWindow : Window
         foreach (var e in r.A("reactions"))
         {
             int i = ri++;
-            var b = Ui.Btn(e.GetString(), () => E.Cmd(new { type = "react", i }), size: 17);
-            b.Width = 36; b.Height = 32; b.Padding = new Thickness(0); b.Margin = new Thickness(2, 0, 2, 0);
+            var b = Ui.Btn(e.GetString(), () => E.Cmd(new { type = "react", i }), size: 15);
+            b.Width = 31; b.Height = 29; b.Padding = new Thickness(0); b.Margin = new Thickness(2, 0, 2, 0);
             reactions.Children.Add(b);
         }
         var key = string.Join("|", r.A("reactions").Select(x => x.GetString()));

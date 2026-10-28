@@ -170,6 +170,8 @@ public sealed class LobbyView : UserControl
         createBtn.IsEnabled = !M.E.Joined;
         list.Children.Clear();
         var rooms = L.A("rooms").ToList();
+        var linkOnly = LinkId() != null && search.Text.Trim().Length > 0;      // 部屋のURLを貼ったときは、自衛ワードがあっても出す
+        if (!linkOnly) rooms = rooms.Where(r => !M.IsBanned(r)).ToList();
         var q = search.Text.Trim();
         var link = LinkId();
         if (q.Length > 0)

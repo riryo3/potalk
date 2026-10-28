@@ -51,7 +51,7 @@ public sealed class ChatWindow : Window
             var tb = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 2), FontSize = 13, Foreground = l.Hist ? Ui.Dim : Ui.Fg };
             tb.Inlines.Add(new System.Windows.Documents.Run(l.Em + " ") { FontSize = 15 });
             tb.Inlines.Add(new System.Windows.Documents.Run(l.Who + "  ") { FontWeight = FontWeights.SemiBold, Foreground = Ui.Dim, FontSize = 12 });
-            Links.Fill(tb, l.Text, u => M.ConfirmOpen(u, this));
+            Links.Fill(tb, l.Text, u => M.ConfirmOpen(u, this), clear: false);      // 絵文字と名前の Run を消さない
             log.Children.Add(tb);
         }
         sv.ScrollToBottom();
@@ -145,7 +145,7 @@ public sealed class ProfileWindow : Window
     public ProfileWindow(AppModel m)
     {
         M = m;
-        Title = "初期設定"; Width = 400; Height = 480; ResizeMode = ResizeMode.NoResize;
+        Title = "初期設定"; Width = 400; Height = 600; ResizeMode = ResizeMode.NoResize;
         Background = Ui.Bg; Foreground = Ui.Fg; FontFamily = new FontFamily("Yu Gothic UI, Segoe UI, Meiryo UI");
         WindowStartupLocation = WindowStartupLocation.CenterOwner; Owner = M.Main;
         var sp = new StackPanel { Margin = new Thickness(18) };
@@ -166,7 +166,14 @@ public sealed class ProfileWindow : Window
         var single = new CheckBox { Content = "1つの窓にまとめる（シングルペイン）", IsChecked = M.S.SinglePane, Margin = new Thickness(0, 14, 0, 0) };
         single.Click += (_, _) => M.SetSinglePane(single.IsChecked == true);
         sp.Children.Add(single);
-        sp.Children.Add(Ui.Txt("画面の小さなPC向けです。入室前は一覧、入室すると、上のタブ（部屋・ひとこと・おたより・設定）に変わります。通話は、そのまま続きます。", 11, Ui.Dim, wrap: true));
+        sp.Children.Add(Ui.Txt("画面の小さなPC向けです。入室前は一覧、入室すると、上のタブ（部屋・おたより・設定）と、下のひとこと欄に変わります。通話は、そのまま続きます。", 11, Ui.Dim, wrap: true));
+        var scaleRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+        scaleRow.Children.Add(Ui.Txt("表示サイズ", 12, Ui.Dim)); var scaleBox = new ComboBox { Width = 80, Margin = new Thickness(10, 0, 0, 0) };
+        foreach (var p in new[] { 100, 90, 80, 70, 60, 50 }) { var it = new ComboBoxItem { Content = p + "%", Tag = p }; scaleBox.Items.Add(it); if (Math.Abs(M.S.SingleScale * 100 - p) < 1) scaleBox.SelectedItem = it; }
+        scaleBox.SelectionChanged += (_, _) => { if (scaleBox.SelectedItem is ComboBoxItem ci) M.SetSingleScale((int)ci.Tag / 100.0); };
+        scaleRow.Children.Add(scaleBox); sp.Children.Add(scaleRow);
+        var banned = Ui.Btn("🛡 自衛ワードを登録…", M.OpenBanned); banned.Margin = new Thickness(0, 14, 0, 0); sp.Children.Add(banned);
+        sp.Children.Add(Ui.Txt("見たくない部屋に近づかないための機能です。登録した言葉を含む部屋は、一覧に出ません。", 11, Ui.Dim, wrap: true));
         var reset = Ui.Btn("🪟 ウィンドウの位置と大きさを初期に戻す", () =>
         {
             M.S.Windows.Clear(); M.S.Save();

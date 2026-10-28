@@ -38,6 +38,34 @@ public sealed class AppModel
     public event Action ChatChanged, MicsChanged;
     public event Action<string, string, bool> Fly;      // 絵文字, 名前, 自分
 
+    // ---- ひとこと用ドロワー（シングルペイン：窓の下に開く） ----
+    public bool ChatDrawer;
+    /// <summary>部屋一覧のドロワーを、本体の窓の右に出すか（左に出す余地がないとき）。取っ手も、その側につく</summary>
+    public bool DrawerRight;
+    public void SetDrawerSide(bool right) { if (DrawerRight == right) return; DrawerRight = right; PaneChanged?.Invoke(); }
+    public event Action ChatDrawerChanged, ChatHeightChanged, ScaleChanged;
+    /// <summary>窓の高さを変えるお願い（仕切りの帯のドラッグ）。論理の長さで渡す</summary>
+    public event Action<double> DividerDragged;
+    public void SetChatDrawer(bool open)
+    {
+        if (!S.SinglePane || !E.Joined || ChatDrawer == open) return;
+        ChatDrawer = open; ChatOpen = open; if (open) Unread = 0;
+        ChatDrawerChanged?.Invoke(); ChatChanged?.Invoke(); PaneChanged?.Invoke();
+    }
+    public void DragDivider(double dy) => DividerDragged?.Invoke(dy);
+    /// <summary>窓の下の縁を引いたとき、ひとこと側の高さを変える（上の部屋の画面は、そのまま）</summary>
+    public void SetChatHeight(double h)
+    {
+        h = Math.Max(60, h); if (Math.Abs(h - S.SingleChatH) < 0.5) return;
+        S.SingleChatH = h; ChatHeightChanged?.Invoke();
+    }
+    /// <summary>シングルペインの表示サイズ（1.0〜0.5）。窓の大きさと中身を、同じ比率で変える</summary>
+    public void SetSingleScale(double s)
+    {
+        s = Math.Clamp(s, 0.5, 1.0); if (Math.Abs(s - S.SingleScale) < 0.001) return;
+        S.SingleScale = s; S.Save(); ScaleChanged?.Invoke();
+    }
+
     // ---- シングルペイン（1つの窓にまとめるモード）----
     public event Action PaneChanged, LobbyRefresh;
     PaneTab tab = PaneTab.Room;
@@ -47,13 +75,14 @@ public sealed class AppModel
         get => tab;
         set
         {
+            if (value == PaneTab.Chat) value = PaneTab.Room;      // ひとこと（Chat）は、タブではなく、下のドロワー
             bool same = tab == value;
             tab = value;
             if (!same && S.SinglePane)
             {
                 if (tab == PaneTab.Room) RoomHot = false;
-                ChatOpen = tab == PaneTab.Chat; MailOpen = tab == PaneTab.Mail;
-                if (tab == PaneTab.Chat) Unread = 0;
+                MailOpen = tab == PaneTab.Mail;
+
                 ChatChanged?.Invoke();
             }
             PaneChanged?.Invoke();
@@ -92,7 +121,7 @@ public sealed class AppModel
     public void CycleTab(int dir)
     {
         if (!(S.SinglePane && E.Joined)) return;
-        var tabs = new List<PaneTab> { PaneTab.Room, PaneTab.Chat };
+        var tabs = new List<PaneTab> { PaneTab.Room };
         if (E.Room.B("bcast")) tabs.Add(PaneTab.Mail);
         tabs.Add(PaneTab.Settings);
         int i = tabs.IndexOf(Tab); if (i < 0) i = 0;
@@ -198,6 +227,59 @@ public sealed class AppModel
     }
     void ResetSpeaker() { if (SpeakerMuted) { SpeakerMuted = false; SpeakerChanged?.Invoke(); } }
 
+    // ---- 自衛ワード（Potalker 独自：含む部屋を、一覧に出さない） ----
+    public BannedWindow Banned;
+    public event Action BannedChanged;
+    readonly HashSet<string> warnedBanned = new();
+
+    public void OpenBanned()
+    {
+        if (Banned != null) { Banned.Activate(); return; }
+        Banned = new BannedWindow(this); Banned.Show();
+    }
+    public static string BannedFileName(DateTime? d = null) => "jiei-words-" + (d ?? DateTime.Now).ToString("yyyy-MM-dd") + ".txt";
+    void BannedTouched() { S.Save(); BannedChanged?.Invoke(); LobbyRefresh?.Invoke(); }
+    public bool AddBanned(string w)
+    {
+        var t = w.Trim();
+        if (t.Length == 0 || S.BannedWords.Any(x => LobbyView.Fold(x) == LobbyView.Fold(t))) return false;
+        S.BannedWords.Insert(0, t); BannedTouched(); return true;
+    }
+    public void RemoveBanned(string w) { S.BannedWords.RemoveAll(x => x == w); BannedTouched(); }
+    public (int added, int skipped) ImportBanned(string text)
+    {
+        if (text.StartsWith("﻿")) text = text[1..];
+        var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+        int added = 0, skipped = 0;
+        for (int i = lines.Count - 1; i >= 0; i--) { if (AddBanned(lines[i])) added++; else skipped++; }   // ファイルの先頭が最新なので、後ろから足して、並びを保つ
+        return (added, skipped);
+    }
+    /// <summary>名前に含まれる自衛ワード（なければ null）</summary>
+    public string MatchedBanned(string name)
+    {
+        if (S.BannedWords.Count == 0) return null;
+        var h = LobbyView.Fold(name);
+        return S.BannedWords.FirstOrDefault(w => h.Contains(LobbyView.Fold(w), StringComparison.Ordinal));
+    }
+    /// <summary>部屋の名前・話題タグ・タグを付けた人・いまいる人の名前に、自衛ワードが含まれるか</summary>
+    public bool IsBanned(JsonElement r)
+    {
+        if (S.BannedWords.Count == 0) return false;
+        return new[] { r.S("name"), r.S("sub"), r.S("subBy") }.Concat(r.A("people").Select(p => p.S("name"))).Any(s => MatchedBanned(s) != null);
+    }
+    /// <summary>いまの部屋に、自衛ワードを含む名前の人がいたら、1人につき1回だけ知らせる</summary>
+    void CheckBannedMembers(JsonElement room)
+    {
+        if (S.BannedWords.Count == 0) return;
+        foreach (var m in room.A("members"))
+        {
+            if (m.B("you")) continue;
+            var name = m.S("name"); var w = MatchedBanned(name);
+            if (w != null && warnedBanned.Add(name))
+                tray.ShowBalloonTip(5000, "自衛ワードを含む名前の人がいます", $"{name}（登録ワード：{w}）", System.Windows.Forms.ToolTipIcon.Warning);
+        }
+    }
+
     string lastRid = "";
     void RoomChanged()
     {
@@ -208,7 +290,7 @@ public sealed class AppModel
         {
             // 退出を経ずに、別の部屋へ移ったとき：前の部屋のチャット（ひとこと）を持ち越さない
             if (lastRid.Length > 0 && rid.Length > 0) { ChatLines.Clear(); Past.Clear(); Unread = 0; knownMembers = new HashSet<string>(); joinedAt = DateTime.Now; ChatChanged?.Invoke(); }
-            lastRid = rid; LobbyRefresh?.Invoke();
+            warnedBanned.Clear(); lastRid = rid; LobbyRefresh?.Invoke();
         }
         if (joined != wasJoined)
         {
@@ -218,7 +300,8 @@ public sealed class AppModel
             else CloseRoomGroup();
             Main?.ApplyMode();
         }
-        if (!joined) { if (SpeakerMuted) { SpeakerMuted = false; E.Cmd(new { type = "spk", on = false }); SpeakerChanged?.Invoke(); } return; }
+        if (!joined) { warnedBanned.Clear(); if (SpeakerMuted) { SpeakerMuted = false; E.Cmd(new { type = "spk", on = false }); SpeakerChanged?.Invoke(); } return; }
+        CheckBannedMembers(r);
         if (S.SinglePane && (r.P("card").Has() || r.P("ignoreAsk").Has())) Tab = PaneTab.Room;
         // 雑談部屋に、新しい人が入ったら、「部屋」のタブに色をつける（入室して数秒は、もとからいた人なので、数えない）
         var ids = new HashSet<string>(r.A("members").Select(x => $"{x.S("em")}|{x.S("name")}|{x.B("you")}"));
@@ -281,7 +364,7 @@ public sealed class AppModel
         foreach (var room in E.Lobby.A("rooms"))
         {
             var key = room.S("id") is { Length: > 0 } id ? id : room.S("name");
-            if (seenRooms.Add(key) && armed && S.NotifyRooms && IsFresh(room.S("dur")))
+            if (seenRooms.Add(key) && armed && S.NotifyRooms && IsFresh(room.S("dur")) && !IsBanned(room))
             {
                 SystemSounds.Asterisk.Play();
                 tray.ShowBalloonTip(4000, "新しい部屋ができました", room.S("name"), System.Windows.Forms.ToolTipIcon.Info);
@@ -384,14 +467,14 @@ public sealed class AppModel
     }
     public void OpenChat()
     {
-        if (S.SinglePane) { Tab = PaneTab.Chat; return; }
+        if (S.SinglePane) { SetChatDrawer(true); return; }
         Unread = 0; ChatOpen = true;
         if (Chat == null) { Chat = new ChatWindow(this); Chat.Show(); } else Chat.Activate();
         ChatChanged?.Invoke();
     }
     public void ToggleChat()
     {
-        if (S.SinglePane) { Tab = Tab == PaneTab.Chat ? PaneTab.Room : PaneTab.Chat; return; }
+        if (S.SinglePane) { SetChatDrawer(!ChatDrawer); return; }
         if (Chat != null) Chat.Close(); else OpenChat();
     }
     public void OpenSettings()
@@ -417,6 +500,7 @@ public sealed class AppModel
         Chat = null; Sett = null; Room = null; Mail = null; Letter = null; MailOpen = false; lastLetter = ""; letterDismissed = "";
         if (!keepChat) { ChatLines.Clear(); Past.Clear(); Unread = 0; }
         ChatOpen = false; lastHands = 0; Tab = PaneTab.Room; RoomHot = false;
+        if (ChatDrawer) { ChatDrawer = false; ChatDrawerChanged?.Invoke(); }
         ChatChanged?.Invoke();
     }
 
