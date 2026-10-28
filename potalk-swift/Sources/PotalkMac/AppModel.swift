@@ -259,6 +259,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if r.joined != wasJoined {
             wasJoined = r.joined
             quiet(for: 6)
+            warnedBanned = []
             if r.joined { joinedAt = Date(); knownMembers = []; roomHot = false; openRoom() } else { closeRoomGroup() }
             drawerOpen = false
             fitSingleFrame(joined: r.joined, resetHeight: true)
@@ -272,6 +273,9 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         }
         if singlePane, r.card != nil || r.ignoreAsk != nil { tab = .room }
         // 雑談部屋に、新しい人が入ったら、「部屋」のタブに色をつける（入室して数秒は、もとからいた人なので、数えない）
+        if r.joined, !bannedWords.isEmpty {
+            for m in r.members where !m.you { if let w = matchedBannedWord(m.name), warnedBanned.insert(m.name).inserted { notify(bannedMember: m.name, word: w) } }
+        }
         let names = Set(r.members.map { $0.id })
         if !r.bcast, singlePane, tab != .room, Date().timeIntervalSince(joinedAt) > 3, !names.subtracting(knownMembers).isEmpty { roomHot = true }
         knownMembers = names
@@ -324,6 +328,19 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         guard let seconds else { return }
         let g = quietGen
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in if let self, g == self.quietGen { self.armed = true } }
+    }
+    /// 禁止ワードを含む名前の人が、いまの部屋にいたら、1人につき1回だけ知らせる（入室時にもういた人も、あとから入った人も）
+    private var warnedBanned = Set<String>()
+    func matchedBannedWord(_ name: String) -> String? {
+        let h = MainView.fold(name)
+        return bannedWords.first { h.contains(MainView.fold($0)) }
+    }
+    func notify(bannedMember name: String, word: String) {
+        if ProcessInfo.processInfo.environment["POTALK_DEBUG"] == "1" { fputs("notify banned: \(name) \(word)\n", stderr) }
+        NSSound(named: "Basso")?.play()
+        let c = UNMutableNotificationContent()
+        c.title = "禁止ワードを含む名前の人がいます"; c.body = "\(name)（登録ワード：\(word)）"; c.sound = nil
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil))
     }
     func notify(newRoom r: LobbyRoom) {
         if ProcessInfo.processInfo.environment["POTALK_DEBUG"] == "1" { print("notify:", r.name) }
