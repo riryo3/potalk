@@ -4,7 +4,10 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 // 窓の種類：single（ひとつの窓）／ lobby・room・chat・mail・settings（分けた窓）。main.js が ?w= で教える
 const KIND = new URLSearchParams(location.search).get('w') || 'single'
 document.body.dataset.w = KIND
-const CHAT_H = 221      // ひとこと用ドロワーを開いたとき、窓が伸びる高さ（ドロワー本体 220 + 区切り 1）
+// ひとこと用ドロワーの高さ（固定）。開くと、窓は、この高さ（+ 区切り 1）のぶん伸びる。ハンドルのドラッグでは、窓の高さのほうを変える
+const CHAT_H = 220
+let chatH = CHAT_H, chatGrown = 0, growing = false
+document.documentElement.style.setProperty('--chat-h', chatH + 'px')
 const S = { lobby: null, profile: null, room: null, eq: '', dismissed: '', tab: { mail: 'mail', settings: 'settings' }[KIND] || 'room', chat: [], wins: {}, cards: null, devices: [], unread: 0, chatOpen: false, wasJoined: false, warned: new Set(), sliding: false }
 
 // ---- 自衛ワード（含む部屋・人を、一覧に出さない。全角半角・大文字小文字・ひらがなカタカナは区別しない）----
@@ -71,6 +74,7 @@ function renderLobby() {
     } else if (raw) box.append(el('div', 'empty', `「${raw}」に合う部屋は見つかりません。`))
     else box.append(el('div', 'empty', l && l.rooms.length ? '表示できる部屋は、ありません' : '通話中の部屋は、まだありません'))
   }
+  syncMinWidth()
 }
 
 // ---- マイク（入力設定）。選んだマイクは、次に入室するときから使われる ----
@@ -208,6 +212,7 @@ function renderRoom() {
   renderOverlays()
   if (KIND === 'single') { renderTabs(); renderSettings(); renderMail() }
   renderWinBtns()
+  if (KIND === 'single' || KIND === 'room') syncMinHeight()
 }
 
 // 回線の見分け方（Mac 版と同じ：押すと意味が開く）
@@ -402,8 +407,12 @@ function renderChat() {
 function setChatOpen(open) {
   if (open === S.chatOpen) return
   S.chatOpen = open; if (open) S.unread = 0
-  $('chatOpen').hidden = !open
-  window.potalk.growBy(open ? CHAT_H : -CHAT_H)
+  $('chatOpen').hidden = !open; $('chatBox').classList.toggle('open', open)
+  // 開いたときに伸ばした量を覚えておき、閉じるときに、同じ量だけ戻す（開いている間に、ハンドルで高さを変えても、窓はずれない）
+  // 窓が伸び縮みし終わるまでは、メンバー一覧の余裕を測らない（途中で測ると、足りないと誤って、窓を余計に広げる）
+  growing = true
+  const done = () => { growing = false; syncMinHeight() }
+  if (open) { chatGrown = chatH + 1; window.potalk.growBy(chatGrown).then(done, done) } else { window.potalk.growBy(-chatGrown).then(done, done); chatGrown = 0 }
   renderChat(); if (open) $('chatText').focus()
 }
 
@@ -584,6 +593,7 @@ $('profileOv').onclick = e => { if (e.target === $('profileOv')) { profileOpen =
 // ---- 全体 ----
 function render() {
   const joined = !!(S.room && S.room.joined)
+  if (KIND === 'single' || KIND === 'lobby') syncMinWidth()      // ロビー⇄部屋の切り替えで、最小の幅を測り直す
   if (S.wasJoined && !joined) { S.chat = []; S.unread = 0; S.warned.clear(); if (KIND === 'single') S.tab = 'room'; if (S.chatOpen) setChatOpen(false) }
   S.wasJoined = joined
   if (KIND === 'cardedit' || KIND === 'cardauth') { $('lobby').hidden = true; $('room').hidden = true; $('cardEditView').hidden = KIND !== 'cardedit'; $('cardAuthView').hidden = KIND !== 'cardauth'; if (KIND === 'cardedit') renderCardEdit(); else renderCardAuth(); return }
@@ -645,3 +655,51 @@ $('btnSetWin').onclick = () => window.potalk.toggleWin('settings')
 // 自衛ワードは、ほかの窓で変えても、すぐ反映する
 window.addEventListener('storage', e => { if (e.key === 'bannedWords') { banned = loadBanned(); render() } })
 window.potalk.setBanned(banned)
+
+// ひとことの上のハンドル：上下にドラッグすると、窓の高さが変わる。ひとこと欄は、大きさを変えず、ハンドルと一緒に動く。
+// 窓は、メンバーが 4 人分は見える高さより、小さくならない（main.js の最小の高さ）
+{
+  const grip = document.querySelector('.chat-grip'); let drag = null
+  grip.onpointerdown = e => { if (!S.chatOpen) return; drag = { y: e.screenY }; grip.setPointerCapture(e.pointerId); window.potalk.dragStart(memberSlack()) }
+  grip.onpointermove = e => { if (drag) window.potalk.dragMove(e.screenY - drag.y) }
+  const end = () => { drag = null }
+  grip.onpointerup = end; grip.onpointercancel = end
+}
+
+// メンバーが 4 人分は見える高さを、窓の最小の高さにする（ひとことを開いているときは、その分も、自動で入る）
+let minSync = 0
+// ロビーの窓の最小の幅：各行が、折り返さずに並ぶ幅（行を、見えない所に複製して、そのままの幅を測る）
+function naturalWidth(row) {
+  const c = row.cloneNode(true)
+  c.removeAttribute('id'); c.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'))
+  c.style.cssText = 'position:absolute;left:-99999px;top:0;width:max-content;max-width:none;visibility:hidden'
+  row.parentNode.append(c); const w = c.getBoundingClientRect().width; c.remove(); return w
+}
+let minWSync = 0
+function syncMinWidth() {
+  cancelAnimationFrame(minWSync)
+  minWSync = requestAnimationFrame(() => {
+    if (KIND !== 'single' && KIND !== 'lobby') return
+    if ($('lobby').hidden) return window.potalk.setMinWidth(1e6)      // 部屋の画面のときは、ふだんの最小に戻す
+    const rows = [...document.querySelectorAll('#lobby .bar, #lobby .bar2, #lobby .create, #lobby .searchrow, #lobby .foot')].filter(r => r.offsetParent !== null)
+    const need = Math.max(0, ...rows.map(naturalWidth)) + 4
+    window.potalk.setMinWidth((document.documentElement.clientWidth - need) * ((S.wins.scale || 100) / 100))
+  })
+}
+window.addEventListener('resize', syncMinWidth)
+
+// メンバー一覧の、4 人分に対する余裕（DIP。足りないときは負）。行の高さは、実際の画面から測る
+function memberSlack() {
+  const m = $('members'), row = document.querySelector('#members .member')
+  if (!m.clientHeight) return 1e6      // メンバー一覧が隠れているタブでは、制限しない
+  const rowH = row ? row.getBoundingClientRect().height : 42
+  return (m.clientHeight - (rowH * 4 + 16)) * ((S.wins.scale || 100) / 100)
+}
+function syncMinHeight() {
+  cancelAnimationFrame(minSync)
+  minSync = requestAnimationFrame(() => {
+    const m = $('members'); if (!m || !m.clientHeight || $('room').hidden || growing) return
+    window.potalk.setMinHeight(memberSlack())
+  })
+}
+window.addEventListener('resize', syncMinHeight)

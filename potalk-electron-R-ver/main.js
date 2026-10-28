@@ -443,6 +443,8 @@ ipcMain.handle('growBy', (e, dh) => {
   const w = BrowserWindow.fromWebContents(e.sender)
   if (!w || typeof dh !== 'number') return
   dh = Math.round(dh * sc())
+  // 縮めるときは、ひとこと分を含んだ最小の高さも、先に、同じだけ下げる（そうしないと、窓が縮まない）
+  if (dh < 0 && BASE[w._kind]) { const [mw, mh] = w.getMinimumSize(); w.setMinimumSize(mw, Math.max(Math.round(BASE[w._kind].mh * sc()), mh + dh)) }
   const b = w.getBounds(), wa = screen.getDisplayMatching(b).workArea
   const h = Math.min(Math.max(b.height + dh, 200), wa.height)
   const y = Math.max(wa.y, Math.min(b.y, wa.y + wa.height - h))
@@ -456,6 +458,38 @@ ipcMain.handle('openExternal', async (e, url) => {
   if (r.response === 0) shell.openExternal(u)
 })
 ipcMain.handle('copyText', (_e, t) => { if (typeof t === 'string' && t.length < 2000) clipboard.writeText(t) })
+// ひとことのハンドルのドラッグ：ひとこと欄の大きさは変えず、窓の高さを変える（ハンドルは、ひとこと欄と一緒に動く）。上の端は動かさない
+const drags = new Map()
+ipcMain.handle('dragStart', (e, slack) => { const w = BrowserWindow.fromWebContents(e.sender); if (w && Number.isFinite(slack)) drags.set(w.id, { startH: w.getBounds().height, slack }) })
+ipcMain.handle('dragMove', (e, dy) => {
+  const w = BrowserWindow.fromWebContents(e.sender), d = w && drags.get(w.id)
+  if (!d || typeof dy !== 'number') return
+  const b = w.getBounds(), wa = screen.getDisplayMatching(b).workArea
+  // slack：メンバー一覧に、4 人分より余っている高さ。それより縮めない（枠の高さに頼らない）
+  const h = Math.round(Math.min(wa.height, Math.max(w.getMinimumSize()[1], d.startH + Math.max(dy, -d.slack))))
+  w.setBounds({ x: b.x, y: Math.max(wa.y, Math.min(b.y, wa.y + wa.height - h)), width: b.width, height: h })
+})
+// 窓の最小の高さ：メンバーが 4 人分は見える高さ（ひとことを開いているときは、その分も入る）。
+// 画面が測った「一覧の、4 人分に対する余裕（足りないときは、負）」から、いまの窓の高さを元に、最小を決める。足りないときは、その分だけ、窓を広げる
+ipcMain.handle('setMinHeight', (e, slack) => {
+  const w = BrowserWindow.fromWebContents(e.sender)
+  if (!w || !Number.isFinite(slack)) return
+  const base = BASE[w._kind]; if (!base) return
+  const b = w.getBounds(), minH = Math.max(Math.round(base.mh * sc()), Math.ceil(b.height - slack))
+  const [mw] = w.getMinimumSize()
+  w.setMinimumSize(mw, minH)
+  if (b.height < minH) { const wa = screen.getDisplayMatching(b).workArea, h = Math.min(minH, wa.height); w.setBounds({ x: b.x, y: Math.max(wa.y, Math.min(b.y, wa.y + wa.height - h)), width: b.width, height: h }) }
+})
+// 窓の最小の幅：ロビーの各行が、折り返さずに並ぶ幅。画面が測った「余裕（足りないときは、負）」から、いまの窓の幅を元に決める。足りないときは、広げる
+ipcMain.handle('setMinWidth', (e, slack) => {
+  const w = BrowserWindow.fromWebContents(e.sender)
+  if (!w || !Number.isFinite(slack)) return
+  const base = BASE[w._kind]; if (!base) return
+  const b = w.getBounds(), minW = Math.max(Math.round(base.mw * sc()), Math.ceil(b.width - slack))
+  const [, mh] = w.getMinimumSize()
+  w.setMinimumSize(minW, mh)
+  if (b.width < minW) { const wa = screen.getDisplayMatching(b).workArea, nw = Math.min(minW, wa.width); w.setBounds({ x: Math.max(wa.x, Math.min(b.x, wa.x + wa.width - nw)), y: b.y, width: nw, height: b.height }) }
+})
 ipcMain.handle('notify', (_e, title, body) => { if (Notification.isSupported()) new Notification({ title: String(title), body: String(body) }).show() })
 
 // 自衛ワードの書き出し・読み込み（UTF-8・BOM なし・LF・1行に1ワード・先頭が最新。ファイル名は日付つき）
@@ -565,7 +599,7 @@ app.whenReady().then(() => {
   if (!prefs.thanksShown && !process.env.POTALK_STEPS) setTimeout(() => uiTo(wins[mainKind()], 'thanks'), 2500)
   // 開発用：POTALK_STEPS='[{"at":ミリ秒, ...}, ...]' を付けて起動すると、順に実行する。使えるもの：
   //   ui:"JS"（窓の画面で実行。win:"room" などで窓を選ぶ）／ eng:"JS"（engine 窓で実行）／ shot:"画像のパス"（窓の画像。win で窓を選ぶ）
-  //   audible:"ラベル"（engine 窓が、いま音を出しているかを出力）／ pm:{t,d}（engine からの知らせを装う）／ mode:"split"|"single" ／ scale:70 ／ open:"chat" ／ move:{win,x,y} ／ bounds:1（全部の窓の位置と大きさを出す）／ quit:1
+  //   audible:"ラベル"（engine 窓が、いま音を出しているかを出力）／ pm:{t,d}（engine からの知らせを装う）／ mode:"split"|"single" ／ scale:70 ／ open:"chat" ／ move:{win,x,y} ／ size:{win,w,h}（窓の大きさを変える）／ bounds:1（全部の窓の位置と大きさを出す）／ quit:1
   if (process.env.POTALK_STEPS) {
     for (const st of JSON.parse(process.env.POTALK_STEPS)) {
       setTimeout(async () => {
@@ -577,6 +611,7 @@ app.whenReady().then(() => {
           if (st.fn) ({ showRoom, showChat, showMail, showSettings, showBanned, showProfile, showMain, resetLayout, toggleSpk, toggleDrawer })[st.fn]()
           if (st.open) openAux(st.open)
           if (st.move) wins[st.move.win].setPosition(st.move.x, st.move.y)
+          if (st.size) wins[st.size.win || mainKind()].setSize(st.size.w, st.size.h)
           if (st.ui) { const r = await tw().webContents.executeJavaScript(st.ui); if (r !== undefined) console.log('[ui]', JSON.stringify(r)) }
           if (st.eng) { const r = await engineWin.webContents.executeJavaScript(st.eng); if (r !== undefined) console.log('[eng]', JSON.stringify(r)) }
           if (st.audible) console.log('[audible]', st.audible, engineWin.webContents.isCurrentlyAudible(), 'muted=' + engineWin.webContents.isAudioMuted())
