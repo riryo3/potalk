@@ -120,7 +120,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     /// 画面の下に余地がなければ、窓を上にずらし、それでも足りなければ、ひとことのほうを縮める
     func syncChatGrow() {
         guard singlePane, engine.room.joined, let w = mainWin else { chatGrown = 0; chatCap = .infinity; return }
-        let want: CGFloat = chatDrawer ? ((chatH + 7) * uiScale).rounded() : 0
+        let want: CGFloat = chatDrawer ? ((chatH + 1) * uiScale).rounded() : 0
         var f = w.frame
         var delta = want - chatGrown
         if delta > 0 {
@@ -133,9 +133,11 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             f.origin.y -= delta; f.size.height += delta
             w.setFrame(f, display: true)
             chatGrown += delta
+            // 窓の最小の高さも、ひとことのぶんだけ増減させる（再測定の前に、古い最小値で窓が元の大きさへ戻らないように）
+            if paneNeedH > 0 { paneNeedH = max(1, paneNeedH + delta / uiScale) }
         }
         applyMinSize()
-        let cap: CGFloat = chatGrown < want ? max(60, chatGrown / uiScale - 7) : .infinity
+        let cap: CGFloat = chatGrown < want ? max(60, chatGrown / uiScale - 1) : .infinity
         if cap != chatCap { chatCap = cap }
     }
     /// シングルペインで、左から出す部屋一覧（ドロワー）が開いているか

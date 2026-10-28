@@ -60,19 +60,19 @@ struct SinglePaneView: View {
     /// 窓の下から開くひとこと。見出しを押すと開閉し、開いているときは上の縁をドラッグして高さを変えられる
     var chatDrawer: some View {
         VStack(spacing: 0) {
-            if model.chatDrawer {
-                Rectangle().fill(Color.primary.opacity(0.12)).frame(height: 6)
-                    .overlay(Capsule().fill(Color.secondary.opacity(0.6)).frame(width: 36, height: 3))
-                    .contentShape(Rectangle())
-                    .onHover { if $0 { NSCursor.resizeUpDown.push() } else { NSCursor.pop() } }
-                    .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
-                        .onChanged { g in
-                            let s = dragStartWinH ?? (model.mainWin?.frame.height ?? 0)
-                            dragStartWinH = s
-                            model.setWindowHeight(s + g.translation.height)
-                        }
-                        .onEnded { _ in dragStartWinH = nil })
-            }
+            // 開閉で位置が動かないように、仕切りの帯は、閉じていても同じ高さで置く（つかめるのは、開いているときだけ）
+            Rectangle().fill(Color.primary.opacity(0.12)).frame(height: 6)
+                .overlay(Capsule().fill(Color.secondary.opacity(0.6)).frame(width: 36, height: 3))
+                .contentShape(Rectangle())
+                .allowsHitTesting(model.chatDrawer)
+                .onHover { if model.chatDrawer { if $0 { NSCursor.resizeUpDown.push() } else { NSCursor.pop() } } }
+                .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { g in
+                        let s = dragStartWinH ?? (model.mainWin?.frame.height ?? 0)
+                        dragStartWinH = s
+                        model.setWindowHeight(s + g.translation.height)
+                    }
+                    .onEnded { _ in dragStartWinH = nil })
             Button { model.chatDrawer.toggle() } label: {
                 let hot = model.unread > 0
                 HStack(spacing: 6) {
