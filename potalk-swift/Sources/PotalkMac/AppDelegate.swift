@@ -82,6 +82,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "singleOn": m.singlePane = true
                 case "singleOff": m.singlePane = false
                 case "tabRoom": m.tab = .room
+                case "dragDown": m.setWindowHeight((m.mainWin?.frame.height ?? 0) + 120)
+                case "dragUp": m.setWindowHeight((m.mainWin?.frame.height ?? 0) - 120)
                 case "tabChat": m.chatDrawer.toggle()
                 case "tabMail": m.tab = .mail
                 case "tabSettings": m.tab = .settings

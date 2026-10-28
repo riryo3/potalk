@@ -30,7 +30,7 @@ struct SinglePaneView: View {
     }
 
     let handleW: CGFloat = 16
-    @State private var dragStartH: CGFloat? = nil
+    @State private var dragStartWinH: CGFloat? = nil
     var shownChatH: CGFloat { min(model.chatH, model.chatCap) }
 
     /// 窓の下から開くひとこと。見出しを押すと開閉し、開いているときは上の縁をドラッグして高さを変えられる
@@ -43,11 +43,11 @@ struct SinglePaneView: View {
                     .onHover { if $0 { NSCursor.resizeUpDown.push() } else { NSCursor.pop() } }
                     .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
                         .onChanged { g in
-                            let s = dragStartH ?? model.chatH
-                            dragStartH = s
-                            model.chatH = min(480, max(60, s - g.translation.height / model.uiScale))
+                            let s = dragStartWinH ?? (model.mainWin?.frame.height ?? 0)
+                            dragStartWinH = s
+                            model.setWindowHeight(s + g.translation.height)
                         }
-                        .onEnded { _ in dragStartH = nil })
+                        .onEnded { _ in dragStartWinH = nil })
             }
             Button { model.chatDrawer.toggle() } label: {
                 let hot = model.unread > 0
