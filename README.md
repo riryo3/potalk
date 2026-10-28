@@ -60,9 +60,9 @@
 
 #### 画面（Mac 版・シングルペイン）
 
-| 部屋一覧を右に出したところ | 部屋一覧を左に出したところ |
+| 部屋一覧のドロワーが、窓の左に出たところ | 部屋一覧のドロワーが、窓の右に出たところ |
 |---|---|
-| ![部屋一覧のドロワーを右に出した](docs/images/mac-single-drawer-right.png) | ![部屋一覧のドロワーを左に出した](docs/images/mac-single-drawer-left.png) |
+| ![部屋一覧のドロワーが、窓の左に出ている](docs/images/mac-single-drawer-left.png) | ![部屋一覧のドロワーが、窓の右に出ている](docs/images/mac-single-drawer-right.png) |
 
 | ひとことを開いたところ | ひとことを閉じたところ |
 |---|---|
