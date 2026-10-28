@@ -40,12 +40,17 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     @Published var joinCandidate: LobbyRoom?       // 「参加しますか？」を出す部屋
     @Published var createOpen = false
-    /// シングルペインを、小さな画面向けに80%の大きさで出す（初期設定のスイッチ）
-    @Published var compact: Bool = UserDefaults.standard.bool(forKey: "single.compact") {
+    /// シングルペインの表示サイズ（％）。小さな画面向けに、50〜100%で選べる
+    static let scaleSteps = [100, 90, 80, 70, 60, 50]
+    @Published var scalePct: Int = {
+        let d = UserDefaults.standard
+        if let v = d.object(forKey: "single.scalePct") as? Int, scaleSteps.contains(v) { return v }
+        return d.bool(forKey: "single.compact") ? 80 : 100     // 以前の「80%」のスイッチを引き継ぐ
+    }() {
         didSet {
-            UserDefaults.standard.set(compact, forKey: "single.compact")
-            guard oldValue != compact, singlePane else { return }
-            let r: CGFloat = compact ? 0.8 : 1 / 0.8
+            UserDefaults.standard.set(scalePct, forKey: "single.scalePct")
+            guard oldValue != scalePct, singlePane else { return }
+            let r = CGFloat(scalePct) / CGFloat(oldValue)
             drawerOpen = false
             roomW *= r; lobbyW *= r; chatExtra *= r
             if let w = mainWin {
@@ -57,7 +62,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             applyChatExtra()
         }
     }
-    var uiScale: CGFloat { singlePane && compact ? 0.8 : 1 }
+    var uiScale: CGFloat { singlePane ? CGFloat(scalePct) / 100 : 1 }
     /// 1つの窓にまとめて使うモード（初期設定のスイッチ）
     @Published var singlePane: Bool {
         didSet {

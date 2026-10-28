@@ -126,6 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func speakerMute() { model.toggleSpeakerMute() }
     @objc func toggleSinglePane() { model.singlePane.toggle() }
     @objc func toggleDrawer() { if model.singlePane { model.drawerOpen.toggle() } }
+    @objc func setScale(_ sender: NSMenuItem) { model.scalePct = sender.tag }
     @objc func nextTab() { model.cycleTab(1) }
     @objc func prevTab() { model.cycleTab(-1) }
     /// 入室していないあいだは、部屋まわりの項目を、グレーにする
@@ -137,6 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(toggleDrawer), #selector(nextTab), #selector(prevTab): return joined && model.singlePane
         case #selector(micMute): return joined && model.engine.room.canMute
         case #selector(speakerMute): item.state = model.speakerMuted ? .on : .off; return joined
+        case #selector(setScale(_:)): item.state = item.tag == model.scalePct ? .on : .off; return model.singlePane
         case #selector(toggleSinglePane): item.state = model.singlePane ? .on : .off; return true
         default: return true
         }
@@ -174,6 +176,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         item("メインウインドウ", #selector(showMain), "1")
         item("シングルペインで表示", #selector(toggleSinglePane), "p", [.command, .shift])
+        let sizeItem = NSMenuItem(title: "シングルペインの表示サイズ", action: nil, keyEquivalent: ""); win.addItem(sizeItem)
+        let sizeMenu = NSMenu(title: "表示サイズ"); sizeItem.submenu = sizeMenu
+        for pct in AppModel.scaleSteps {
+            let m = NSMenuItem(title: "\(pct)%", action: #selector(setScale(_:)), keyEquivalent: ""); m.tag = pct; m.target = self; sizeMenu.addItem(m)
+        }
         win.addItem(.separator())
         item("部屋", #selector(showRoom), "2")
         item("ひとこと", #selector(showChat), "3")
