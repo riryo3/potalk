@@ -52,9 +52,6 @@ struct RoomView: View {
             HStack(spacing: 8) {
                 Text("\(r.members.count)人").font(.system(size: 12)).foregroundColor(.secondary)
                 Spacer(minLength: 4)
-                // スピーカーのミュート（⇧⌘S でも切り替わる）。ミュート中は 🔇、ふだんは 🔈
-                Button { model.toggleSpeakerMute() } label: { Text(model.speakerMuted ? "🔇" : "🔈").frame(minWidth: 20) }
-                    .buttonStyle(.plain).help(model.speakerMuted ? "スピーカーのミュートを解除（⇧⌘S）" : "スピーカーをミュート（⇧⌘S）")
                 Menu {
                     Button((model.selectedMic.isEmpty ? "✓ " : "") + "既定のマイク") { model.switchMic("") }
                     ForEach(model.mics, id: \.self) { n in Button((model.selectedMic == n ? "✓ " : "") + n) { model.switchMic(n) } }
@@ -194,7 +191,7 @@ struct RoomView: View {
                         .buttonStyle(PillButton(fill: hot ? .orange : Color(nsColor: .controlBackgroundColor), fg: hot ? .black : .primary, hot: hot))
                 }
             } }
-            MuteControl()
+            HStack(spacing: 6) { MuteControl(); SpeakerButton() }
             HStack(spacing: 8) {
                 Button(copied ? "✓ コピーしました" : "🔗 URLを共有") {
                     NSPasteboard.general.clearContents(); NSPasteboard.general.setString(r.share, forType: .string)
@@ -295,6 +292,19 @@ struct MuteControl: View {
                 .buttonStyle(PillButton(fill: r.muted ? Color(red: 0.71, green: 0.33, blue: 0.04) : Color(nsColor: .controlBackgroundColor), fg: r.muted ? .white : .primary))
                 .disabled(!r.canMute)
         }
+    }
+}
+
+/// スピーカーのミュート（⇧⌘S でも切り替わる）。ふだんは 🔈、ミュート中は 🔇（オレンジ）。マイクのミュートの右隣に置く
+struct SpeakerButton: View {
+    @EnvironmentObject var model: AppModel
+    var body: some View {
+        Button { model.toggleSpeakerMute() } label: {
+            Text(model.speakerMuted ? "🔇" : "🔈").font(.system(size: 15, weight: .bold))
+                .frame(width: 44).padding(.vertical, 6)
+                .background(RoundedRectangle(cornerRadius: 10).fill(model.speakerMuted ? Color(red: 0.71, green: 0.33, blue: 0.04) : Color(nsColor: .controlBackgroundColor)))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.15), lineWidth: 1))
+        }.buttonStyle(.plain).help(model.speakerMuted ? "スピーカーのミュートを解除（⇧⌘S）" : "スピーカーをミュート（⇧⌘S）")
     }
 }
 
