@@ -16,12 +16,18 @@ struct SinglePaneView: View {
                     HStack(spacing: 0) {
                         handle
                         content.frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(GeometryReader { g in Color.clear.onAppear { areaSize = g.size; measure() }.onChange(of: g.size) { _, v in areaSize = v; measure() } })
+                            .overlay(alignment: .top) { measurer }
                     }
                     if model.tab != .room { Divider(); miniBar }
                     Divider()
                     chatDrawer
                 }
-                .frame(minWidth: 340, minHeight: 560)
+                .frame(minWidth: 340, minHeight: 300)
+                .background(GeometryReader { g in Color.clear.onAppear { stackH = g.size.height; measure() }.onChange(of: g.size.height) { _, h in stackH = h; measure() } })
+                .onChange(of: model.tab) { _, t in if t != .room { model.paneNeedH = 0 } else { measure() } }
+                .onChange(of: model.chatDrawer) { _, _ in measure() }
+                .onChange(of: roomNeed) { _, _ in measure() }
             } else {
                 MainView()      // 入室前は、複数ウインドウの本体と同じ縦長の一覧
             }
@@ -31,6 +37,24 @@ struct SinglePaneView: View {
 
     let handleW: CGFloat = 16
     @State private var dragStartWinH: CGFloat? = nil
+    @State private var areaSize = CGSize(width: 340, height: 500)   // 部屋の画面に割り当てられている大きさ
+    @State private var stackH: CGFloat = 0                           // 並べた中身が、実際に要る高さ
+    @State private var roomNeed: CGFloat = 0                         // 部屋の画面が、詰めずに収まるのに要る高さ
+
+    /// 部屋の画面の、詰めない高さを測る（見えない複製。大きさだけ使う）
+    @ViewBuilder var measurer: some View {
+        if model.tab == .room {
+            RoomView(embedded: true).fixedSize(horizontal: false, vertical: true).frame(width: areaSize.width)
+                .background(GeometryReader { g in Color.clear.preference(key: RoomNeedKey.self, value: g.size.height) })
+                .hidden().allowsHitTesting(false).accessibilityHidden(true)
+                .onPreferenceChange(RoomNeedKey.self) { roomNeed = $0 }
+        }
+    }
+    /// 上のタブ・ひとこと・部屋の画面を合わせて、切れずに収まる高さを、窓の下限にする
+    func measure() {
+        guard model.tab == .room, roomNeed > 0, stackH > 0 else { return }
+        model.paneNeedH = (stackH - areaSize.height + roomNeed).rounded(.up)
+    }
     var shownChatH: CGFloat { min(model.chatH, model.chatCap) }
 
     /// 窓の下から開くひとこと。見出しを押すと開閉し、開いているときは上の縁をドラッグして高さを変えられる
@@ -137,4 +161,9 @@ struct SinglePaneView: View {
 /// キーを受け取れる、枠なしふうの小窓（部屋一覧のドロワー用）
 final class DrawerPanel: NSPanel {
     override var canBecomeKey: Bool { true }
+}
+
+struct RoomNeedKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }

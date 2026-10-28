@@ -94,6 +94,14 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     /// 画面の下に余地がなくて、窓を伸ばしきれなかったときの、ひとことの高さの上限
     @Published var chatCap: CGFloat = .infinity
     private var chatGrown: CGFloat = 0     // ひとこと用に、窓を下へ伸ばしているぶん
+    /// 部屋の画面（上のタブからひとことまで）が、切れずに収まるのに要る高さ。これより窓を縮められないようにする
+    @Published var paneNeedH: CGFloat = 0 { didSet { if oldValue != paneNeedH { applyMinSize() } } }
+    var minPaneH: CGFloat { paneNeedH > 0 ? paneNeedH : 560 }
+    func applyMinSize() {
+        guard singlePane, engine.room.joined, let w = mainWin else { return }
+        w.contentMinSize = NSSize(width: 340 * uiScale, height: minPaneH * uiScale)
+        setWindowHeight(w.frame.height)      // 足りなければ、いまの窓も、最小まで伸ばす
+    }
     /// 仕切り線のドラッグ：ひとこと（大きさはそのまま）が下に追従し、上の部屋の画面が伸び縮みする。窓の上の端は動かさない
     func setWindowHeight(_ h: CGFloat) {
         guard singlePane, let w = mainWin else { return }
@@ -123,7 +131,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             w.setFrame(f, display: true)
             chatGrown += delta
         }
-        w.contentMinSize = NSSize(width: 340 * uiScale, height: (chatDrawer ? 620 : 560) * uiScale + chatGrown)
+        applyMinSize()
         let cap: CGFloat = chatGrown < want ? max(60, chatGrown / uiScale - 7) : .infinity
         if cap != chatCap { chatCap = cap }
     }
@@ -439,7 +447,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     func fitSingleFrame(joined: Bool) {
         guard singlePane, let w = mainWin else { return }
         if !joined { chatDrawer = false }
-        w.contentMinSize = joined ? NSSize(width: 340 * uiScale, height: (chatDrawer ? 620 : 560) * uiScale + chatGrown) : NSSize(width: 360 * uiScale, height: 420 * uiScale)
+        w.contentMinSize = joined ? NSSize(width: 340 * uiScale, height: minPaneH * uiScale) : NSSize(width: 360 * uiScale, height: 420 * uiScale)
         var f = w.frame
         let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let right = f.maxX     // 右端を基準に、幅を変える
