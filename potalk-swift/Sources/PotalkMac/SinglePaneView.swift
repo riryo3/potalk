@@ -90,6 +90,7 @@ struct SinglePaneView: View {
             Text(speaking.isEmpty ? "　" : "🔊 " + speaking.joined(separator: "、")).font(.system(size: 12)).foregroundColor(.secondary).lineLimit(1)
             Spacer(minLength: 4)
             MuteControl().frame(width: 130)
+            SpeakerButton()
             Button("🚪 退出") { model.requestLeave(from: model.roomHost) }
                 .buttonStyle(PillButton(fill: Color(red: 0.72, green: 0.11, blue: 0.11), fg: .white)).frame(width: 80)
         }.padding(.horizontal, 12).padding(.vertical, 8)
