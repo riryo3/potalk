@@ -28,6 +28,8 @@ struct SinglePaneView: View {
                     chatDrawer
                 }
                 .frame(minWidth: 340, minHeight: 300)
+                .sheet(item: $model.joinCandidate) { r in JoinSheet(room: r) }
+                .sheet(isPresented: $model.createOpen) { CreateSheet() }
                 .onChange(of: model.tab) { _, t in if t == .room { measure() } }
                 .onChange(of: roomNeed) { _, _ in measure() }
             } else {

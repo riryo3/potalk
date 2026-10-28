@@ -39,8 +39,9 @@ struct MainView: View {
             footer
         }
         .frame(minWidth: embedded ? 0 : 360, minHeight: embedded ? 0 : 420)
-        .sheet(item: $model.joinCandidate) { r in JoinSheet(room: r) }
-        .sheet(isPresented: $model.createOpen) { CreateSheet() }
+        // 部屋一覧のドロワー（embedded）は、本体の窓の下に隠れて見えるので、確認の表示は、本体の窓（SinglePaneView）が出す
+        .sheet(item: embedded ? .constant(nil) : $model.joinCandidate) { r in JoinSheet(room: r) }
+        .sheet(isPresented: embedded ? .constant(false) : $model.createOpen) { CreateSheet() }
         .onAppear { model.requestDevices() }
     }
 
