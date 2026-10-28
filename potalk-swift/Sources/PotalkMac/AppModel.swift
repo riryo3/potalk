@@ -425,7 +425,10 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         w.title = "Potalker（ぽっと通話 非公式クライアント）"
         let root: AnyView = singlePane ? AnyView(SinglePaneView().uiScaled(self).environmentObject(self).environmentObject(engine))
                                        : AnyView(MainView().environmentObject(self).environmentObject(engine))
-        w.contentView = NSHostingView(rootView: root)
+        // 窓の最小の大きさは、こちらで決める（SwiftUI側の最小値に任せると、縮めた表示で、幅がなくなってしまう）
+        let hv = NSHostingView(rootView: root)
+        hv.sizingOptions = []
+        w.contentView = hv
         w.contentMinSize = singlePane && engine.room.joined ? NSSize(width: 340 * k, height: 560 * k) : NSSize(width: 360 * k, height: 420 * k)
         w.isReleasedWhenClosed = false; w.delegate = self
         if singlePane { w.level = pinSingle ? .floating : .normal }     // シングルペインは、小さな画面向け。既定は、ほかの窓の上に浮かせておく
@@ -521,6 +524,14 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
                 }
             })
         }
+    }
+    /// シングルペインの窓の最小の大きさを守る（表示を縮めているときも、幅や高さがなくならないように）
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        guard singlePane, sender === mainWin else { return frameSize }
+        let joined = engine.room.joined
+        let c = NSSize(width: (joined ? 340 : 360) * uiScale, height: (joined ? minPaneH : 420) * uiScale)
+        let m = sender.frameRect(forContentRect: NSRect(origin: .zero, size: c)).size
+        return NSSize(width: max(frameSize.width, m.width), height: max(frameSize.height, m.height))
     }
     func windowDidResize(_ n: Notification) {
         guard let w = n.object as? NSWindow, w === mainWin, let p = drawerWin else { return }
