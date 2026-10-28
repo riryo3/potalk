@@ -61,7 +61,7 @@ struct SinglePaneView: View {
             }.buttonStyle(.plain).help("ひとことを開く／閉じる（⌘3）")
             if model.chatDrawer {
                 Divider()
-                ChatView().frame(height: model.chatH)
+                ChatView().frame(height: model.chatShownH)
             }
         }
     }

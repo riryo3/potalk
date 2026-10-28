@@ -87,17 +87,27 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         didSet { chatOpen = chatDrawer; if chatDrawer { unread = 0 }; applyChatExtra() }
     }
     /// ひとこと用ドロワーの分だけ、窓を下に伸ばしている高さ（部屋の画面を潰さないため）
-    private var chatExtra: CGFloat = 0
+    @Published var chatExtra: CGFloat = 0
+    /// 実際に出せたぶんの高さ（画面の下に余地がないと、wantより小さくなる）
+    var chatShownH: CGFloat { chatExtra > 0 ? max(60, chatExtra / uiScale - 7) : chatH }
     func applyChatExtra() {
         guard singlePane, let w = mainWin else { return }
-        let want: CGFloat = (chatDrawer && engine.room.joined) ? (chatH + 40) * uiScale : 0
+        let want: CGFloat = (chatDrawer && engine.room.joined) ? ((chatH + 7) * uiScale).rounded() : 0
         let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         var f = w.frame
-        let room = max(0, f.minY - screen.minY)
-        let delta = min(want - chatExtra, want > chatExtra ? room : .infinity)
+        var delta = want - chatExtra
+        if delta > 0 {
+            // 下に余地がなければ、窓を上にずらして伸ばす（上の端が画面を越えない範囲で）
+            let below = max(0, f.minY - screen.minY)
+            let up = max(0, screen.maxY - f.maxY)
+            let shortage = max(0, delta - below)
+            let shift = min(shortage, up)
+            delta = min(delta, below + shift)
+            f.origin.y += shift
+        }
         chatExtra += delta
         w.contentMinSize = NSSize(width: 340 * uiScale, height: (engine.room.joined ? 560 : 420) * uiScale + chatExtra)
-        guard delta != 0 else { return }
+        guard delta != 0 || f != w.frame else { return }
         f.size.height += delta; f.origin.y -= delta
         w.setFrame(f, display: true)
     }
