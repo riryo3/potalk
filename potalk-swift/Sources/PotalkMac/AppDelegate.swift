@@ -81,6 +81,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "spk": m.toggleSpeakerMute(); print("speakerMuted:", m.speakerMuted)
                 case "toggleDrawer": m.drawerOpen.toggle()
                 case "singleOn": m.singlePane = true
+                case "fakeErr": m.engine.room.state = "接続に失敗しました。もう一度入り直してください"
+                case "fakeNotice": m.engine.room.notice = "🎙 マイクを使えませんでした。システム設定でマイクを許可してください"
+                case "fakeAudio": m.engine.room.audioWarn = "🔈 ミント の音がまだ届いていません。「つなぎ直す」を試してみてください"
+                case "fakeOk": m.engine.room.state = "通話中：お茶の部屋"
                 case "scale70": m.scalePct = 70
                 case "scale100": m.scalePct = 100
                 case "singleOff": m.singlePane = false

@@ -49,7 +49,7 @@ struct SinglePaneView: View {
     /// 部屋の画面の、詰めない高さを測る（見えない複製。大きさだけ使う）
     @ViewBuilder var measurer: some View {
         if model.tab == .room {
-            RoomView(embedded: true).fixedSize(horizontal: false, vertical: true).frame(width: areaSize.width)
+            RoomView(embedded: true, measuring: true).fixedSize(horizontal: false, vertical: true).frame(width: areaSize.width)
                 .background(GeometryReader { g in Color.clear.preference(key: RoomNeedKey.self, value: g.size.height) })
                 .hidden().allowsHitTesting(false).accessibilityHidden(true)
                 .onPreferenceChange(RoomNeedKey.self) { roomNeed = $0 }

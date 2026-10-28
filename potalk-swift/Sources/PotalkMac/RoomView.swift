@@ -8,6 +8,7 @@ struct RowFrameKey: PreferenceKey {
 
 struct RoomView: View {
     var embedded = false      // シングルペインの中に置くとき
+    var measuring = false     // 窓の最小の高さを測るための複製（一時的な表示は含めない）
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var engine: Engine
     @State private var legendOpen = false
@@ -15,6 +16,9 @@ struct RoomView: View {
     @State private var rowFrames: [String: CGRect] = [:]
     @State private var tagEditing = false
     @State private var tagText = ""
+    @State private var errorText: String? = nil
+    @State private var dismissedNotice = ""
+    @State private var errorTask: DispatchWorkItem? = nil
 
     var r: RoomState { engine.room }
     var ordered: [(Int, Member)] {
@@ -29,6 +33,11 @@ struct RoomView: View {
                 Divider()
                 if let m = r.mailNow { mailBanner(m); Divider() }
                 if r.tag.show { tagRow; Divider() }
+                if !measuring {
+                    if let e = errorText { errorBanner(e) }
+                    if !r.notice.isEmpty && r.notice != dismissedNotice { pageBanner(r.notice, bad: r.notice.hasPrefix("🔌") || r.notice.contains("失敗") || r.notice.contains("できません")) { dismissedNotice = r.notice } }
+                    if !r.audioWarn.isEmpty { pageBanner(r.audioWarn, bad: false) {} }
+                }
                 members
                 legendAndEq
                 Divider()
@@ -43,7 +52,44 @@ struct RoomView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .coordinateSpace(name: "room")
         .onPreferenceChange(RowFrameKey.self) { rowFrames = $0 }
+        .onChange(of: r.state) { _, t in if !measuring { noteState(t) } }
+        .onChange(of: r.notice) { _, t in if t.isEmpty { dismissedNotice = "" } }
         .frame(minWidth: 320, minHeight: embedded ? 440 : 600)
+    }
+
+    /// 接続に失敗・切断したときだけ、話題の下に、一時的に出す（しばらくすると消える。押しても消える）
+    func isBad(_ t: String) -> Bool { t.contains("失敗") || t.contains("切断") || t.contains("エラー") || t.contains("できません") }
+    func errorBanner(_ t: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.white)
+            Text(t).font(.system(size: 14, weight: .bold)).foregroundColor(.white).lineLimit(2)
+            Spacer(minLength: 4)
+            Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundColor(.white.opacity(0.85))
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9).frame(maxWidth: .infinity, alignment: .leading)
+        .background(redColor).contentShape(Rectangle())
+        .onTapGesture { errorText = nil }
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+    /// ページが出すお知らせ・警告（#peerNotice・#audioWarn）。お知らせは、押すと消える（ページ側でも12秒で消える）
+    func pageBanner(_ t: String, bad: Bool, dismiss: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            Text(t).font(.system(size: 13, weight: .bold)).foregroundColor(.white).lineLimit(3).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9).frame(maxWidth: .infinity, alignment: .leading)
+        .background(bad ? redColor : orangeColor).contentShape(Rectangle())
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.4)).frame(height: 1) }
+        .onTapGesture(perform: dismiss)
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+    func noteState(_ t: String) {
+        errorTask?.cancel()
+        guard isBad(t) else { withAnimation { errorText = nil }; return }
+        withAnimation { errorText = t }
+        let w = DispatchWorkItem { withAnimation { errorText = nil } }
+        errorTask = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: w)
     }
 
     var header: some View {
