@@ -8,9 +8,9 @@
 |---|---|---|---|
 | **macOS**（14 以降） | 対応しています | [Releases](https://github.com/riryo3/potalk/releases) の `Potalker-*.zip`（`v0.3.x`） | `potalk-swift/`（Swift 製） |
 | **Windows**（10 / 11、64bit） | 対応しています | [Releases](https://github.com/riryo3/potalk/releases) の `Potalker-win-x64.zip`（`win-v0.3.x`） | `potalk-win/`（C# / WPF / WebView2 製） |
-| **Linux** | **対応していません。他の方の貢献に期待しています。**（Electron 版で動いたという報告はあります。下の「Linux 版（試験中）」を参照） | － | － |
+| **Linux** | **作り始めたところです（アルファ）。** ネイティブ版が `potalk-linux/` にあります（実機での動作確認はまだです）。Electron 版で動いたという報告もあります（下の「Linux 版（試験中）」を参照） | － | `potalk-linux/`（Python / Qt 製） |
 
-- Linux は、手が回っていません。Electron 版（`potalk-mac/`）が、Linux で動いたという報告はありますが、私は確認していません。Linux 向けに、きちんと作ってくださる方がいれば、プルリクエストや Issue を、お待ちしています。
+- Linux は、ネイティブ版の移植を始めたところです。開発は仮想環境で行っているため、実機での確認ができていません。動いた・動かなかったの報告や、プルリクエストや Issue を、お待ちしています。
 - Mac 版と Windows 版は、同じ考え方で作っています（通話の仕組みは、画面に出ないブラウザ部品で、potalk.app をそのまま動かし、画面だけを、それぞれの OS 向けに作り直しています）。
 
 | フォルダ | 中身 |

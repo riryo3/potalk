@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Potalker
+Name[ja]=Potalker（ぽっと通話 非公式クライアント）
+Comment=Voice chat client for potalk.app (unofficial)
+Exec=Potalker
+Terminal=false
+Categories=Network;Chat;
+Keywords=voice;chat;potalk;
