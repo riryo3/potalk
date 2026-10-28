@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('pm', {
+  onTheme: f => ipcRenderer.on('theme', (_e, t) => f(t)),
   openLink: u => ipcRenderer.send('potalk:open-link', u),
   send: t => ipcRenderer.send('potalk:chat-send', t),
   onLine: f => ipcRenderer.on('line', (_e, l) => f(l)),

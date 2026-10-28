@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('pm', {
+  onTheme: f => ipcRenderer.on('theme', (_e, t) => f(t)),
   onState: f => ipcRenderer.on('state', (_e, s) => f(s)),
   onPin: f => ipcRenderer.on('pin', (_e, v) => f(v)),
   onChat: f => ipcRenderer.on('chat-state', (_e, v) => f(v)),

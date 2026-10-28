@@ -16,7 +16,7 @@ webFrame.executeJavaScript(`(() => {
 
 const CSS = `
 #pmBar{position:fixed;top:0;left:0;right:0;min-height:44px;z-index:99999;box-sizing:border-box;display:flex;flex-wrap:wrap;gap:0 8px;align-items:center;
-  padding:4px 12px;background:rgba(13,21,38,.96);border-bottom:1px solid rgba(255,255,255,.14);font:13px -apple-system,sans-serif;color:#fff;
+  padding:4px 12px;background:var(--panel,#0d1526);border-bottom:1px solid var(--border,rgba(255,255,255,.14));font:13px -apple-system,sans-serif;color:var(--text,#fff);
   -webkit-app-region:drag}
 #pmBar>*{-webkit-app-region:no-drag;flex:none!important;width:auto!important;margin:2px 0!important;white-space:nowrap}
 #pmBar .pm-br{margin:0!important}
@@ -25,39 +25,41 @@ const CSS = `
 #pmBar select{width:200px!important;min-width:0!important;margin:0!important}
 #pmBar label{font-size:13px!important;margin:0!important}
 #pmBar .pm-brand{font-weight:700;margin-right:4px;-webkit-app-region:drag}
-#pmBar label{display:flex;align-items:center;gap:6px;color:rgba(255,255,255,.7)}
-#pmBar select,#pmBar button{font:inherit;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:3px 10px;cursor:pointer}
+#pmBar label{display:flex;align-items:center;gap:6px;color:var(--sub,rgba(255,255,255,.7))}
+#pmBar select,#pmBar button{font:inherit;color:var(--text,#fff);background:var(--chip,rgba(255,255,255,.12));border:1px solid var(--border,rgba(255,255,255,.16));border-radius:8px;padding:3px 10px;cursor:pointer}
 #pmBar select{max-width:260px}
-#pmBar option{color:#000}
+#pmBar option{color:var(--text,#000);background:var(--panel,#fff)}
 #pmBar .pm-sp{flex:1;-webkit-app-region:drag;align-self:stretch}
-#pmBar button:hover:not(:disabled){background:rgba(255,255,255,.22)}
+#pmBar button:hover:not(:disabled){background:var(--chip-hover,rgba(255,255,255,.22))}
 #pmBar button.on{background:#3b82f6;border-color:#3b82f6}
 #pmBar button:disabled{opacity:.35;cursor:not-allowed}
 #pmBar #pmSet{flex:0 1 auto!important;min-width:0;max-width:calc(100% - 120px);overflow:hidden;text-overflow:ellipsis}
 #pmBar .pm-br{flex-basis:100%!important;height:0}
 #pmBar .pm-mic{position:relative;display:inline-block}
 #pmBar .pm-mic select{position:absolute!important;inset:0;width:100%!important;max-width:none!important;height:100%;opacity:0;cursor:pointer}
-#pmBar #lobbyRefresh{font:inherit!important;color:#fff!important;background:rgba(255,255,255,.12)!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:8px!important;padding:3px 10px!important;cursor:pointer}
+#pmBar #lobbyRefresh{font:inherit!important;color:var(--text,#fff)!important;background:var(--chip,rgba(255,255,255,.12))!important;border:1px solid var(--border,rgba(255,255,255,.16))!important;border-radius:8px!important;padding:3px 10px!important;cursor:pointer}
 body{padding-top:var(--pm-top,52px)!important;padding-bottom:var(--pm-bot,50px)!important}
 #pmFoot{position:fixed;left:0;right:0;bottom:0;min-height:40px;z-index:99999;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:6px 14px;
-  background:rgba(13,21,38,.96);border-top:1px solid rgba(255,255,255,.14);font:13px -apple-system,sans-serif;color:#fff;}
+  background:var(--panel,#0d1526);border-top:1px solid var(--border,rgba(255,255,255,.14));font:13px -apple-system,sans-serif;color:var(--text,#fff);}
 #pmFoot>*{flex:none!important;width:auto!important;margin:0!important;white-space:nowrap}
 #pmFoot .snd-opt{display:none!important;align-items:center;gap:6px;cursor:pointer;padding:4px 11px;border-radius:8px;
-  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);color:#fff!important;font-size:13px!important}
-#pmFoot #pmNotify{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:8px;font:inherit;font-size:13px;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);cursor:pointer}
-#pmFoot #pmNotify:hover{background:rgba(255,255,255,.22)}#pmFoot #pmNotify.on{background:#3b82f6;border-color:#3b82f6}
-#pmFoot .snd-opt:hover{background:rgba(255,255,255,.22)}
+  background:var(--chip,rgba(255,255,255,.12));border:1px solid var(--border,rgba(255,255,255,.16));color:var(--text,#fff)!important;font-size:13px!important}
+#pmFoot #pmNotify{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:8px;font:inherit;font-size:13px;color:var(--text,#fff);background:var(--chip,rgba(255,255,255,.12));border:1px solid var(--border,rgba(255,255,255,.16));cursor:pointer}
+#pmFoot #pmNotify:hover{background:var(--chip-hover,rgba(255,255,255,.22))}#pmFoot #pmNotify.on{background:#3b82f6;border-color:#3b82f6}
+#pmFoot .snd-opt:hover{background:var(--chip-hover,rgba(255,255,255,.22))}
 #pmFoot .snd-opt:has(input:checked){background:#3b82f6;border-color:#3b82f6}
 #pmFoot .snd-opt[hidden]{display:none!important}
 #pmFoot .snd-opt input{position:absolute;opacity:0;pointer-events:none}
 #pmFoot .ntf-note{display:none}
-#pmFoot .lobby-viewers{margin-left:auto!important;color:rgba(255,255,255,.75)!important;font-size:13px!important;padding:0!important}
+#pmFoot .lobby-viewers{margin-left:auto!important;color:var(--sub,rgba(255,255,255,.75))!important;font-size:13px!important;padding:0!important}
 `;
 
 const ROLE = (process.argv.find(a => a.startsWith('--pm-role=')) || '').slice(10) || 'main';
+// 統合モード（左タブのシェルに本体が埋め込まれている）かどうか。メインプロセスが引数で知らせる
+const UNIFIED = process.argv.includes('--pm-mode=unified');
 
 const SETTINGS_CSS = `
-.wrap>.lobby,.legal,.banner,.sub,#createBox,#statusCard,#help,#pmBar,#pmFoot{display:none!important}
+.wrap>.lobby,.banner,.sub,#createBox,#statusCard,#help,#pmBar,#pmFoot{display:none!important}
 body{padding-top:12px!important}
 .wrap{display:block!important}.card{max-width:none!important;margin:0 auto}
 `;
@@ -72,9 +74,9 @@ body{justify-content:flex-start!important}
 /* ロビー下の説明文は出さない */
 .lobby-note{display:none!important}
 .lobby-head h2{display:none!important}
-#pmBar #pmSearch{flex:1 1 0!important;width:auto!important;min-width:0;font:inherit;font-size:13px;padding:3px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.12);color:#fff;outline:none;margin:2px 0!important}
-#pmBar #pmSearch::placeholder{color:rgba(255,255,255,.55)}
-#pmBar #pmSearch:focus{border-color:#00e5cc}
+#pmBar #pmSearch{flex:1 1 0!important;width:auto!important;min-width:0;font:inherit;font-size:13px;padding:3px 10px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.16));background:var(--chip,rgba(255,255,255,.12));color:var(--text,#fff);outline:none;margin:2px 0!important}
+#pmBar #pmSearch::placeholder{color:var(--placeholder,rgba(255,255,255,.55))}
+#pmBar #pmSearch:focus{border-color:var(--accent,#00e5cc)}
 #pmNoHit{display:none;padding:14px 4px;font-size:13px;color:var(--sub);line-height:1.7}
 #pmNoHit button{margin-top:8px;font:inherit;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--chip);color:var(--text);cursor:pointer}
 #createBox:not(:has(#entryNote:not([hidden]))){display:none!important}
@@ -88,6 +90,20 @@ body{justify-content:flex-start!important}
 #roomAsk #roomAskText{font-size:15px;line-height:1.7;color:var(--text)!important}
 #roomAsk .room-quiet,#roomAsk label{color:var(--text)!important;opacity:1!important;font-size:14px!important}
 #roomAsk #roomAskYes,#roomAsk #roomAskNo{width:100%!important;padding:11px!important;font-size:15px!important;margin:0!important}`;
+
+// 統合モード：設定・マイク・ヘルプ・部屋作りは左タブへ移すので、ページ側のバーでは隠す。
+// 右ペインの上部に残るのは、検索欄と「更新」だけ。
+const UNIFIED_CSS = `
+#pmBar #pmSet,#pmBar .pm-mic,#pmBar #pmHelp,#pmBar #pmNew{display:none!important}
+`;
+
+// コンパクト表示：ロビーの部屋カードの余白と文字を詰めて、一覧に多く入るようにする
+const COMPACT_CSS = `
+#lobbyList{gap:6px!important}
+#lobbyList>button{padding:7px 10px!important;border-radius:12px!important;line-height:1.3!important;gap:3px!important}
+#lobbyList>button span{font-size:11px!important}
+#lobbyList>button .room-name{font-size:14px!important}
+`;
 
 const HELP_CSS = `
 body>*:not(#helpDialog):not(style):not(script){display:none!important}
@@ -118,6 +134,10 @@ window.addEventListener('DOMContentLoaded', () => {
     if (ROLE === 'main') ipcRenderer.send('potalk:help-open');
   };
   if (hd) { new MutationObserver(moveHelp).observe(hd, { attributes: true, attributeFilter: ['open'] }); moveHelp(); }
+  // アクセス測定の注記（footer.legal）はロビーの下に常時出さず、設定（プロフィール欄）の中へ移す。
+  // ロビーがその分コンパクトになり、注記自体は設定を開けば読める。
+  const legal = document.querySelector('footer.legal'), profileBoxEl = document.getElementById('profileBox');
+  if (legal && profileBoxEl) profileBoxEl.appendChild(legal);
   if (ROLE === 'settings') {
     const st = document.createElement('style'); st.textContent = SETTINGS_CSS; document.head.appendChild(st);
     const pb = document.getElementById('profileBox'); if (pb) pb.open = true;
@@ -125,6 +145,10 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const st2 = document.createElement('style'); st2.textContent = MAIN_CSS; document.head.appendChild(st2);
+  if (UNIFIED) { const stu = document.createElement('style'); stu.textContent = UNIFIED_CSS; document.head.appendChild(stu); }
+  const stc = document.createElement('style'); stc.id = 'pmCompact'; document.head.appendChild(stc);
+  ipcRenderer.on('potalk:compact', (_e, on) => { stc.textContent = on ? COMPACT_CSS : ''; });
+  ipcRenderer.send('potalk:compact-get');
   const bar = document.createElement('div'); bar.id = 'pmBar';
   bar.innerHTML = `<button id="pmSet" title="名前・アバター・見た目などの初期設定">🧑 設定</button>
     <span class="pm-sp"></span>
@@ -223,8 +247,33 @@ window.addEventListener('DOMContentLoaded', () => {
   navigator.mediaDevices.addEventListener('devicechange', fillMics);
   sel.addEventListener('focus', fillMics);
   fillMics(); setTimeout(fillMics, 3000);
+  if (UNIFIED) {
+    // 左タブのマイク選択へ中継する（デバイスの実データと保存先 localStorage はページ側にある）
+    const sendMics = () => ipcRenderer.send('potalk:mic-list', {
+      options: [...sel.options].map(o => ({ value: o.value, label: o.textContent })),
+      value: sel.value,
+    });
+    setInterval(sendMics, 2000); setTimeout(sendMics, 3600);
+    ipcRenderer.on('potalk:mic-set', (_e, v) => {
+      try { localStorage.setItem('potalkMicId', String(v)); } catch {}
+      if ([...sel.options].some(o => o.value === String(v))) sel.value = String(v);
+      sel.title = '入力：' + (sel.selectedOptions[0]?.textContent || '');
+    });
+    // 左タブのボタン（設定・部屋作り・ヘルプ）は、ページ側の既存ボタンを押すことで処理する
+    ipcRenderer.on('potalk:ui-click', (_e, id) => { if (['pmSet', 'pmNew', 'pmHelp'].includes(id)) $(id)?.click(); });
+    // 左タブ（シェル）へ本家のテーマ変数を中継する（シェルは別の webContents で、変数を直接読めないため）
+    const THEME_KEYS = ['--panel', '--text', '--sub', '--border', '--chip', '--chip-hover', '--accent'];
+    let lastTheme = '';
+    const sendTheme = () => {
+      const cs = getComputedStyle(document.documentElement), t = {};
+      for (const k of THEME_KEYS) t[k.slice(2)] = cs.getPropertyValue(k).trim();
+      const s = JSON.stringify(t);
+      if (s !== lastTheme) { lastTheme = s; ipcRenderer.send('potalk:theme', t); }
+    };
+    setInterval(sendTheme, 3000); setTimeout(sendTheme, 800);
+  }
 
-  let joined = false;
+  let joined = false, lastProfile = '';
   $('pmRoom').onclick = () => ipcRenderer.send('potalk:room-open');
   $('pmNew').onclick = () => {
     const nm = ($('pfName')?.textContent || '').trim();
@@ -255,6 +304,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const em = $('pfEmoji')?.textContent || '🧑', nm = $('pfName')?.textContent || '';
     const label = nm && !nm.includes('設定') ? `${em} ${nm}` : '🧑 設定';
     if ($('pmSet').textContent !== label) $('pmSet').textContent = label;
+    if (UNIFIED) { const pk = em + '|' + nm; if (pk !== lastProfile) { lastProfile = pk; ipcRenderer.send('potalk:profile-info', { emoji: em, name: nm }); } }
     const j = !!$('tabs') && !$('tabs').hidden;
     if (j === joined) return;
     joined = j;

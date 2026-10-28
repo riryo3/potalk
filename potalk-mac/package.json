@@ -31,6 +31,7 @@
       "preload.js",
       "chat-preload.js",
       "room-preload.js",
+      "shell-preload.js",
       "patch-page.js",
       "*.html",
       "package.json"

@@ -1,9 +1,9 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <title>部屋を作る</title><style>
-body{margin:0;padding:22px;background:#0d1526;color:#e8eefc;font:14px -apple-system,sans-serif;display:flex;flex-direction:column;gap:14px}
-h1{margin:0;font-size:17px}label.t{display:flex;justify-content:space-between;color:#8fa0c4;font-size:12px}
-input[type=text]{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:inherit}
+body{margin:0;padding:22px;background:var(--panel,#0d1526);color:var(--text,#e8eefc);font:14px -apple-system,sans-serif;display:flex;flex-direction:column;gap:14px}
+h1{margin:0;font-size:17px}label.t{display:flex;justify-content:space-between;color:var(--sub,#8fa0c4);font-size:12px}
+input[type=text]{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.2));background:var(--chip,rgba(255,255,255,.08));color:inherit}
 .k{display:flex;flex-direction:column;gap:8px}.k label{display:flex;gap:8px;align-items:center;cursor:pointer}
 button{font:inherit;font-size:16px;font-weight:700;color:#04201c;background:#00e0c0;border:0;border-radius:12px;padding:12px;cursor:pointer}
 button:disabled{opacity:.4;cursor:not-allowed}
@@ -17,7 +17,9 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <script>
 const n=document.getElementById('n'),go=document.getElementById('go'),cnt=document.getElementById('cnt');
 const upd=()=>{cnt.textContent=[...n.value].length+' / 30';go.disabled=!n.value.trim()};
-n.oninput=upd;pm.onDefault(s=>{n.value=s;upd();n.select()});
+n.oninput=upd;const THEME_PROPS=['panel','text','sub','border','chip','chip-hover','accent'];
+pm.onTheme(t=>{const r=document.documentElement;for(const k of THEME_PROPS){if(t&&t[k])r.style.setProperty('--'+k,t[k]);else r.style.removeProperty('--'+k)}});
+pm.onDefault(s=>{n.value=s;upd();n.select()});
 const submit=()=>{if(n.value.trim())pm.create({name:n.value,kind:document.querySelector('input[name=k]:checked').value})};
 go.onclick=submit;n.onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing)submit()};
 </script></body></html>

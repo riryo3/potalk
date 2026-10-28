@@ -1,9 +1,11 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <title>公開中のお便り</title><style>
-html,body{height:100%;margin:0}body{display:flex;flex-direction:column;justify-content:center;gap:10px;padding:22px 26px;box-sizing:border-box;background:#0d1526;color:#e8eefc;font:16px -apple-system,sans-serif;user-select:text}
-#cap{font-size:13px;color:#8fa0c4}#who{font-size:15px;color:#9ec5ff}#txt{font-size:22px;line-height:1.5;word-break:break-word}
+html,body{height:100%;margin:0}body{display:flex;flex-direction:column;justify-content:center;gap:10px;padding:22px 26px;box-sizing:border-box;background:var(--panel,#0d1526);color:var(--text,#e8eefc);font:16px -apple-system,sans-serif;user-select:text}
+#cap{font-size:13px;color:var(--sub,#8fa0c4)}#who{font-size:15px;color:var(--accent,#9ec5ff)}#txt{font-size:22px;line-height:1.5;word-break:break-word}
 </style></head><body><div id="cap"></div><div id="who"></div><div id="txt"></div>
 <script>
+const THEME_PROPS=['panel','text','sub','border','chip','chip-hover','accent'];
+pm.onTheme(t=>{const r=document.documentElement;for(const k of THEME_PROPS){if(t&&t[k])r.style.setProperty('--'+k,t[k]);else r.style.removeProperty('--'+k)}});
 pm.onState(s=>{const n=s.mailNow;if(!n)return;document.getElementById('cap').textContent=n.cap;document.getElementById('who').textContent=n.who.replace(/[：:]\s*$/,'');document.getElementById('txt').textContent=n.text});
 </script></body></html>

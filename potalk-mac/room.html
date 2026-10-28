@@ -1,22 +1,27 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data: https:">
 <title>部屋</title><style>
-html,body{height:100%;margin:0}body{display:flex;flex-direction:column;background:#0d1526;color:#e8eefc;font:14px -apple-system,sans-serif;user-select:none}
-header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.14);-webkit-app-region:drag}
+html,body{height:100%;margin:0}body{display:flex;flex-direction:column;background:var(--panel,#0d1526);color:var(--text,#e8eefc);font:14px -apple-system,sans-serif;user-select:none}
+header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border,rgba(255,255,255,.14));-webkit-app-region:drag}
 header>*{-webkit-app-region:no-drag}#st{flex:1;font-weight:600;line-height:1.4;-webkit-app-region:drag}
-#cnt{color:#8fa0c4;font-size:12px}
-button{font:inherit;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:8px 10px;cursor:pointer}
-button:hover:not(:disabled){background:rgba(255,255,255,.22)}button:disabled{opacity:.35;cursor:not-allowed}
+#cnt{color:var(--sub,#8fa0c4);font-size:12px}
+button{font:inherit;color:var(--text,#fff);background:var(--chip,rgba(255,255,255,.12));border:1px solid var(--border,rgba(255,255,255,.16));border-radius:10px;padding:8px 10px;cursor:pointer}
+button:hover:not(:disabled){background:var(--chip-hover,rgba(255,255,255,.22))}button:disabled{opacity:.35;cursor:not-allowed}
 button.on{background:#3b82f6;border-color:#3b82f6}
 #pin,#set{padding:4px 8px;font-size:12px}
-#lg{display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 10px 0}#lgb{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11px;line-height:1.4}#lgb svg{width:13px!important;height:13px!important}#lgt{display:none;flex-direction:column;gap:3px;font-size:11px;color:#cfd8ea;cursor:pointer}#lgt div{display:flex;align-items:center;gap:6px}.rl{color:#f6821f}.dr{color:#00e5cc}.rl svg,.dr svg,.ci svg{width:16px;height:16px;vertical-align:-3px}.ci{display:inline-flex}.stg{flex:none;font-size:16px}
+#lg{display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 10px 0}#lgb{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11px;line-height:1.4}#lgb svg{width:13px!important;height:13px!important}#lgt{display:none;flex-direction:column;gap:3px;font-size:11px;color:var(--sub,#cfd8ea);cursor:pointer}#lgt div{display:flex;align-items:center;gap:6px}.rl{color:#f6821f}.dr{color:#00e5cc}.rl svg,.dr svg,.ci svg{width:16px;height:16px;vertical-align:-3px}.ci{display:inline-flex}.stg{flex:none;font-size:16px}
 #eq{display:flex;justify-content:space-between;padding:4px 14px 8px;font:20px/1 'Courier New',ui-monospace,monospace;color:#00e5cc;text-shadow:0 0 7px rgba(0,229,204,.45);user-select:none;min-height:1em}#eq span{flex:1;text-align:center;white-space:pre}
 #mem{flex:1;overflow-y:auto;padding:6px 10px;display:flex;flex-direction:column;gap:2px;min-height:0}
-.m{display:flex;align-items:center;gap:8px;padding:3px 8px;border-radius:10px;min-height:32px}.m.tap{cursor:pointer}.m.tap:hover{background:rgba(255,255,255,.06)}.m.sp{background:rgba(0,224,192,.16);box-shadow:0 0 0 1px #00e0c0 inset}
-.m.more{color:#8fa0c4;font-size:12px}.m .e{font-size:20px;line-height:1.2;width:28px;text-align:center;flex:none}.m .e.dim{opacity:.55}.m .mc{width:22px;height:22px;flex:none;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}.m .mc.on{background:#f0603c;color:#fff}.m .mc svg{width:13px;height:13px}.m .ci{width:18px;flex:none;display:inline-flex;justify-content:center}.m .n{font-weight:700;font-size:15px}.m.you .n{font-weight:400;color:#9fb0c7}.m .yu{font-size:12px;margin-left:4px;color:#8fa0c4}.m .hb{background:none;border:0;padding:2px 4px;color:#f0603c;flex:none;display:inline-flex}.m .hb svg{width:18px;height:18px}.m .hb.off{color:#6f7f96}.m .hb:hover:not(:disabled){background:none;opacity:.8}.m .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.m .x{opacity:.8}
-#rx{display:flex;gap:6px;padding:8px 10px;border-top:1px solid rgba(255,255,255,.14);flex-wrap:wrap;justify-content:center}
-#rx{gap:4px}#rx button{font-size:16px;padding:5px 7px}
-#act{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 10px 12px}
+.m{display:flex;align-items:center;gap:8px;padding:3px 8px;border-radius:10px;min-height:32px;transition:background .12s,box-shadow .12s}.m.tap{cursor:pointer}.m.tap:hover{background:var(--chip,rgba(255,255,255,.06))}.m.sp{background:rgba(0,224,192,.16);box-shadow:0 0 0 1px #00e0c0 inset}
+/* 発話中は絵文字を弾ませる（本家の .member.speaking＋VAD の跳ねの見た目を、パネル向けに CSS アニメーションで再現） */
+.m.sp .e{animation:sp-pulse .5s ease-in-out infinite alternate;transform-origin:center;will-change:transform}
+@keyframes sp-pulse{from{transform:scale(1)}to{transform:scale(1.18)}}
+.m.more{color:var(--sub,#8fa0c4);font-size:12px}.m .e{font-size:20px;line-height:1.2;width:28px;text-align:center;flex:none}.m .e.dim{opacity:.55}.m .mc{width:22px;height:22px;flex:none;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}.m .mc.on{background:#f0603c;color:#fff}.m .mc svg{width:13px;height:13px}.m .ci{width:18px;flex:none;display:inline-flex;justify-content:center}.m .n{font-weight:700;font-size:15px}.m.you .n{font-weight:400;color:var(--sub,#9fb0c7)}.m .yu{font-size:12px;margin-left:4px;color:var(--sub,#8fa0c4)}.m .hb{background:none;border:0;padding:2px 4px;color:#f0603c;flex:none;display:inline-flex}.m .hb svg{width:18px;height:18px}.m .hb.off{color:var(--sub,#6f7f96)}.m .hb:hover:not(:disabled){background:none;opacity:.8}.m .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.m .x{opacity:.8}
+#bar{display:flex;gap:3px;padding:8px 10px 10px;border-top:1px solid var(--border,rgba(255,255,255,.14));flex-wrap:wrap;align-items:center}
+#rx{display:contents}
+#bar button{font-size:15px;padding:5px 5px}
+#chat{margin-left:auto;position:relative}
+#cbdg{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;border-radius:8px;background:#f43f5e;color:#fff;font-size:10px;line-height:16px;text-align:center;padding:0 4px;box-sizing:border-box;display:none}
 @keyframes pl{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.7)}50%{box-shadow:0 0 0 6px rgba(251,191,36,0)}}
 #mailb.hot{background:#f59e0b;border-color:#f59e0b;color:#1a1200;font-weight:700;animation:pl 1.4s infinite}
 @keyframes fly{0%{opacity:0;transform:translate(-50%,0) scale(.6)}15%{opacity:1;transform:translate(-50%,-10px) scale(1.25)}100%{opacity:0;transform:translate(-50%,-90px) scale(1)}}
@@ -26,22 +31,22 @@ button.on{background:#3b82f6;border-color:#3b82f6}
 #chat.hot{background:#00e5cc;border-color:#00e5cc;color:#04201c;font-weight:700;animation:pc 1.4s infinite}
 #mute.muted{background:#b45309;border-color:#b45309}
 #leave{background:#b91c1c;border-color:#b91c1c}
-#mn{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.14);background:rgba(59,130,246,.18);line-height:1.5}#mnc{font-size:12px;color:#8fa0c4}#mnb{font-size:14px}
-#tg{display:none;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid rgba(255,255,255,.14);font-size:12px;color:#8fa0c4}#tg span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#tg button{padding:3px 8px;font-size:12px}
-#tgf{display:none;gap:6px;padding:6px 12px}#tgf input{flex:1;min-width:0;font:inherit;padding:5px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:inherit}
+#mn{padding:8px 12px;border-bottom:1px solid var(--border,rgba(255,255,255,.14));background:rgba(59,130,246,.18);line-height:1.5}#mnc{font-size:12px;color:var(--sub,#8fa0c4)}#mnb{font-size:14px}
+#tg{display:none;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid var(--border,rgba(255,255,255,.14));font-size:12px;color:var(--sub,#8fa0c4)}#tg span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#tg button{padding:3px 8px;font-size:12px}
+#tgf{display:none;gap:6px;padding:6px 12px}#tgf input{flex:1;min-width:0;font:inherit;padding:5px 8px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.2));background:var(--chip,rgba(255,255,255,.08));color:inherit}
 .gr{padding:3px 8px;font-size:12px}.gr.on{background:#16a34a;border-color:#16a34a}
-#cf{display:none;grid-column:1/3;gap:8px;grid-template-columns:1fr 1fr;align-items:center}#cf span{grid-column:1/3;text-align:center}
+#cf{display:none;gap:8px;align-items:center;padding:0 10px 10px}#cf span{flex:1;text-align:center}#cf button{flex:1}
 .ov{position:fixed;inset:0;background:rgba(5,10,25,.74);display:none;align-items:center;justify-content:center;z-index:50;padding:14px;box-sizing:border-box}
-.cd{background:#0f1a30;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:18px;width:100%;box-sizing:border-box;position:relative;display:flex;flex-direction:column;gap:12px;max-height:100%;overflow:auto}
-.cd .hd{display:flex;align-items:center;gap:12px;padding-right:40px}.cd .av{width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:30px;flex:none;overflow:hidden}.cd .av img{width:100%;height:100%;object-fit:cover}
-.cd .nm{font-size:18px;font-weight:700;overflow:hidden;text-overflow:ellipsis}.cd .stt{font-size:12px;color:#8fa0c4;margin-top:2px}
+.cd{background:var(--panel,#0f1a30);border:1px solid var(--border,rgba(255,255,255,.14));border-radius:20px;padding:18px;width:100%;box-sizing:border-box;position:relative;display:flex;flex-direction:column;gap:12px;max-height:100%;overflow:auto}
+.cd .hd{display:flex;align-items:center;gap:12px;padding-right:40px}.cd .av{width:52px;height:52px;border-radius:14px;background:var(--chip,rgba(255,255,255,.08));display:flex;align-items:center;justify-content:center;font-size:30px;flex:none;overflow:hidden}.cd .av img{width:100%;height:100%;object-fit:cover}
+.cd .nm{font-size:18px;font-weight:700;overflow:hidden;text-overflow:ellipsis}.cd .stt{font-size:12px;color:var(--sub,#8fa0c4);margin-top:2px}
 .cd .x{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;padding:0;font-size:16px}
-.cd hr{border:0;border-top:1px solid rgba(255,255,255,.14);margin:0}.cd .bio{margin:0;line-height:1.6;white-space:pre-wrap;user-select:text}
-.cd .soc{display:flex;flex-wrap:wrap;gap:6px}.cd .soc a{color:#7cb7ff;text-decoration:underline;cursor:pointer;font-size:13px}
+.cd hr{border:0;border-top:1px solid var(--border,rgba(255,255,255,.14));margin:0}.cd .bio{margin:0;line-height:1.6;white-space:pre-wrap;user-select:text}
+.cd .soc{display:flex;flex-wrap:wrap;gap:6px}.cd .soc a{color:var(--accent,#7cb7ff);text-decoration:underline;cursor:pointer;font-size:13px}
 .cd .ft{margin:0;font-size:12px;font-weight:600}
 .cd .ig{border:1px solid #b43b27;color:#f0603c;background:rgba(240,96,60,.08);border-radius:12px;padding:12px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
 .cd .ig svg{width:16px;height:16px}.cd ul{margin:0;padding-left:18px;line-height:1.7;font-size:13px}
-.cd .row2{display:flex;gap:8px}.cd .row2 button{flex:1;padding:10px}.cd .row2 .go{background:#f0603c;border-color:#f0603c;font-weight:700}.cd .row2 button{border-radius:14px;padding:13px 10px}.cd .row2 button:not(.go){background:#2a3550;border-color:#2a3550;font-weight:700}
+.cd .row2{display:flex;gap:8px}.cd .row2 button{flex:1;padding:10px}.cd .row2 .go{background:#f0603c;border-color:#f0603c;font-weight:700}.cd .row2 button{border-radius:14px;padding:13px 10px}.cd .row2 button:not(.go){background:var(--chip,#2a3550);border-color:var(--chip,#2a3550);font-weight:700}
 </style></head><body>
 <header><span id="st">未参加</span><span id="cnt"></span><button id="set" class="sm" title="部屋の設定（音量・BGMなど）を別ウィンドウで開く">⚙ 設定</button><button id="pin" title="最前面に固定">📌 最前面</button></header>
 <div id="mn" style="display:none"><div id="mnc"></div><div id="mnb"></div></div>
@@ -51,13 +56,11 @@ button.on{background:#3b82f6;border-color:#3b82f6}
 <div id="lg"><button id="lgb" title="経路のマークの意味"><span class="rl" id="lgc"></span> 中継 <span style="opacity:.5">／</span> <span class="dr" id="lga"></span> 直接 <span style="opacity:.6">詳細…</span></button>
 <div id="lgt"><div><span class="rl" data-i="c"></span> 中継 ＝ その人のIPアドレスは隠れています</div><div><span class="dr" data-i="a"></span> 直接 ＝ その人のIPアドレスが見えています</div></div></div>
 <div id="eq"></div>
-<div id="rx"></div>
-<div id="act">
- <button id="chat">💬 ひとこと</button><button id="mailb" style="display:none">📮 おたより</button>
-  <button id="mute" style="grid-column:1/3">🎤 ミュート</button>
- <button id="share">🔗 URLを共有</button><button id="leave">🚪 退出</button>
- <div id="cf"><span>この部屋を退出しますか？</span><button id="yes">退出する</button><button id="no">やめる</button></div>
+<div id="bar">
+ <div id="rx"></div>
+ <button id="chat" title="ひとこと">💬<span id="cbdg"></span></button><button id="mailb" title="おたより" style="display:none">📮</button><button id="mute" title="ミュート">🎤</button><button id="share" title="URLを共有">🔗</button><button id="leave" title="退出">🚪</button>
 </div>
+<div id="cf"><span>この部屋を退出しますか？</span><button id="yes">退出する</button><button id="no">やめる</button></div>
 <div id="cdo" class="ov"><div class="cd"><button class="x" id="cdx" aria-label="閉じる">✕</button>
  <div class="hd"><div class="av" id="cdav"></div><div><div class="nm" id="cdnm"></div><div class="stt" id="cdst"></div></div></div>
  <hr><p class="bio" id="cdbio"></p><div class="soc" id="cdsoc"></div>
@@ -66,9 +69,11 @@ button.on{background:#3b82f6;border-color:#3b82f6}
 <script>
 const MICOFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M9 9v2a3 3 0 0 0 5 2.2"/><path d="M15 9.3V6a3 3 0 0 0-5.9-.8"/><path d="M5 11a7 7 0 0 0 11.5 5.3M19 11a7 7 0 0 1-.6 2.8"/><path d="M12 18v3"/></svg>',HEART='<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.6-9-9.2C1.5 7 4 4 7.2 4c2 0 3.5 1 4.8 2.7C13.300 5 14.800 4 16.800 4 20 4 22.500 7 21 10.800 19 15.400 12 20 12 20z"/></svg>',HEARTB='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.6-9-9.2C1.5 7 4 4 7.2 4c2 0 3.5 1 4.8 2.7C13.300 5 14.800 4 16.800 4 20 4 22.500 7 21 10.800 19 15.400 12 20 12 20z"/><path d="M12 6.700l-1.800 3.300 2.600 1.700-1.500 3"/></svg>';
 const $=id=>document.getElementById(id);const CLOUD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.2 9.4 4 4 0 0 0 6.5 19z"/></svg>',ARROWS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7 4 11l4 4"/><path d="M16 7l4 4-4 4"/><path d="M4 11h16"/></svg>';
-let snap={},mailWinOpen=false;const hot=()=>{const b=$('mailb');b.classList.toggle('hot',!!snap.mailOpen&&!mailWinOpen);const n=((snap.mail||{}).body||[]).filter(x=>x.item).length;b.textContent=(b.classList.contains('hot')?'📮 おたより募集中':'📮 おたより')+(n?' ('+n+')':'')};
+let snap={},mailWinOpen=false;const hot=()=>{const b=$('mailb');b.classList.toggle('hot',!!snap.mailOpen&&!mailWinOpen);const n=((snap.mail||{}).body||[]).filter(x=>x.item).length;b.title=(b.classList.contains('hot')?'おたより募集中':'おたより')+(n?'（'+n+'件）':'')};
 const mk=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 $('lgc').innerHTML=CLOUD;$('lga').innerHTML=ARROWS;document.querySelector('#lgt [data-i=c]').innerHTML=CLOUD;document.querySelector('#lgt [data-i=a]').innerHTML=ARROWS;const lgToggle=o=>{$('lgt').style.display=o?'flex':'none';$('lgb').style.display=o?'none':'inline-flex'};$('lgb').onclick=()=>lgToggle(true);$('lgt').onclick=()=>lgToggle(false);
+const THEME_PROPS=['panel','text','sub','border','chip','chip-hover','accent'];
+pm.onTheme(t=>{const r=document.documentElement;for(const k of THEME_PROPS){if(t&&t[k])r.style.setProperty('--'+k,t[k]);else r.style.removeProperty('--'+k)}});
 pm.onState(s=>{snap=s;$('lg').style.display=s.joined?'flex':'none';
  $('st').textContent=s.state||'未参加';$('cnt').textContent=s.members.length+'人';
  const mem=$('mem');mem.replaceChildren();
@@ -88,12 +93,12 @@ pm.onState(s=>{snap=s;$('lg').style.display=s.joined?'flex':'none';
  const rx=$('rx');if(rx.childElementCount!==s.reactions.length){rx.replaceChildren();s.reactions.forEach((e,i)=>{const b=mk('button',null,e);b.onclick=()=>pm.cmd({type:'react',i});rx.append(b)})}
  const mn=s.mailNow;$('mn').style.display=mn?'block':'none';if(mn){$('mnc').textContent=mn.cap;$('mnb').textContent=mn.who+' '+mn.text}
  const tg=s.tag||{};$('tg').style.display=tg.show?'flex':'none';$('tgt').textContent='🏷 '+(tg.text||'話題はまだありません');$('tge').textContent=tg.btn||'つける';
- const mb=$('mailb');mb.style.display=s.bcast?'':'none';const n=((s.mail||{}).body||[]).filter(x=>x.item).length;hot();$('chat').style.gridColumn=s.bcast?'':'1/3';
+ const mb=$('mailb');mb.style.display=s.bcast?'':'none';hot();
  // 配信部屋の聞き役：許可が出るまではミュートの代わりに「通話希望」、許可後は「マイクを使う」、使い始めたらミュート
  const rz=s.raise||{},sp=s.speak||{},mu=$('mute');
- if(rz.show){mu.dataset.mode='raise';mu.disabled=false;mu.classList.remove('muted');mu.textContent='🙋 '+(rz.label||'通話希望')}
- else if(sp.show){mu.dataset.mode='speak';mu.disabled=!!sp.disabled;mu.classList.remove('muted');mu.textContent='🎙 '+(sp.label||'マイクを使う')}
- else{mu.dataset.mode='mute';mu.disabled=!s.canMute;mu.classList.toggle('muted',!!s.muted);mu.textContent=s.muted?'🔇 ミュート解除':'🎤 ミュート'}
+ if(rz.show){mu.dataset.mode='raise';mu.disabled=false;mu.classList.remove('muted');mu.textContent='🙋';mu.title=rz.label||'通話希望'}
+ else if(sp.show){mu.dataset.mode='speak';mu.disabled=!!sp.disabled;mu.classList.remove('muted');mu.textContent='🎙';mu.title=sp.label||'マイクを使う'}
+ else{mu.dataset.mode='mute';mu.disabled=!s.canMute;mu.classList.toggle('muted',!!s.muted);mu.textContent=s.muted?'🔇':'🎤';mu.title=s.muted?'ミュート解除':'ミュート'}
  $('share').disabled=!s.share;
 });
 let cdSig='',igSig='';
@@ -115,16 +120,16 @@ pm.onReact(r=>{
  const rows=[...document.querySelectorAll('#mem .m')];
  let row=r.u==='self'?rows.find(x=>x.dataset.you==='1'):rows.find(x=>x.dataset.name===r.n);
  row=row||[...rows].reverse().find(x=>x.classList.contains('more'));
- const b=row?row.getBoundingClientRect():$('rx').getBoundingClientRect();
+ const b=row?row.getBoundingClientRect():$('bar').getBoundingClientRect();
  if(document.querySelectorAll('.fly').length>=12)return;
  const el=mk('div','fly',r.e);el.style.left=(b.left+34+Math.random()*16-8)+'px';el.style.top=(b.top+b.height/2)+'px';document.body.append(el);setTimeout(()=>el.remove(),1500);
  if(r.u==='self'){const i=[...$('rx').children].findIndex(x=>x.textContent===r.e);if(i>=0){const x=$('rx').children[i];x.classList.remove('pop');void x.offsetWidth;x.classList.add('pop')}}
 });
-pm.onUnread(n=>{const b=$('chat');b.classList.toggle('hot',n>0);b.textContent=n>0?'💬 ひとこと 新着 '+n:'💬 ひとこと'});
+pm.onUnread(n=>{const b=$('chat');b.classList.toggle('hot',n>0);b.title=n>0?'ひとこと（新着 '+n+'）':'ひとこと';const g=$('cbdg');g.style.display=n>0?'block':'none';g.textContent=n>99?'99+':String(n)});
 pm.onMail(v=>{mailWinOpen=v;hot()});pm.onPin(v=>$('pin').classList.toggle('on',v));pm.onChat(v=>$('chat').classList.toggle('on',v));
 $('pin').onclick=()=>pm.pin();$('set').onclick=()=>pm.openSettings();$('chat').onclick=()=>pm.chat();$('mute').onclick=()=>pm.cmd({type:$('mute').dataset.mode||'mute'});
 $('share').onclick=()=>pm.copy();$('mailb').onclick=()=>pm.openMail();
-$('tge').onclick=()=>{const f=$('tgf');f.style.display=f.style.display==='flex'?'none':'flex';$('tgi').focus()};$('tgo').onclick=()=>{pm.cmd({type:'tag',text:$('tgi').value.trim()});$('tgi').value='';$('tgf').style.display='none'};$('tgi').onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing)$('tgo').click()};pm.onCopied(()=>{const b=$('share');b.textContent='✓ コピーしました';setTimeout(()=>b.textContent='🔗 URLを共有',1500)});
-const cf=$('cf');const showCf=v=>{cf.style.display=v?'grid':'none';for(const id of['chat','mute','share','leave','mailb'])$(id).style.display=v?'none':''};
+$('tge').onclick=()=>{const f=$('tgf');f.style.display=f.style.display==='flex'?'none':'flex';$('tgi').focus()};$('tgo').onclick=()=>{pm.cmd({type:'tag',text:$('tgi').value.trim()});$('tgi').value='';$('tgf').style.display='none'};$('tgi').onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing)$('tgo').click()};pm.onCopied(()=>{const b=$('share');b.textContent='✓';b.title='コピーしました';setTimeout(()=>{b.textContent='🔗';b.title='URLを共有'},1500)});
+const cf=$('cf');const showCf=v=>{cf.style.display=v?'flex':'none';$('bar').style.display=v?'none':'flex'};
 $('leave').onclick=()=>showCf(true);$('no').onclick=()=>showCf(false);$('yes').onclick=()=>{pm.cmd({type:'leave'});showCf(false)};
 </script></body></html>
