@@ -40,6 +40,24 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     @Published var joinCandidate: LobbyRoom?       // 「参加しますか？」を出す部屋
     @Published var createOpen = false
+    /// シングルペインを、小さな画面向けに80%の大きさで出す（初期設定のスイッチ）
+    @Published var compact: Bool = UserDefaults.standard.bool(forKey: "single.compact") {
+        didSet {
+            UserDefaults.standard.set(compact, forKey: "single.compact")
+            guard oldValue != compact, singlePane else { return }
+            let r: CGFloat = compact ? 0.8 : 1 / 0.8
+            drawerOpen = false
+            roomW *= r; lobbyW *= r; chatExtra *= r
+            if let w = mainWin {
+                var f = w.frame; let h = f.height * r
+                f.origin.y += f.height - h; f.size.height = h
+                w.setFrame(f, display: true)
+            }
+            fitSingleFrame(joined: engine.room.joined)
+            applyChatExtra()
+        }
+    }
+    var uiScale: CGFloat { singlePane && compact ? 0.8 : 1 }
     /// 1つの窓にまとめて使うモード（初期設定のスイッチ）
     @Published var singlePane: Bool {
         didSet {
@@ -67,13 +85,13 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     private var chatExtra: CGFloat = 0
     func applyChatExtra() {
         guard singlePane, let w = mainWin else { return }
-        let want: CGFloat = (chatDrawer && engine.room.joined) ? chatH + 40 : 0
+        let want: CGFloat = (chatDrawer && engine.room.joined) ? (chatH + 40) * uiScale : 0
         let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         var f = w.frame
         let room = max(0, f.minY - screen.minY)
         let delta = min(want - chatExtra, want > chatExtra ? room : .infinity)
         chatExtra += delta
-        w.contentMinSize = NSSize(width: 340, height: (engine.room.joined ? 560 : 420) + chatExtra)
+        w.contentMinSize = NSSize(width: 340 * uiScale, height: (engine.room.joined ? 560 : 420) * uiScale + chatExtra)
         guard delta != 0 else { return }
         f.size.height += delta; f.origin.y -= delta
         w.setFrame(f, display: true)
@@ -89,7 +107,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     var drawerWin: NSPanel?
     private var drawerShift: CGFloat = 0       // 左に出す余地がなくて、本体の窓を右にずらしたぶん
-    let drawerW: CGFloat = 360
+    var drawerW: CGFloat { 360 * uiScale }
     let drawerOverlap: CGFloat = 24        // 本体の窓の下に潜り込ませるぶん（つなぎ目を、角丸にせず、まっすぐに見せる）
     var joinedRoomID = ""
 
@@ -367,13 +385,14 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     var roomHost: NSWindow? { roomWin ?? mainWin }
 
     func buildMainWindow() {
-        let size = singlePane && engine.room.joined ? NSSize(width: 400, height: 720) : NSSize(width: 520, height: 820)
+        let k = uiScale
+        let size = singlePane && engine.room.joined ? NSSize(width: 400 * k, height: 720 * k) : NSSize(width: 520 * k, height: 820 * k)
         let w = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
         w.title = "Potalker（ぽっと通話 非公式クライアント）"
-        let root: AnyView = singlePane ? AnyView(SinglePaneView().environmentObject(self).environmentObject(engine))
+        let root: AnyView = singlePane ? AnyView(SinglePaneView().uiScaled(self).environmentObject(self).environmentObject(engine))
                                        : AnyView(MainView().environmentObject(self).environmentObject(engine))
         w.contentView = NSHostingView(rootView: root)
-        w.contentMinSize = singlePane && engine.room.joined ? NSSize(width: 340, height: 560) : NSSize(width: 360, height: 420)
+        w.contentMinSize = singlePane && engine.room.joined ? NSSize(width: 340 * k, height: 560 * k) : NSSize(width: 360 * k, height: 420 * k)
         w.isReleasedWhenClosed = false; w.delegate = self
         if singlePane { w.level = pinSingle ? .floating : .normal }     // シングルペインは、小さな画面向け。既定は、ほかの窓の上に浮かせておく
         w.center(); w.setFrameAutosaveName(singlePane ? "win.single" : "win.main"); w.makeKeyAndOrderFront(nil)
@@ -386,20 +405,21 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         set { UserDefaults.standard.set(newValue, forKey: "single.lobbyW") }
     }
     private var roomW: CGFloat {
-        get { UserDefaults.standard.object(forKey: "single.roomW") as? CGFloat ?? 400 }
+        get { UserDefaults.standard.object(forKey: "single.roomW") as? CGFloat ?? 400 * uiScale }
         set { UserDefaults.standard.set(newValue, forKey: "single.roomW") }
     }
     /// シングルペイン：入室前は縦長の一覧、入室したら部屋の小窓くらいの幅にする。右端と上端の位置は動かさない
     func fitSingleFrame(joined: Bool) {
         guard singlePane, let w = mainWin else { return }
         if !joined, chatExtra != 0 { chatDrawer = false }
-        w.contentMinSize = joined ? NSSize(width: 340, height: 560 + chatExtra) : NSSize(width: 360, height: 420)
+        w.contentMinSize = joined ? NSSize(width: 340 * uiScale, height: 560 * uiScale + chatExtra) : NSSize(width: 360 * uiScale, height: 420 * uiScale)
         var f = w.frame
         let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let right = f.maxX     // 右端を基準に、幅を変える
         f.size.width = min(joined ? roomW : lobbyW, screen.width)
         f.origin.x = right - f.width
-        if joined, f.height < 640 { f.origin.y -= 640 - f.height; f.size.height = 640 }
+        let minH = 640 * uiScale
+        if joined, f.height < minH { f.origin.y -= minH - f.height; f.size.height = minH }
         if f.maxX > screen.maxX { f.origin.x = max(screen.minX, screen.maxX - f.width) }
         if f.minX < screen.minX { f.origin.x = screen.minX }
         if f.minY < screen.minY { f.origin.y = screen.minY }
@@ -419,7 +439,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             p.titleVisibility = .hidden; p.titlebarAppearsTransparent = true
             for b in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] { p.standardWindowButton(b)?.isHidden = true }
             p.isMovable = false; p.isReleasedWhenClosed = false; p.hidesOnDeactivate = false; p.level = pinSingle ? .floating : .normal
-            p.contentView = NSHostingView(rootView: MainView(embedded: true).padding(.trailing, drawerOverlap).background(Color(nsColor: .windowBackgroundColor)).environmentObject(self).environmentObject(engine))
+            p.contentView = NSHostingView(rootView: MainView(embedded: true).uiScaled(self).padding(.trailing, drawerOverlap).background(Color(nsColor: .windowBackgroundColor)).environmentObject(self).environmentObject(engine))
             p.delegate = self
             w.addChildWindow(p, ordered: .below)
             p.orderFront(nil)
@@ -559,7 +579,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let screen = (mainWin?.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         func place(_ w: NSWindow?, _ size: NSSize, _ origin: NSPoint) { w?.setFrame(NSRect(origin: origin, size: size), display: true) }
         if let m = mainWin {
-            let size = singlePane ? NSSize(width: engine.room.joined ? 400 : 520, height: min(engine.room.joined ? 720 : 820, screen.height)) : NSSize(width: 520, height: min(820, screen.height))
+            let size = singlePane ? NSSize(width: (engine.room.joined ? 400 : 520) * uiScale, height: min((engine.room.joined ? 720 : 820) * uiScale, screen.height)) : NSSize(width: 520, height: min(820, screen.height))
             place(m, size, NSPoint(x: screen.midX - size.width / 2, y: screen.midY - size.height / 2))
         }
         let rh = min(700, screen.height)

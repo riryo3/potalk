@@ -44,7 +44,7 @@ struct SinglePaneView: View {
                         .onChanged { g in
                             let s = dragStartH ?? model.chatH
                             dragStartH = s
-                            model.chatH = min(480, max(120, s - g.translation.height))
+                            model.chatH = min(480, max(120, s - g.translation.height / model.uiScale))
                         }
                         .onEnded { _ in dragStartH = nil })
             }

@@ -186,6 +186,7 @@ struct ProfileView: View {
                 Text("ウインドウの使い方").font(.caption).foregroundColor(.secondary)
                 Toggle("シングルペイン（1つの窓にまとめる）", isOn: $model.singlePane)
                 Text("オフのときは、部屋・ひとこと・設定などを別々の小窓で開きます。").font(.caption2).foregroundColor(.secondary)
+                Toggle("シングルペインを80%の大きさで表示（小さな画面向け）", isOn: $model.compact).disabled(!model.singlePane)
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text("部屋に入るとき").font(.caption).foregroundColor(.secondary)

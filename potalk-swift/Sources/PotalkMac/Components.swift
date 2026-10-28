@@ -125,3 +125,20 @@ struct PinButton: View {
         }.buttonStyle(.plain).help("最前面に表示する／しない")
     }
 }
+
+
+/// 窓の大きさに合わせて、中身を縮めて表示する（小さな画面向け。中身は、窓の幅÷倍率で並べてから縮める）
+extension View {
+    func uiScaled(_ model: AppModel) -> some View { modifier(UIScaled(model: model)) }
+}
+struct UIScaled: ViewModifier {
+    @ObservedObject var model: AppModel
+    func body(content: Content) -> some View {
+        let k = model.uiScale
+        if k == 1 { content } else {
+            GeometryReader { g in
+                content.frame(width: g.size.width / k, height: g.size.height / k).scaleEffect(k, anchor: .topLeading)
+            }
+        }
+    }
+}
