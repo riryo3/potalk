@@ -10,7 +10,7 @@
 <body>
 <div id="lobby" class="view">
   <header class="bar">
-    <span id="me" class="chip emoji"></span>
+    <button id="me" class="chip emoji" title="名前・アバター・名刺を設定"></button>
     <span class="grow"></span>
     <button id="btnBanned" class="chip-btn" title="自衛ワードを登録"><span class="emoji">🛡</span> 自衛ワード</button>
   </header>
@@ -79,6 +79,32 @@
   </div>
 </div>
 
+<div id="cardEditView" class="view" hidden>
+  <div class="ce-scroll">
+    <h2 class="ce-h">📇 名刺（プロフィール）設定</h2>
+    <p class="muted small">端末にのみ保存され、相手があなたのアイコン・名前を押した時だけ直接渡されます。</p>
+    <div class="ce-sec">
+      <div class="muted small">名刺アイコン（画像または絵文字）</div>
+      <div class="row2"><div id="ceAv" class="ce-av"></div><button id="ceAvPick" class="chip-btn"><span class="emoji">📷</span> 画像を選ぶ</button><button id="ceAvClear" class="linkbtn" hidden>画像を削除</button><input id="ceAvFile" type="file" accept="image/*" hidden></div>
+      <div id="ceAvMsg" class="warn small" hidden></div>
+    </div>
+    <hr class="card-hr">
+    <div class="ce-sec"><div class="row2"><span class="muted small">ひとこと（bio）</span><span class="grow"></span><span id="ceBioN" class="muted small">0/60</span></div><input id="ceBio" maxlength="60" placeholder="自己紹介やステータスなど（最大60文字）"></div>
+    <hr class="card-hr">
+    <div class="ce-sec" id="ceTips"></div>
+    <hr class="card-hr">
+    <div class="ce-sec" id="ceSns"></div>
+    <label class="set-row"><input id="ceNoImg" type="checkbox"><span>相手の名刺の画像を表示しない（絵文字だけにする）</span></label>
+    <div id="ceWarn" class="warn small" hidden></div>
+  </div>
+  <div class="ce-foot"><button id="ceClose" class="chip-btn">閉じる</button><span class="grow"></span><button id="ceSave" class="primary">保存する</button></div>
+</div>
+<div id="cardAuthView" class="view" hidden>
+  <div class="ce-scroll" id="caBody"></div>
+  <div class="ce-foot"><button id="caCancel" class="chip-btn">やめる</button><span class="grow"></span><button id="caVerify" class="primary">確認する</button></div>
+</div>
+<div id="cropOv" class="sheet center" hidden></div>
+<div id="profileOv" class="sheet center" hidden></div>
 <div id="joinOv" class="sheet center" hidden></div>
 <div id="cardOv" class="sheet center" hidden></div>
 <div id="ignoreOv" class="sheet center" hidden></div>

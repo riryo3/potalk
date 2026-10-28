@@ -69,8 +69,10 @@ const BASE = {      // 表示サイズ 100% のときの大きさ（w, h）と�
   chat: { w: 340, h: 420, mw: 280, mh: 240 },
   mail: { w: 360, h: 460, mw: 300, mh: 280 },
   settings: { w: 340, h: 420, mw: 300, mh: 260 },
+  cardedit: { w: 500, h: 740, mw: 460, mh: 520 },
+  cardauth: { w: 460, h: 520, mw: 440, mh: 420 },
 }
-const TITLE = { single: 'Potalker', lobby: 'Potalker', room: '部屋', chat: 'ひとこと', mail: 'おたより', settings: '設定' }
+const TITLE = { single: 'Potalker', lobby: 'Potalker', room: '部屋', chat: 'ひとこと', mail: 'おたより', settings: '設定', cardedit: '名刺の設定', cardauth: '本人確認' }
 const wins = {}
 let pinned = false         // 最前面
 let drawerSideNow = 'left', drawerShift = 0     // 部屋一覧のドロワーを出す側／左に余地がなくて、本体を右にずらしたぶん
@@ -106,6 +108,9 @@ function createWin(kind, pos) {
     if (wins[kind] !== w) return            // 切り替えで、すでに外した窓
     delete wins[kind]
     if (quitting) return
+    // 名刺の設定・本人確認の窓を、×で閉じたら、ページ側の窓も閉じる
+    if (kind === 'cardedit' && state.cards && state.cards.edit) cmd({ type: 'ceClose' })
+    if (kind === 'cardauth' && state.cards && state.cards.auth) cmd({ type: 'caCancel' })
     if (kind === mainKind()) app.quit(); else sendWins()
   })
   return w
@@ -178,6 +183,7 @@ function setMode(mode) {
   createWin(mainKind(), ob ? { x: ob.x, y: ob.y } : undefined)
   for (const w of old) { if (wins[w._kind] === w) delete wins[w._kind]; if (!w.isDestroyed()) w.destroy() }
   if (mode === 'split' && isJoined()) openAux('room')
+  onCards()
   sendWins(); buildMenu()
 }
 
@@ -313,12 +319,21 @@ function onRoom() {
   if (!j) { state.chat = []; closeDrawer(); if (prefs.mode === 'split') closeAux(['room', 'chat', 'mail', 'settings']) }
   else if (prefs.mode === 'split') openAux('room')
 }
+// 名刺の設定・本人確認：ページ側の窓が開いたら、こちらの窓を開き、閉じたら閉じる
+function onCards() {
+  const c = state.cards || {}
+  for (const [on, kind] of [[!!c.edit, 'cardedit'], [!!c.auth, 'cardauth']]) {
+    if (on && !wins[kind]) { const w = createWin(kind, savedBounds(kind) ? undefined : { center: true }); if (kind === 'cardauth') w.setAlwaysOnTop(true); sendWins() }
+    else if (!on && wins[kind]) closeAux([kind])
+  }
+}
 function handlePm(m) {
   if (!m || typeof m.t !== 'string') return
   if (['lobby', 'profile', 'room', 'eq', 'cards'].includes(m.t)) state[m.t] = m.d
   else if (m.t === 'ready') state.ready = true
   else if (m.t === 'chat' && m.d) { state.chat.push(m.d); if (state.chat.length > 300) state.chat.shift() }
   if (m.t === 'room') onRoom()
+  if (m.t === 'cards') onCards()
   send(m.t, m.d)
 }
 ipcMain.on('pm', (_e, m) => handlePm(m))
@@ -365,7 +380,7 @@ ipcMain.handle('bannedImport', async e => {
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
   return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(x => x.trim()).filter(Boolean)
 })
-ipcMain.handle('snapshot', () => ({ lobby: state.lobby, profile: state.profile, room: state.room, eq: state.eq, chat: state.chat, wins: winsState(), ready: state.ready, patched: state.patched }))
+ipcMain.handle('snapshot', () => ({ lobby: state.lobby, profile: state.profile, room: state.room, eq: state.eq, cards: state.cards, chat: state.chat, wins: winsState(), ready: state.ready, patched: state.patched }))
 
 // ---- メニュー・ショートカットの動作 ----
 const uiTo = (w, a, v) => { if (w && !w.isDestroyed()) { w.show(); w.focus(); w.webContents.send('state', { t: 'ui', d: { a, v } }) } }
@@ -375,6 +390,7 @@ const showChat = () => prefs.mode === 'split' ? openAux('chat') : uiTo(wins.sing
 const showMail = () => prefs.mode === 'split' ? openAux('mail') : uiTo(wins.single, 'tab', 'mail')
 const showSettings = () => prefs.mode === 'split' ? openAux('settings') : uiTo(wins.single, 'tab', 'settings')
 const showBanned = () => uiTo(wins[mainKind()], 'banned')
+const showProfile = () => uiTo(wins[mainKind()], 'profile')
 // 窓の並び・大きさを、初期の状態に戻す（開いていた補助の窓は、開き直す）
 function resetLayout() {
   prefs.pos = {}; savePrefs()
@@ -425,6 +441,7 @@ function buildMenu() {
         { label: '次のタブ', accelerator: 'CmdOrCtrl+]', enabled: prefs.mode === 'single' && isJoined(), click: () => uiTo(wins.single, 'cycle', 1) },
         { label: '前のタブ', accelerator: 'CmdOrCtrl+[', enabled: prefs.mode === 'single' && isJoined(), click: () => uiTo(wins.single, 'cycle', -1) },
         { type: 'separator' },
+        { label: 'プロフィール（名前・アバター・名刺）…', click: showProfile },
         { label: '自衛ワードの登録…', click: showBanned },
         { type: 'separator' },
         { role: 'minimize', label: 'しまう' },
@@ -461,7 +478,7 @@ app.whenReady().then(() => {
           if (st.mode) setMode(st.mode)
           if (st.scale) applyScale(st.scale)
           if (st.pm) handlePm(st.pm)
-          if (st.fn) ({ showRoom, showChat, showMail, showSettings, showBanned, showMain, resetLayout, toggleSpk, toggleDrawer })[st.fn]()
+          if (st.fn) ({ showRoom, showChat, showMail, showSettings, showBanned, showProfile, showMain, resetLayout, toggleSpk, toggleDrawer })[st.fn]()
           if (st.open) openAux(st.open)
           if (st.move) wins[st.move.win].setPosition(st.move.x, st.move.y)
           if (st.ui) { const r = await tw().webContents.executeJavaScript(st.ui); if (r !== undefined) console.log('[ui]', JSON.stringify(r)) }

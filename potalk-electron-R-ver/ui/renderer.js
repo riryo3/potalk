@@ -5,7 +5,7 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 const KIND = new URLSearchParams(location.search).get('w') || 'single'
 document.body.dataset.w = KIND
 const CHAT_H = 221      // ひとこと用ドロワーを開いたとき、窓が伸びる高さ（ドロワー本体 220 + 区切り 1）
-const S = { lobby: null, profile: null, room: null, eq: '', dismissed: '', tab: { mail: 'mail', settings: 'settings' }[KIND] || 'room', chat: [], wins: {}, unread: 0, chatOpen: false, wasJoined: false, warned: new Set(), sliding: false }
+const S = { lobby: null, profile: null, room: null, eq: '', dismissed: '', tab: { mail: 'mail', settings: 'settings' }[KIND] || 'room', chat: [], wins: {}, cards: null, unread: 0, chatOpen: false, wasJoined: false, warned: new Set(), sliding: false }
 
 // ---- 自衛ワード（含む部屋・人を、一覧に出さない。全角半角・大文字小文字・ひらがなカタカナは区別しない）----
 const fold = s => String(s || '').normalize('NFKC').toLowerCase().replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60))
@@ -188,6 +188,7 @@ function renderOverlays() {
     if (c.bio) { const b = el('div', 'card-bio'); b.append(linkify(c.bio)); box.append(b) }
     if (c.socials && c.socials.length) { const s = el('div', 'card-soc'); for (const so of c.socials) s.append(linkEl(so.u, so.t || so.u)); box.append(s) }
     box.append(el('hr', 'card-hr'), el('div', 'card-foot', c.foot || ''))
+    if (c.edit) { const e = el('button', 'chip-btn wide-btn', '✏️ 自分の名刺を編集する'); e.onclick = () => window.potalk.cmd({ type: 'cardEditFromCard' }); box.append(e) }
     if (c.ignore) { const g = el('button', 'card-ig', '♥ ' + c.ignore.text); g.disabled = !!c.ignore.disabled; g.onclick = () => window.potalk.cmd({ type: 'cardIgnore' }); box.append(g) }
     cv.append(box)
   }
@@ -216,6 +217,7 @@ function renderSpk() { const b = $('btnSpk'), on = !!S.wins.spk; b.classList.tog
 // メニュー・ショートカットからの操作（ひとつの窓のタブ・ひとこと、自衛ワードの登録）
 function uiAction({ a, v }) {
   if (a === 'banned') return openBanned()
+  if (a === 'profile') return openProfile()
   if (a === 'join' && KIND === 'single') { S.joinAsk = v; return renderJoin() }
   if (KIND !== 'single' || !S.room || !S.room.joined) return
   if (a === 'tab') { if (v === 'mail' && !S.room.bcast) return; S.tab = v; renderTabs() }
@@ -351,12 +353,162 @@ $('bannedIn').onclick = async () => {
 }
 $('btnBanned').onclick = openBanned
 
+// ---- 名刺の設定（自分の名刺）。ページの入力欄と同期する ----
+// ページ側で値が変わった（切り詰め・IDへの変換など）ときだけ、入力欄に反映する（入力中の文字を、古い値で上書きしない）
+function syncInput(inp, remote) {
+  remote = remote || ''
+  if (inp._prev === undefined) { inp.value = remote; inp._prev = remote; return }
+  if (remote !== inp._prev) { inp._prev = remote; if (inp.value !== remote) inp.value = remote }
+}
+const TIPS = [['none', '提示しない（非表示）', null, ''], ['ofuse', '☕ OFUSE', 'tipOfuse', 'URL または ユーザID'], ['amazon', '📦 ほしい物リスト', 'tipAmazon', 'URL または リストID'], ['zap', '⚡ Nostr Zap', 'tipZap', 'name@domain または npub'], ['kofi', '☕ Ko-fi', 'tipKofi', 'URL または ユーザ名'], ['bmac', '🥐 Buy Me Coffee', 'tipBmac', 'URL または ユーザ名']]
+const SNS = [['𝕏 (Twitter)', 'snsX', 'URL または @ID', 'x', 'verX'], ['🐙 GitHub', 'snsGithub', 'URL または ユーザ名', 'github', 'verGithub'], ['📝 note', 'snsNote', 'URL または クリエイター名', null, null], ['📸 Instagram', 'snsInstagram', 'URL または ユーザ名', null, null], ['▶️ YouTube', 'snsYoutube', 'URL または @ハンドル', null, null], ['🟣 Nostr', 'snsNostr', 'URL または npub1...', 'nostr', 'verNostr']]
+const CE = { tipRadio: {}, tipInput: {}, snsInput: {}, snsAct: {}, built: false }
+function buildCardEdit() {
+  CE.built = true
+  const tips = $('ceTips'); tips.append(el('div', 'muted small', 'お礼・チップ窓口（提示する1件を選択）'))
+  for (const [v, name, field, ph] of TIPS) {
+    const row = el('label', 'ce-row'), r = el('input'); r.type = 'radio'; r.name = 'ceTipOpt'; r.value = v
+    r.onchange = () => window.potalk.cmd({ type: 'ceTipOpt', v })
+    row.append(r, el('span', 'ce-name' + (field ? ' w130' : ''), name)); CE.tipRadio[v] = r
+    if (field) { const i = el('input'); i.placeholder = ph; i.oninput = () => window.potalk.cmd({ type: 'ceField', field, value: i.value }); row.append(i); CE.tipInput[field] = i }
+    tips.append(row)
+  }
+  tips.append(el('div', 'muted tiny', '※ Amazonほしい物リストは配送先の本名や住所バレにご注意ください。'))
+  const sns = $('ceSns'); sns.append(el('div', 'muted small', 'SNS ID（オプトイン本人確認対応）'))
+  for (const [name, field, ph, key] of SNS) {
+    const row = el('div', 'ce-row'), i = el('input'), act = el('span', 'ce-act')
+    i.placeholder = ph; i.oninput = () => window.potalk.cmd({ type: 'ceField', field, value: i.value })
+    row.append(el('span', 'ce-name w110', name), i, act); sns.append(row); CE.snsInput[field] = i; CE.snsAct[field] = act
+  }
+  sns.append(el('div', 'muted tiny', '※ 各サービスのプロフィールURLを貼ると自動でIDに切り詰めます。「認証」で本人確認すると、相手が「✅ を確かめる」を押したときに確認できます。'))
+  $('ceBio').oninput = () => { window.potalk.cmd({ type: 'ceField', field: 'bio', value: $('ceBio').value.slice(0, 60) }); $('ceBioN').textContent = `${[...$('ceBio').value].length}/60` }
+  $('ceNoImg').onchange = () => window.potalk.cmd({ type: 'ceNoImg', on: $('ceNoImg').checked })
+  $('ceClose').onclick = () => window.potalk.cmd({ type: 'ceClose' })
+  $('ceSave').onclick = () => window.potalk.cmd({ type: 'ceSave' })
+  $('ceAvClear').onclick = () => window.potalk.cmd({ type: 'ceAvatarClear' })
+  $('ceAvPick').onclick = () => $('ceAvFile').click()
+  $('ceAvFile').onchange = () => { const f = $('ceAvFile').files[0]; $('ceAvFile').value = ''; if (!f) return; const rd = new FileReader(); rd.onload = () => openCrop(String(rd.result)); rd.readAsDataURL(f) }
+}
+function renderCardEdit() {
+  if (!CE.built) buildCardEdit()
+  const s = S.cards && S.cards.edit; if (!s) return
+  const av = $('ceAv'); av.replaceChildren()
+  if (s.img) { const im = el('img'); im.src = s.img; im.alt = ''; im.onerror = () => { av.replaceChildren(s.emoji) }; av.append(im) } else av.textContent = s.emoji
+  if (s.sub) av.append(el('span', 'ce-sub', s.sub))
+  $('ceAvClear').hidden = !s.clearShow
+  const m = $('ceAvMsg'); m.hidden = !s.avatarMsg; m.textContent = s.avatarMsg || ''
+  syncInput($('ceBio'), s.bio); $('ceBioN').textContent = `${[...$('ceBio').value].length}/60`
+  for (const [v] of TIPS) CE.tipRadio[v].checked = s.tipOpt === v
+  for (const [, , field] of TIPS) if (field) syncInput(CE.tipInput[field], s[field])
+  for (const [, field, , key, vk] of SNS) {
+    syncInput(CE.snsInput[field], s[field])
+    const act = CE.snsAct[field]; act.replaceChildren()
+    const ver = vk ? s[vk] : null
+    if (key && ver) {
+      if (ver.verified) { const b = el('button', 'chip-btn', '✅'); b.title = '認証済み（押すと解除）'; b.onclick = () => { if (confirm('認証を解除しますか？\n解除すると、相手の画面で ✅ が付かなくなります。')) window.potalk.cmd({ type: 'ceUnverify', k: key }) }; act.append(b) }
+      else if (ver.btnShow) { const b = el('button', 'chip-btn', ver.btnLabel || '認証'); b.disabled = !!ver.btnDisabled; b.onclick = () => window.potalk.cmd({ type: 'ceVerify', k: key }); act.append(b) }
+    } else if (!key) act.append(el('span', 'muted tiny', '自己申告'))
+  }
+  $('ceNoImg').checked = !!s.noImg
+  const w = $('ceWarn'); w.hidden = !s.warn; w.textContent = s.warn || ''
+}
+
+// 画像の切り抜き：ドラッグで位置、つまみで大きさ。枠の中を 512×512 の JPEG にして、ページへ渡す（Mac 版と同じ）
+function openCrop(src) {
+  const img = new Image()
+  img.onerror = () => { const m = $('ceAvMsg'); m.hidden = false; m.textContent = 'この画像は読み込めませんでした。' }
+  img.onload = () => {
+    const V = 300, ov = $('cropOv'); ov.replaceChildren(); ov.hidden = false
+    let zoom = 1, ox = 0, oy = 0, sx = 0, sy = 0, dragging = false
+    const base = Math.max(V / img.width, V / img.height), scale = () => base * zoom
+    const clampO = (x, y) => ({ x: Math.min(0, Math.max(V - img.width * scale(), x)), y: Math.min(0, Math.max(V - img.height * scale(), y)) })
+    const origin = () => clampO((V - img.width * scale()) / 2 + ox, (V - img.height * scale()) / 2 + oy)
+    const cv = el('canvas', 'crop-cv'); cv.width = V; cv.height = V
+    const draw = () => { const c = cv.getContext('2d'), o = origin(); c.fillStyle = '#fff'; c.fillRect(0, 0, V, V); c.drawImage(img, o.x, o.y, img.width * scale(), img.height * scale()) }
+    cv.onpointerdown = e => { dragging = true; sx = e.clientX - ox; sy = e.clientY - oy; cv.setPointerCapture(e.pointerId) }
+    cv.onpointermove = e => { if (!dragging) return; ox = e.clientX - sx; oy = e.clientY - sy; draw() }
+    cv.onpointerup = () => { dragging = false; const o = origin(); ox = o.x - (V - img.width * scale()) / 2; oy = o.y - (V - img.height * scale()) / 2 }
+    const zr = el('input'); zr.type = 'range'; zr.min = 1; zr.max = 4; zr.step = 0.01; zr.value = 1; zr.oninput = () => { zoom = Number(zr.value); draw() }
+    const done = ok => {
+      ov.hidden = true; ov.replaceChildren()
+      if (!ok) return
+      const o = origin(), out = el('canvas'); out.width = 512; out.height = 512
+      const c = out.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, 512, 512); c.imageSmoothingQuality = 'high'
+      c.drawImage(img, -o.x / scale(), -o.y / scale(), V / scale(), V / scale(), 0, 0, 512, 512)
+      const b64 = out.toDataURL('image/jpeg', 0.85).split(',')[1]
+      window.potalk.cmd({ type: 'ceAvatarFile', b64, name: 'avatar.jpg', mime: 'image/jpeg' })
+    }
+    const yes = el('button', 'yes-blue', '決定'), no = el('button', '', 'やめる'); yes.onclick = () => done(true); no.onclick = () => done(false)
+    const bt = el('div', 'ask-btns'); bt.append(no, yes)
+    const box = el('div', 'card-box crop-box'); box.append(el('div', 'card-name', '画像の位置を決める'), el('div', 'card-state', 'ドラッグで位置、つまみで大きさを調整します。枠の中が名刺の画像になります。'), cv, zr, bt)
+    ov.append(box); draw()
+  }
+  img.src = src
+}
+
+// ---- 本人確認（X・GitHub・Nostr）----
+const CA = { built: false, copied: '' }
+function buildCardAuth() {
+  CA.built = true
+  const b = $('caBody')
+  b.append(el('h2', 'ce-h', ''), el('div', 'card-foot', ''), el('div', 'small', ''))
+  const code = el('div', 'ce-sec'); code.id = 'caCodeBox'; code.append(el('div', 'muted small', 'あなたの名刺の鍵'))
+  const cr = el('div', 'ca-box'); cr.append(el('div', 'mono', ''), el('button', 'chip-btn', '📋 鍵の行をコピー')); code.append(cr)
+  const post = el('div', 'ce-sec'); post.id = 'caPostBox'
+  const pt = el('div', 'ca-box'); pt.append(el('div', '', '')); const pb = el('div', 'row2'); pb.append(el('button', 'chip-btn', '𝕏 でポストする'), el('button', 'chip-btn', '📋 投稿文をコピー')); post.append(pt, pb)
+  const inp = el('div', 'ce-sec'); inp.id = 'caInputBox'; const i = el('input'); i.placeholder = 'https://x.com/ユーザー名/status/...'; i.oninput = () => window.potalk.cmd({ type: 'caInput', value: i.value }); inp.append(el('div', 'muted small', '投稿したポストのリンク（共有URL）'), i)
+  b.append(code, post, inp, el('div', 'small', ''), el('div', 'muted small', ''))
+  $('caCancel').onclick = () => window.potalk.cmd({ type: 'caCancel' })
+  $('caVerify').onclick = () => window.potalk.cmd({ type: 'caVerify' })
+}
+function copyFeedback(btn, text, label) { window.potalk.copyText(text); btn.textContent = '✅ コピー済'; setTimeout(() => { btn.textContent = label }, 1500) }
+function renderCardAuth() {
+  if (!CA.built) buildCardAuth()
+  const a = S.cards && S.cards.auth; if (!a) return
+  const b = $('caBody'), k = b.children
+  k[0].textContent = a.title; k[1].textContent = a.account; k[2].textContent = a.desc
+  const cb = $('caCodeBox'); cb.hidden = !a.codeShow
+  if (a.codeShow) { cb.querySelector('.mono').textContent = a.code; const btn = cb.querySelector('button'); btn.onclick = () => copyFeedback(btn, a.code, '📋 鍵の行をコピー') }
+  const pb = $('caPostBox'); pb.hidden = !a.postShow
+  if (a.postShow) { pb.querySelector('.ca-box div').textContent = a.post; const [tw, cp] = pb.querySelectorAll('button'); tw.onclick = () => window.potalk.openExternal(a.tweet); cp.onclick = () => copyFeedback(cp, a.post, '📋 投稿文をコピー') }
+  const ib = $('caInputBox'); ib.hidden = !a.inputShow
+  if (a.inputShow) syncInput(ib.querySelector('input'), a.input)
+  const msg = k[k.length - 2]; msg.textContent = a.msg || ''; msg.className = 'small ' + (a.msgBad ? 'bad-text' : 'good-text')
+  k[k.length - 1].textContent = a.note || ''
+  const v = $('caVerify'); v.textContent = a.verifyLabel || '確認する'; v.disabled = !!a.verifyDisabled
+}
+
+// ---- プロフィール（名前・アバター・名刺）。ロビーの自分のチップ、または、メニューから ----
+let profileOpen = false
+function openProfile() { profileOpen = true; $('profileOv').hidden = false; const n = $('pfNameIn'); if (n) n._prev = undefined; renderProfile() }
+function renderProfile() {
+  const ov = $('profileOv')
+  if (!profileOpen || !S.profile) { ov.hidden = true; return }
+  ov.hidden = false
+  if (!$('pfNameIn')) {
+    const box = el('div', 'card-box'); box.id = 'pfBox'
+    const inp = el('input'); inp.id = 'pfNameIn'; inp.maxLength = 20; inp.placeholder = 'ゲスト'; inp.oninput = () => window.potalk.cmd({ type: 'setName', name: inp.value.slice(0, 20) })
+    const grid = el('div', 'pf-grid'); grid.id = 'pfGrid'
+    const b1 = el('button', 'chip-btn wide-btn', '📇 名刺（プロフィールカード）を設定…'); b1.onclick = () => window.potalk.cmd({ type: 'cardEdit' })
+    const b2 = el('button', 'chip-btn wide-btn', '🛡 自衛ワードを登録…（含む部屋を一覧に出さない）'); b2.onclick = () => { profileOpen = false; renderProfile(); openBanned() }
+    const done = el('button', 'primary', '閉じる'); done.onclick = () => { profileOpen = false; renderProfile() }
+    box.append(el('div', 'card-name', '🫖 ぽっと通話'), el('div', 'muted small', 'あなたの名前'), inp, el('div', 'muted small', 'アバター'), grid, b1, b2, el('div', 'muted tiny', '名前・アバターを変えると、次に入る部屋から反映されます。'), done)
+    ov.append(box)
+  }
+  const inp = $('pfNameIn'); syncInput(inp, S.profile.input || S.profile.name || '')
+  const grid = $('pfGrid'); grid.replaceChildren()
+  ;(S.profile.avatars || []).forEach((a, i) => { const on = a.on || a.em === S.profile.emoji; const b = el('button', 'pf-av' + (on ? ' on' : ''), a.em); b.onclick = () => window.potalk.cmd({ type: 'setAvatar', i }); grid.append(b) })
+}
+$('me').onclick = () => openProfile()
+$('profileOv').onclick = e => { if (e.target === $('profileOv')) { profileOpen = false; renderProfile() } }
+
 // ---- 全体 ----
 function render() {
   const joined = !!(S.room && S.room.joined)
   if (S.wasJoined && !joined) { S.chat = []; S.unread = 0; S.warned.clear(); if (KIND === 'single') S.tab = 'room'; if (S.chatOpen) setChatOpen(false) }
   S.wasJoined = joined
-  renderPin(); renderSpk(); renderHandle()
+  if (KIND === 'cardedit' || KIND === 'cardauth') { $('lobby').hidden = true; $('room').hidden = true; $('cardEditView').hidden = KIND !== 'cardedit'; $('cardAuthView').hidden = KIND !== 'cardauth'; if (KIND === 'cardedit') renderCardEdit(); else renderCardAuth(); return }
+  renderPin(); renderSpk(); renderHandle(); renderProfile()
   if (KIND === 'lobby' || KIND === 'drawer') { $('lobby').hidden = false; $('room').hidden = true; renderLobby(); return }
   $('lobby').hidden = KIND !== 'single' || joined; $('room').hidden = !joined
   if (!joined) { if (KIND === 'single') renderLobby(); return }
@@ -373,10 +525,10 @@ window.potalk.onState(({ t, d }) => {
   if (t === 'chatClear') { S.chat = []; S.unread = 0; S.warned.clear(); if (S.room && S.room.joined) renderChat(); return }
   if (t === 'wins') { const was = S.wins.chat; S.wins = d || {}; if (S.wins.chat && !was) S.unread = 0; render(); return }
   if (t === 'chat' && d) { S.chat.push(d); if (!d.sys && !d.hist && !chatVisible()) S.unread++; if (S.room && S.room.joined && (KIND === 'single' || KIND === 'chat' || KIND === 'room')) renderChat(); return }
-  if (!['lobby', 'profile', 'room'].includes(t)) return
+  if (!['lobby', 'profile', 'room', 'cards'].includes(t)) return
   S[t] = d; render()
 })
-window.potalk.snapshot().then(s => { Object.assign(S, { lobby: s.lobby, profile: s.profile, room: s.room, eq: s.eq || '', chat: s.chat || [], wins: s.wins || {} }); if (KIND === 'chat') $('chatOpen').hidden = false; render() })
+window.potalk.snapshot().then(s => { Object.assign(S, { lobby: s.lobby, profile: s.profile, room: s.room, eq: s.eq || '', chat: s.chat || [], wins: s.wins || {}, cards: s.cards || null }); if (KIND === 'chat') $('chatOpen').hidden = false; render() })
 
 for (const b of document.querySelectorAll('#tabs button[data-tab]')) b.onclick = () => { S.tab = b.dataset.tab; renderTabs() }
 $('chatToggle').onclick = () => setChatOpen(!S.chatOpen)
