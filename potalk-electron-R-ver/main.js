@@ -6,7 +6,7 @@ const patcher = require('./engine/patcher')
 
 const HOME = 'https://potalk.app/'
 let engineWin = null
-const state = { lobby: null, profile: null, room: null, eq: '', ready: false, patched: null, log: [], chat: [] }
+const state = { lobby: null, profile: null, room: null, eq: '', ready: false, patched: null, log: [], chat: [], devices: [], banned: [] }
 
 const log = s => { state.log.push(s); console.error('[engine]', s) }
 
@@ -47,7 +47,7 @@ function loadEngine(hash = '') {
 const cmd = c => engineWin ? engineWin.webContents.executeJavaScript('window.__pm && window.__pm.cmd(' + JSON.stringify(c) + ')').catch(() => {}) : undefined
 
 // ---- 設定（表示のしかた・表示サイズ）。次に起動したときも、そのまま ----
-const prefs = { mode: 'single', scale: 100, pos: {} }       // mode: 'single'（ひとつの窓）／'split'（分けた窓）。pos: 窓の種類ごとの、前回の位置と大きさ
+const prefs = { mode: 'single', scale: 100, pos: {}, muteOnCreate: true, muteOnJoin: true, notifyRooms: true, mic: '', thanksShown: false }       // mode: 'single'（ひとつの窓）／'split'（分けた窓）。pos: 窓の種類ごとの、前回の位置と大きさ
 const SCALES = [50, 60, 70, 80, 90, 100]
 const prefsFile = () => path.join(app.getPath('userData'), 'settings.json')
 function loadPrefs() {
@@ -56,6 +56,8 @@ function loadPrefs() {
     if (j.mode === 'single' || j.mode === 'split') prefs.mode = j.mode
     if (SCALES.includes(j.scale)) prefs.scale = j.scale
     if (j.pos && typeof j.pos === 'object') prefs.pos = j.pos
+    for (const k of ['muteOnCreate', 'muteOnJoin', 'notifyRooms', 'thanksShown']) if (typeof j[k] === 'boolean') prefs[k] = j[k]
+    if (typeof j.mic === 'string') prefs.mic = j.mic.slice(0, 200)
   } catch {}
 }
 const savePrefs = () => { try { fs.writeFileSync(prefsFile(), JSON.stringify(prefs)) } catch {} }
@@ -82,7 +84,7 @@ const mainKind = () => prefs.mode === 'split' ? 'lobby' : 'single'
 const sc = () => prefs.scale / 100
 const allWins = () => Object.values(wins).filter(w => w && !w.isDestroyed())
 const send = (t, d) => { for (const w of allWins()) w.webContents.send('state', { t, d }) }
-const winsState = () => ({ mode: prefs.mode, scale: prefs.scale, pinned, spk: spkMuted, drawer: !!wins.drawer, drawerSide: drawerSideNow, chat: !!wins.chat, mail: !!wins.mail, settings: !!wins.settings })
+const winsState = () => ({ prefs: { muteOnCreate: prefs.muteOnCreate, muteOnJoin: prefs.muteOnJoin, notifyRooms: prefs.notifyRooms, mic: prefs.mic }, mode: prefs.mode, scale: prefs.scale, pinned, spk: spkMuted, drawer: !!wins.drawer, drawerSide: drawerSideNow, chat: !!wins.chat, mail: !!wins.mail, settings: !!wins.settings })
 const sendWins = () => send('wins', winsState())
 const isJoined = () => !!(state.room && state.room.joined)
 
@@ -207,7 +209,8 @@ function applyScale(pct) {
 
 function toggleSpk() {
   spkMuted = !spkMuted
-  cmd({ type: 'spk', on: spkMuted })
+  cmd({ type: 'spk', on: spkMuted })                           // 相手の声
+  if (engineWin) engineWin.webContents.setAudioMuted(spkMuted)  // 効果音・BGM も含めて、ページの音ぜんぶ
   sendWins(); buildMenu()
 }
 
@@ -268,11 +271,11 @@ const toggleDrawer = () => { if (wins.drawer) closeDrawer(); else openDrawer() }
 ipcMain.handle('toggleDrawer', () => toggleDrawer())
 // ドロワーで選んだ部屋に移るかの確認は、本体の窓に出す
 ipcMain.handle('askJoin', (_e, room) => { if (room && typeof room.id === 'string') uiTo(wins.single, 'join', { id: room.id, name: String(room.name || ''), bc: !!room.bc }) })
-ipcMain.handle('joinRoom', (_e, id, quiet) => {
+ipcMain.handle('joinRoom', (_e, id, asListener) => {
   if (typeof id !== 'string') return
   if (isJoined()) { state.chat = []; send('chatClear', null) }
-  closeDrawer()
-  cmd({ type: 'join', id, quiet: !!quiet })
+  closeDrawer(); quiet(6); armMute(prefs.muteOnJoin)
+  cmd({ type: 'join', id, quiet: !!asListener })
 })
 
 function togglePin() {
@@ -310,6 +313,74 @@ function snapWin(w) {
 }
 
 // ---- engine 窓からの知らせ（ロビー・プロフィール・部屋・音の波形・ひとこと など）----
+// ---- ミュートで始める：作成・入室の直後だけ、設定の状態（ミュート／解除）にそろえる（つなぎ直しでは触らない）----
+let pendingMute = null
+const armMute = target => { pendingMute = { at: Date.now(), target } }
+function checkPendingMute(r) {
+  if (!pendingMute) return
+  if (Date.now() - pendingMute.at > 15000) { pendingMute = null; return }
+  if (r && r.joined && r.canMute) { const p = pendingMute; pendingMute = null; if (process.env.POTALK_STEPS) console.log('[mute]', 'muted=' + r.muted, 'target=' + p.target); if (!!r.muted !== p.target) cmd({ type: 'mute' }) }
+}
+
+// ---- 新しい部屋の通知（自衛ワードを含む部屋は除く）。作成・入室・更新・読み込み直しのあとは、一覧が入れ替わるので、しばらく止める ----
+const seenRooms = new Set()
+let armed = false, quietGen = 0
+function quiet(sec) {
+  armed = false; quietGen++
+  if (!sec) return
+  const g = quietGen
+  setTimeout(() => { if (g === quietGen) armed = true }, sec * 1000)
+}
+const fold = s => String(s || '').normalize('NFKC').toLowerCase().replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60))
+const roomBanned = r => { const hay = [r.name, r.sub, r.subBy, ...((r.people || []).map(p => p.name))].map(fold); return state.banned.some(w => { const q = fold(w); return q && hay.some(h => h.includes(q)) }) }
+const isFresh = dur => { if (/時間|日/.test(dur || '')) return false; const n = parseInt(String(dur || '').replace(/\D/g, ''), 10); return Number.isNaN(n) ? true : n <= 3 }
+let lobbyArmedOnce = false
+function lobbyChanged(l) {
+  if (!l || !Array.isArray(l.rooms)) return
+  if (!lobbyArmedOnce) { lobbyArmedOnce = true; quiet(6) }
+  for (const r of l.rooms) {
+    const key = r.id || r.name
+    if (seenRooms.has(key)) continue
+    seenRooms.add(key)
+    if (armed && prefs.notifyRooms && isFresh(r.dur) && !roomBanned(r) && Notification.isSupported()) {
+      if (process.env.POTALK_STEPS) console.log('[notify]', r.name)
+      const n = new Notification({ title: '新しい部屋ができました', body: String(r.name || '') })
+      n.on('click', () => showMain())
+      n.show()
+    }
+  }
+}
+
+// ---- 部屋のリンク（#room=…）で入る。入れなかったときは、理由を画面へ知らせる ----
+let linking = false
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+async function openRoomLink(text) {
+  const m = String(text || '').match(/#room=[^\s]*/)
+  if (!m || linking) return
+  linking = true; quiet(6); armMute(prefs.muteOnJoin)
+  const fin = r => { linking = false; if (r !== 'joined') pendingMute = null; send('linkResult', { r }) }
+  const probe = "JSON.stringify({t: (document.getElementById('entryText')||{}).textContent||'', n: !!(document.getElementById('entryNote')&&!document.getElementById('entryNote').hidden), name: (document.getElementById('room')||{}).value||''})"
+  loadEngine(m[0])
+  let asleep = 0, idle = 0, noEntry = 0
+  for (let i = 0; i < 80; i++) {      // 最大 40 秒
+    await sleep(500)
+    if (isJoined()) return fin('joined')
+    if (!state.ready || !engineWin) continue
+    let o; try { o = JSON.parse(await engineWin.webContents.executeJavaScript(probe)) } catch { continue }
+    const t = o.t || '', name = o.name || ''
+    if (t.includes('いま開いています') && name) {
+      cmd({ type: 'entryJoin' })
+      for (let j = 0; j < 40; j++) { await sleep(500); if (isJoined()) return fin('joined') }
+      return fin('timeout')
+    }
+    if (t.includes('同じ名前の部屋')) return fin('choose')
+    if (!t) { noEntry++; if (noEntry > 24) return fin('invalid') } else noEntry = 0      // 12 秒たっても、入口の案内が出ないときは、見つからないものとして知らせる
+    if (t.includes('😴')) { asleep++; if (asleep > 2) return fin('asleep') } else asleep = 0
+    if (!o.n && !t && !name) { idle++; if (idle > 10) return fin('invalid') } else idle = 0
+  }
+  fin('timeout')
+}
+
 let wasJoined = false
 function onRoom() {
   const j = isJoined()
@@ -330,16 +401,38 @@ function onCards() {
 function handlePm(m) {
   if (!m || typeof m.t !== 'string') return
   if (['lobby', 'profile', 'room', 'eq', 'cards'].includes(m.t)) state[m.t] = m.d
-  else if (m.t === 'ready') state.ready = true
+  else if (m.t === 'ready') { state.ready = true; onEngineReady() }
   else if (m.t === 'chat' && m.d) { state.chat.push(m.d); if (state.chat.length > 300) state.chat.shift() }
-  if (m.t === 'room') onRoom()
+  if (m.t === 'room') { checkPendingMute(m.d); onRoom() }
+  if (m.t === 'lobby') lobbyChanged(m.d)
+  if (m.t === 'devices') { state.devices = (Array.isArray(m.d) ? m.d : []).filter(d => d && d.id && d.id !== 'default' && d.id !== 'communications'); send('devices', state.devices); return }
   if (m.t === 'cards') onCards()
   send(m.t, m.d)
 }
 ipcMain.on('pm', (_e, m) => handlePm(m))
 
 // 画面からの指示は、ページの橋（window.__pm.cmd）へ流す
-ipcMain.handle('cmd', (_e, c) => { if (typeof c === 'object' && c !== null) return cmd(c) })
+function onEngineReady() {
+  cmd({ type: 'sndRoom', on: false })                      // 新しい部屋の通知は、こちらで一本化する（ページの音は使わない）
+  cmd({ type: 'setMicLabel', label: prefs.mic })
+  cmd({ type: 'devices' })
+}
+ipcMain.handle('cmd', (_e, c) => {
+  if (typeof c !== 'object' || c === null) return
+  if (c.type === 'create') { quiet(6); armMute(prefs.muteOnCreate); if (isJoined()) { state.chat = []; send('chatClear', null) } }
+  else if (c.type === 'join') { quiet(6); armMute(prefs.muteOnJoin) }
+  else if (c.type === 'refreshLobby') quiet(6)
+  return cmd(c)
+})
+ipcMain.handle('setPref', (_e, k, v) => {
+  if (['muteOnCreate', 'muteOnJoin', 'notifyRooms', 'thanksShown'].includes(k) && typeof v === 'boolean') prefs[k] = v
+  else if (k === 'mic' && typeof v === 'string') { prefs.mic = v.slice(0, 200); cmd({ type: 'setMicLabel', label: prefs.mic }) }
+  else return
+  savePrefs(); sendWins()
+})
+ipcMain.handle('refreshMics', (_e, probe) => cmd({ type: probe ? 'probeMic' : 'devices' }))
+ipcMain.handle('setBanned', (_e, words) => { state.banned = (Array.isArray(words) ? words : []).filter(w => typeof w === 'string').slice(0, 5000).map(w => w.slice(0, 200)) })
+ipcMain.handle('openLink', (_e, text) => openRoomLink(text))
 ipcMain.handle('reload', () => loadEngine())
 ipcMain.handle('toggleWin', (_e, kind) => { if (['chat', 'mail', 'settings'].includes(kind)) toggleAux(kind) })
 ipcMain.handle('togglePin', () => togglePin())
@@ -380,7 +473,7 @@ ipcMain.handle('bannedImport', async e => {
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
   return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(x => x.trim()).filter(Boolean)
 })
-ipcMain.handle('snapshot', () => ({ lobby: state.lobby, profile: state.profile, room: state.room, eq: state.eq, cards: state.cards, chat: state.chat, wins: winsState(), ready: state.ready, patched: state.patched }))
+ipcMain.handle('snapshot', () => ({ lobby: state.lobby, profile: state.profile, room: state.room, eq: state.eq, cards: state.cards, chat: state.chat, devices: state.devices, wins: winsState(), ready: state.ready, patched: state.patched }))
 
 // ---- メニュー・ショートカットの動作 ----
 const uiTo = (w, a, v) => { if (w && !w.isDestroyed()) { w.show(); w.focus(); w.webContents.send('state', { t: 'ui', d: { a, v } }) } }
@@ -391,6 +484,7 @@ const showMail = () => prefs.mode === 'split' ? openAux('mail') : uiTo(wins.sing
 const showSettings = () => prefs.mode === 'split' ? openAux('settings') : uiTo(wins.single, 'tab', 'settings')
 const showBanned = () => uiTo(wins[mainKind()], 'banned')
 const showProfile = () => uiTo(wins[mainKind()], 'profile')
+const showHelp = () => uiTo(wins[mainKind()], 'help')
 // 窓の並び・大きさを、初期の状態に戻す（開いていた補助の窓は、開き直す）
 function resetLayout() {
   prefs.pos = {}; savePrefs()
@@ -451,7 +545,7 @@ function buildMenu() {
         { label: 'ウインドウのレイアウトを初期化', click: resetLayout },
       ]
     },
-    { label: 'ヘルプ', submenu: [{ label: '公式サイト（potalk.app）を開く', click: () => shell.openExternal('https://potalk.app/') }, { label: 'GitHub（riryo3/potalk）を開く', click: () => shell.openExternal('https://github.com/riryo3/potalk') }] }
+    { label: 'ヘルプ', submenu: [{ label: 'これはなに？（Potalker について）', click: showHelp }, { type: 'separator' }, { label: '公式サイト（potalk.app）を開く', click: () => shell.openExternal('https://potalk.app/') }, { label: 'GitHub（riryo3/potalk）を開く', click: () => shell.openExternal('https://github.com/riryo3/potalk') }] }
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(t))
 }
@@ -467,9 +561,11 @@ app.whenReady().then(() => {
   ses.setPermissionCheckHandler((wc, perm) => ok(wc, perm))
   createEngine()
   createWin(mainKind())
+  // 初回の起動：作者（くらもさん）への謝辞のごあいさつ（開発用の自動実行のときは出さない）
+  if (!prefs.thanksShown && !process.env.POTALK_STEPS) setTimeout(() => uiTo(wins[mainKind()], 'thanks'), 2500)
   // 開発用：POTALK_STEPS='[{"at":ミリ秒, ...}, ...]' を付けて起動すると、順に実行する。使えるもの：
   //   ui:"JS"（窓の画面で実行。win:"room" などで窓を選ぶ）／ eng:"JS"（engine 窓で実行）／ shot:"画像のパス"（窓の画像。win で窓を選ぶ）
-  //   pm:{t,d}（engine からの知らせを装う）／ mode:"split"|"single" ／ scale:70 ／ open:"chat" ／ move:{win,x,y} ／ bounds:1（全部の窓の位置と大きさを出す）／ quit:1
+  //   audible:"ラベル"（engine 窓が、いま音を出しているかを出力）／ pm:{t,d}（engine からの知らせを装う）／ mode:"split"|"single" ／ scale:70 ／ open:"chat" ／ move:{win,x,y} ／ bounds:1（全部の窓の位置と大きさを出す）／ quit:1
   if (process.env.POTALK_STEPS) {
     for (const st of JSON.parse(process.env.POTALK_STEPS)) {
       setTimeout(async () => {
@@ -482,7 +578,8 @@ app.whenReady().then(() => {
           if (st.open) openAux(st.open)
           if (st.move) wins[st.move.win].setPosition(st.move.x, st.move.y)
           if (st.ui) { const r = await tw().webContents.executeJavaScript(st.ui); if (r !== undefined) console.log('[ui]', JSON.stringify(r)) }
-          if (st.eng) await engineWin.webContents.executeJavaScript(st.eng)
+          if (st.eng) { const r = await engineWin.webContents.executeJavaScript(st.eng); if (r !== undefined) console.log('[eng]', JSON.stringify(r)) }
+          if (st.audible) console.log('[audible]', st.audible, engineWin.webContents.isCurrentlyAudible(), 'muted=' + engineWin.webContents.isAudioMuted())
           if (st.shot) fs.writeFileSync(st.shot, (await tw().webContents.capturePage()).toPNG())
           if (st.bounds) console.log('[bounds]', JSON.stringify(Object.fromEntries(Object.entries(wins).map(([k, w]) => [k, w.getBounds()]))))
         } catch (e) { console.error('[step]', e.message) }

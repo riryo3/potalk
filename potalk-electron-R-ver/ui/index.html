@@ -12,16 +12,20 @@
   <header class="bar">
     <button id="me" class="chip emoji" title="名前・アバター・名刺を設定"></button>
     <span class="grow"></span>
-    <button id="btnBanned" class="chip-btn" title="自衛ワードを登録"><span class="emoji">🛡</span> 自衛ワード</button>
+    <button id="micBtn" class="chip-btn" title="次に入室するときから反映されます"><span class="emoji">🎤</span> 入力設定</button>
   </header>
-  <div class="bar2"><button id="btnNew" class="chip-btn"><span class="emoji">🏠</span> 部屋を作る</button></div>
+  <div class="bar2"><button id="btnHelp" class="chip-btn">？ これはなに？</button><button id="btnNew" class="chip-btn"><span class="emoji">🏠</span> 部屋を作る</button><span class="grow"></span><button id="btnBanned" class="chip-btn" title="自衛ワードを登録"><span class="emoji">🛡</span> 自衛ワード</button></div>
   <div id="createRow" class="create" hidden>
     <input id="newName" maxlength="30" placeholder="部屋の名前">
     <button id="btnCreate" class="primary">作る</button>
   </div>
-  <div class="searchrow"><input id="search" placeholder="部屋を検索"><button id="btnRefresh" class="chip-btn"><span class="emoji">🔄</span> 更新</button></div>
+  <div id="createKind" class="create kinds" hidden>
+    <label><input type="radio" name="ckind" value="chat" checked> 🏠 雑談部屋にする（全員で話せます）</label>
+    <label><input type="radio" name="ckind" value="bc"> 📣 配信部屋にする（あなたの声だけ流れます）</label>
+  </div>
+  <div class="searchrow"><input id="search" placeholder="部屋を検索／部屋のURLを貼る"><button id="btnRefresh" class="chip-btn"><span class="emoji">🔄</span> 更新</button></div>
   <div id="rooms" class="rooms"></div>
-  <footer class="foot"><span id="viewers"></span></footer>
+  <footer class="foot"><button id="btnNotify" class="chip-btn"></button><span class="grow"></span><span id="viewers"></span></footer>
 </div>
 
 <div id="room" class="view" hidden>
@@ -43,6 +47,7 @@
           <span id="roomCount" class="muted"></span>
           <span class="grow"></span>
           <button id="btnRetry" class="chip-btn"><span class="emoji">🔄</span> つなぎ直す</button>
+          <button id="btnMic2" class="chip-btn" title="入力設定（次に入室するときから反映されます）"><span class="emoji">🎤</span></button>
           <button id="btnPin2" class="pin pin-room" title="最前面に表示する／しない"><span class="emoji">📌</span></button>
         </div>
       </header>
@@ -105,6 +110,10 @@
 </div>
 <div id="cropOv" class="sheet center" hidden></div>
 <div id="profileOv" class="sheet center" hidden></div>
+<div id="micMenu" class="popmenu" hidden></div>
+<div id="tagOv" class="sheet center" hidden></div>
+<div id="helpOv" class="sheet center" hidden></div>
+<div id="thanksOv" class="sheet center" hidden></div>
 <div id="joinOv" class="sheet center" hidden></div>
 <div id="cardOv" class="sheet center" hidden></div>
 <div id="ignoreOv" class="sheet center" hidden></div>

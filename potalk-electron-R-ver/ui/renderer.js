@@ -5,13 +5,13 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 const KIND = new URLSearchParams(location.search).get('w') || 'single'
 document.body.dataset.w = KIND
 const CHAT_H = 221      // ひとこと用ドロワーを開いたとき、窓が伸びる高さ（ドロワー本体 220 + 区切り 1）
-const S = { lobby: null, profile: null, room: null, eq: '', dismissed: '', tab: { mail: 'mail', settings: 'settings' }[KIND] || 'room', chat: [], wins: {}, cards: null, unread: 0, chatOpen: false, wasJoined: false, warned: new Set(), sliding: false }
+const S = { lobby: null, profile: null, room: null, eq: '', dismissed: '', tab: { mail: 'mail', settings: 'settings' }[KIND] || 'room', chat: [], wins: {}, cards: null, devices: [], unread: 0, chatOpen: false, wasJoined: false, warned: new Set(), sliding: false }
 
 // ---- 自衛ワード（含む部屋・人を、一覧に出さない。全角半角・大文字小文字・ひらがなカタカナは区別しない）----
 const fold = s => String(s || '').normalize('NFKC').toLowerCase().replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60))
 const loadBanned = () => { try { const a = JSON.parse(localStorage.getItem('bannedWords') || '[]'); return Array.isArray(a) ? a : [] } catch { return [] } }
 let banned = loadBanned()                       // 新しく登録したものが先頭
-const saveBanned = () => { try { localStorage.setItem('bannedWords', JSON.stringify(banned)) } catch {} }
+const saveBanned = () => { try { localStorage.setItem('bannedWords', JSON.stringify(banned)) } catch {}; window.potalk.setBanned(banned) }
 const matchWord = strs => { const hay = strs.map(fold); return banned.find(w => { const q = fold(w); return q && hay.some(h => h.includes(q)) }) || null }
 const roomWord = r => banned.length ? matchWord([r.name, r.sub, r.subBy, ...(r.people || []).map(p => p.name)]) : null
 function addBanned(w) {
@@ -41,9 +41,15 @@ function renderLobby() {
   const l = S.lobby, p = S.profile
   $('me').textContent = p ? `${p.emoji || ''} ${p.name || 'ゲスト'}` : ''
   $('viewers').textContent = l ? l.viewers : ''
-  const q = fold($('search').value)
+  const nf = (S.wins.prefs || {}).notifyRooms !== false, nb = $('btnNotify')
+  nb.textContent = nf ? (KIND === 'drawer' ? '🔔 通知：オン' : '🔔 部屋の通知：オン') : (KIND === 'drawer' ? '🔕 通知：オフ' : '🔕 部屋の通知：オフ'); nb.classList.toggle('on', nf)
+  const raw = $('search').value.trim(), q = fold(raw)
+  const lm = raw.match(/#room=([^&\s]*)/); let linkId = null
+  if (lm) { try { linkId = decodeURIComponent(lm[1]) } catch { linkId = lm[1] } }
   const box = $('rooms'); box.replaceChildren()
-  const rooms = (l ? l.rooms : []).filter(r => !roomWord(r)).filter(r => !q || [r.name, r.sub, ...(r.people || []).map(m => m.name)].some(x => fold(x).includes(q)))
+  // 部屋のURLを貼ったときは、自衛ワードがあっても出す
+  const rooms = linkId ? (l ? l.rooms : []).filter(r => r.id === linkId)
+    : (l ? l.rooms : []).filter(r => !roomWord(r)).filter(r => !q || [r.name, r.sub, r.subBy, ...(r.people || []).map(m => m.name)].some(x => fold(x).includes(q)))
   for (const r of rooms) {
     const card = el('button', 'room-card')
     const top = el('div', 'room-top')
@@ -57,8 +63,76 @@ function renderLobby() {
     card.onclick = () => { if (!r.id) return; if (KIND === 'drawer') window.potalk.askJoin({ id: r.id, name: r.name, bc: !!r.bc }); else window.potalk.cmd({ type: 'join', id: r.id, quiet: false }) }
     box.append(card)
   }
-  if (!rooms.length) box.append(el('div', 'empty', l && l.rooms.length ? '表示できる部屋は、ありません' : '通話中の部屋は、まだありません'))
+  if (!rooms.length) {
+    if (raw && linkId) {
+      const nh = el('div', 'empty'); nh.append(el('div', '', 'このリンクの部屋は、いま通話中の一覧にありません（お休み中かもしれません）。'))
+      const b = el('button', 'chip-btn', 'このリンクの部屋に入ってみる'); b.style.marginTop = '10px'; b.onclick = () => { const t = $('search').value; $('search').value = ''; renderLobby(); window.potalk.openLink(t) }
+      nh.append(b); box.append(nh)
+    } else if (raw) box.append(el('div', 'empty', `「${raw}」に合う部屋は見つかりません。`))
+    else box.append(el('div', 'empty', l && l.rooms.length ? '表示できる部屋は、ありません' : '通話中の部屋は、まだありません'))
+  }
 }
+
+// ---- マイク（入力設定）。選んだマイクは、次に入室するときから使われる ----
+function chooseMic(name) {
+  const cur = (S.wins.prefs || {}).mic || ''
+  closeMicMenu()
+  if (name === cur) return
+  window.potalk.setPref('mic', name)
+  if (S.room && S.room.joined && confirm(`マイクを切り替えるには、入り直します。\n「${name || '既定のマイク'}」に切り替えます。同じ部屋に入り直しますか？（数秒、声が途切れます）`)) window.potalk.cmd({ type: 'reconnect' })
+}
+function closeMicMenu() { $('micMenu').hidden = true }
+function renderMicMenu() {
+  const m = $('micMenu'), cur = (S.wins.prefs || {}).mic || ''; m.replaceChildren()
+  const item = (label, on, fn) => { const b = el('button', 'pm-item' + (on ? ' on' : ''), (on ? '✓ ' : '') + label); b.onclick = fn; m.append(b) }
+  item('既定のマイク', cur === '', () => chooseMic(''))
+  const named = S.devices.filter(d => d.label)
+  for (const d of named) item(d.label, cur === d.label, () => chooseMic(d.label))
+  if (!named.length) m.append(el('div', 'pm-note', S.devices.length ? 'マイクの名前を出すには、許可が必要です。「一覧を更新」を押してください。' : 'マイクが見つかりません。'))
+  m.append(el('hr', 'card-hr')); item('マイクの一覧を更新', false, () => { window.potalk.refreshMics(true) })
+}
+function openMicMenu(btn) {
+  const m = $('micMenu'); if (!m.hidden) return closeMicMenu()
+  window.potalk.refreshMics(false); renderMicMenu(); m.hidden = false
+  const r = btn.getBoundingClientRect(); m.style.top = (r.bottom + 4) + 'px'; m.style.right = Math.max(6, innerWidth - r.right) + 'px'
+}
+document.addEventListener('pointerdown', e => { const m = $('micMenu'); if (!m.hidden && !m.contains(e.target) && !e.target.closest('#micBtn, #btnMic2')) closeMicMenu() })
+
+// ---- 話題タグの編集 ----
+function openTagEdit(cur) {
+  const ov = $('tagOv'); ov.replaceChildren(); ov.hidden = false
+  const box = el('div', 'card-box'), inp = el('input'), n = el('span', 'muted small', ''), bt = el('div', 'ask-btns')
+  inp.maxLength = 30; inp.placeholder = '今日の話題（最大30文字）'; inp.value = cur || ''
+  const upd = () => { n.textContent = `${[...inp.value].length} / 30` }; inp.oninput = upd; upd()
+  const done = ok => { ov.hidden = true; ov.replaceChildren(); if (ok) window.potalk.cmd({ type: 'tag', text: inp.value.trim().slice(0, 30) }) }
+  const yes = el('button', 'yes-blue', '確定'), no = el('button', '', 'やめる'); yes.onclick = () => done(true); no.onclick = () => done(false)
+  inp.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) done(true); else if (e.key === 'Escape') done(false) }
+  const row = el('div', 'row2'); row.append(el('span', 'muted small', '話題タグ'), el('span', 'grow'), n)
+  bt.append(no, yes); box.append(el('div', 'card-name', '🏷 話題タグ'), row, inp, bt); ov.append(box); inp.focus()
+}
+
+// ---- これはなに？／初回のごあいさつ ----
+function ext(url, label) { const a = el('a', '', label); a.href = url; a.onclick = e => { e.preventDefault(); window.potalk.openExternal(url) }; return a }
+function openHelp() {
+  const ov = $('helpOv'); ov.replaceChildren(); ov.hidden = false
+  const box = el('div', 'card-box help-box')
+  const warn = el('div', 'help-warn', '⚠️ Potalker は、ぽっと通話（potalk.app）の「非公式」クライアントです。サイトの作者とは関係がありません。')
+  const links = el('div', 'help-links'); for (const [u, t] of [['https://potalk.app/start/', 'はじめに（初めての方へ）'], ['https://potalk.app/manual/', '使い方（画面の順に説明）'], ['https://potalk.app/tech/', 'しくみ（サーバなしで動く理由）'], ['https://potalk.app/about/', '運営（制作者と方針）'], ['https://github.com/po-talk/po-talk.github.io', 'ソース（po-talk/po-talk.github.io）']]) links.append(ext(u, t))
+  const x = el('button', 'card-x', '✕'); x.onclick = () => { ov.hidden = true }
+  const head = el('div', 'card-head'); head.append(el('div', 'card-name', '🫖 ぽっと通話とは'), x)
+  box.append(warn, head, el('div', 'small', '登録なし・インストールなしで、居合わせた人と声だけで話せる小さなお茶の席です。同じ部屋を開いた人どうしが、そのまま話せます。'), el('div', 'warn small', '⚠️ 実験中です。ご利用は自己責任で！'), links, el('div', 'small', '🙏 ぽっと通話を作ってくださった くらもさん に、感謝しています。通話の仕組みは、くらもさんのサイトをそのまま使わせてもらっています。'), el('hr', 'card-hr'), el('div', 'muted small', 'Potalker は、通話の仕組みに potalk.app をそのまま使い、画面だけを作り直した非公式のアプリです。'))
+  ov.append(box)
+}
+function openThanks() {
+  const ov = $('thanksOv'); ov.replaceChildren(); ov.hidden = false
+  const box = el('div', 'card-box'), lab = el('label', 'set-row'), c = el('input'); c.type = 'checkbox'; c.checked = true
+  lab.append(c, el('span', 'small', '次から表示しない'))
+  const go = el('button', 'primary', 'はじめる'); go.onclick = () => { ov.hidden = true; if (c.checked) window.potalk.setPref('thanksShown', true) }
+  const links = el('div', 'help-links'); links.append(ext('https://potalk.app/', 'ぽっと通話（Web アプリ）　potalk.app'), ext('https://github.com/po-talk/po-talk.github.io', 'ソース（GitHub）　po-talk/po-talk.github.io'))
+  box.append(el('div', 'card-name', 'くらもさんへ、ありがとうございます'), el('div', 'small', 'Potalker は、くらもさんが作った「ぽっと通話」の、非公式クライアントです。通話の仕組みは、くらもさんのサイトをそのまま使わせてもらっています。'), el('div', 'small', 'こんなに気軽に話せる、すてきな場所を公開してくださって、ありがとうございます。「これはなに？」からも、読み返せます。'), links, lab, go)
+  ov.append(box)
+}
+
 
 // ---- 部屋 ----
 function splitState(t) {
@@ -78,7 +152,8 @@ function renderRoom() {
   const b = $('roomStatus'); b.textContent = status; b.hidden = !status
   b.className = 'badge ' + (isBad(r.state) ? 'bad' : r.state.includes('通話中') ? 'ok' : 'busy')
   $('roomCount').textContent = `${r.members.length}人`
-  const tag = $('tagRow'); tag.hidden = !r.tag.show; tag.textContent = '🏷 ' + (r.tag.text || '話題はまだありません')
+  const tag = $('tagRow'); tag.hidden = !r.tag.show; tag.replaceChildren(el('span', 'tagtext', '🏷 ' + (r.tag.text || '話題はまだありません')))
+  if (r.tag.show && r.tag.btn) { const tb = el('button', 'chip-btn', r.tag.btn); tb.onclick = () => openTagEdit(r.tag.btn === '変える' ? r.tag.text : ''); tag.append(tb) }
   $('tabMail').hidden = !r.bcast
   if (KIND === 'single' && !r.bcast && S.tab === 'mail') S.tab = 'room'
 
@@ -218,6 +293,8 @@ function renderSpk() { const b = $('btnSpk'), on = !!S.wins.spk; b.classList.tog
 function uiAction({ a, v }) {
   if (a === 'banned') return openBanned()
   if (a === 'profile') return openProfile()
+  if (a === 'help') return openHelp()
+  if (a === 'thanks') return openThanks()
   if (a === 'join' && KIND === 'single') { S.joinAsk = v; return renderJoin() }
   if (KIND !== 'single' || !S.room || !S.room.joined) return
   if (a === 'tab') { if (v === 'mail' && !S.room.bcast) return; S.tab = v; renderTabs() }
@@ -492,10 +569,12 @@ function renderProfile() {
     const b1 = el('button', 'chip-btn wide-btn', '📇 名刺（プロフィールカード）を設定…'); b1.onclick = () => window.potalk.cmd({ type: 'cardEdit' })
     const b2 = el('button', 'chip-btn wide-btn', '🛡 自衛ワードを登録…（含む部屋を一覧に出さない）'); b2.onclick = () => { profileOpen = false; renderProfile(); openBanned() }
     const done = el('button', 'primary', '閉じる'); done.onclick = () => { profileOpen = false; renderProfile() }
-    box.append(el('div', 'card-name', '🫖 ぽっと通話'), el('div', 'muted small', 'あなたの名前'), inp, el('div', 'muted small', 'アバター'), grid, b1, b2, el('div', 'muted tiny', '名前・アバターを変えると、次に入る部屋から反映されます。'), done)
+    const mk = (key, text) => { const lab = el('label', 'set-row'), c = el('input'); c.type = 'checkbox'; c.dataset.pref = key; c.onchange = () => window.potalk.setPref(key, c.checked); lab.append(c, el('span', 'small', text)); return lab }
+    box.append(el('div', 'card-name', '🫖 ぽっと通話'), el('div', 'muted small', 'あなたの名前'), inp, el('div', 'muted small', 'アバター'), grid, b1, b2, el('div', 'muted small', '部屋に入るとき'), mk('muteOnCreate', '部屋を作るとき、ミュートで始める'), mk('muteOnJoin', '部屋に入るとき、ミュートで始める'), el('div', 'muted tiny', '名前・アバターを変えると、次に入る部屋から反映されます。'), done)
     ov.append(box)
   }
   const inp = $('pfNameIn'); syncInput(inp, S.profile.input || S.profile.name || '')
+  for (const c of document.querySelectorAll('#pfBox input[data-pref]')) c.checked = (S.wins.prefs || {})[c.dataset.pref] !== false
   const grid = $('pfGrid'); grid.replaceChildren()
   ;(S.profile.avatars || []).forEach((a, i) => { const on = a.on || a.em === S.profile.emoji; const b = el('button', 'pf-av' + (on ? ' on' : ''), a.em); b.onclick = () => window.potalk.cmd({ type: 'setAvatar', i }); grid.append(b) })
 }
@@ -522,13 +601,15 @@ function render() {
 window.potalk.onState(({ t, d }) => {
   if (t === 'eq') { S.eq = d || ''; if (S.room && S.room.joined) renderEq(S.eq); return }
   if (t === 'ui') { uiAction(d || {}); return }
+  if (t === 'devices') { S.devices = d || []; if (!$('micMenu').hidden) renderMicMenu(); return }
+  if (t === 'linkResult') { const r = d && d.r; if (r === 'joined') return; const msg = { asleep: 'この部屋は見つかりません。存在しないか、すでに終了しています。', invalid: 'この部屋は見つかりません。存在しないか、すでに終了しています。', choose: '同じ名前の部屋が、いくつか開いています。一覧から選んでください。', timeout: '部屋に入れませんでした。もう一度お試しください。' }[r]; if (msg && (KIND === 'single' || KIND === 'lobby')) alert('部屋に入れません\n' + msg); return }
   if (t === 'chatClear') { S.chat = []; S.unread = 0; S.warned.clear(); if (S.room && S.room.joined) renderChat(); return }
   if (t === 'wins') { const was = S.wins.chat; S.wins = d || {}; if (S.wins.chat && !was) S.unread = 0; render(); return }
   if (t === 'chat' && d) { S.chat.push(d); if (!d.sys && !d.hist && !chatVisible()) S.unread++; if (S.room && S.room.joined && (KIND === 'single' || KIND === 'chat' || KIND === 'room')) renderChat(); return }
   if (!['lobby', 'profile', 'room', 'cards'].includes(t)) return
   S[t] = d; render()
 })
-window.potalk.snapshot().then(s => { Object.assign(S, { lobby: s.lobby, profile: s.profile, room: s.room, eq: s.eq || '', chat: s.chat || [], wins: s.wins || {}, cards: s.cards || null }); if (KIND === 'chat') $('chatOpen').hidden = false; render() })
+window.potalk.snapshot().then(s => { Object.assign(S, { lobby: s.lobby, profile: s.profile, room: s.room, eq: s.eq || '', chat: s.chat || [], wins: s.wins || {}, cards: s.cards || null, devices: s.devices || [] }); if (KIND === 'chat') $('chatOpen').hidden = false; render() })
 
 for (const b of document.querySelectorAll('#tabs button[data-tab]')) b.onclick = () => { S.tab = b.dataset.tab; renderTabs() }
 $('chatToggle').onclick = () => setChatOpen(!S.chatOpen)
@@ -538,8 +619,12 @@ $('chatText').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) sendCh
 $('chatText').oninput = () => { $('chatCount').textContent = `${$('chatText').value.length}/60` }
 $('search').oninput = () => renderLobby()
 $('btnRefresh').onclick = () => window.potalk.cmd({ type: 'refreshLobby' })
-$('btnNew').onclick = () => { const r = $('createRow'); r.hidden = !r.hidden; if (!r.hidden) $('newName').focus() }
-$('btnCreate').onclick = () => { const n = $('newName').value.trim(); if (n) { window.potalk.cmd({ type: 'create', name: n, kind: 'chat' }); $('newName').value = ''; $('createRow').hidden = true } }
+$('btnNew').onclick = () => { const r = $('createRow'); r.hidden = !r.hidden; $('createKind').hidden = r.hidden; if (!r.hidden) $('newName').focus() }
+$('btnHelp').onclick = () => openHelp()
+$('btnNotify').onclick = () => window.potalk.setPref('notifyRooms', (S.wins.prefs || {}).notifyRooms === false)
+$('micBtn').onclick = () => openMicMenu($('micBtn'))
+$('btnMic2').onclick = () => openMicMenu($('btnMic2'))
+$('btnCreate').onclick = () => { const n = $('newName').value.trim(); if (n) { const k = (document.querySelector('input[name=ckind]:checked') || {}).value === 'bc' ? 'bc' : 'chat'; window.potalk.cmd({ type: 'create', name: n, kind: k }); $('newName').value = ''; $('createRow').hidden = true; $('createKind').hidden = true } }
 $('newName').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) $('btnCreate').click() }
 $('btnRetry').onclick = () => window.potalk.cmd({ type: 'reconnect' })
 $('btnMute').onclick = () => window.potalk.cmd({ type: $('btnMute').dataset.act || 'mute' })
@@ -559,3 +644,4 @@ $('btnMailWin').onclick = () => window.potalk.toggleWin('mail')
 $('btnSetWin').onclick = () => window.potalk.toggleWin('settings')
 // 自衛ワードは、ほかの窓で変えても、すぐ反映する
 window.addEventListener('storage', e => { if (e.key === 'bannedWords') { banned = loadBanned(); render() } })
+window.potalk.setBanned(banned)
