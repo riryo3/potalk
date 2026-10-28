@@ -484,7 +484,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             let deficit = max(0, screen.minX - (w.frame.minX - drawerW))
             drawerShift = min(deficit, max(0, screen.maxX - w.frame.maxX))
             if drawerShift > 0 { var f = w.frame; f.origin.x += drawerShift; w.setFrame(f, display: true, animate: true) }
-            let p = DrawerPanel(contentRect: NSRect(x: w.frame.minX, y: w.frame.minY, width: drawerW + drawerOverlap, height: w.frame.height),
+            // 本体の窓の後ろに隠れた細い帯から、左へ伸びて開く（右にはみ出さない）
+            let p = DrawerPanel(contentRect: NSRect(x: w.frame.minX, y: w.frame.minY, width: drawerOverlap, height: w.frame.height),
                                 styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
             p.titleVisibility = .hidden; p.titlebarAppearsTransparent = true
             for b in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] { p.standardWindowButton(b)?.isHidden = true }
@@ -499,7 +500,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             guard let p = drawerWin else { return }
             drawerWin = nil
             let main = p.parent
-            let back = NSRect(x: (main?.frame.minX ?? p.frame.maxX), y: p.frame.minY, width: drawerW + drawerOverlap, height: p.frame.height)
+            let back = NSRect(x: (main?.frame.minX ?? p.frame.maxX - drawerOverlap), y: p.frame.minY, width: drawerOverlap, height: p.frame.height)
             let shift = drawerShift; drawerShift = 0
             NSAnimationContext.runAnimationGroup({ c in
                 c.duration = 0.2
