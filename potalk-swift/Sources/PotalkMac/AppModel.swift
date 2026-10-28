@@ -155,9 +155,25 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let side: DrawerSide = (w.frame.minX - v.minX >= drawerW || v.maxX - w.frame.maxX < drawerW) ? .left : .right
         if side != drawerSide { drawerSide = side }
     }
-    func drawerRect(_ w: NSWindow) -> NSRect {
+    private func drawerContent(_ side: DrawerSide) -> AnyView {
+        AnyView(MainView(embedded: true).uiScaled(self).padding(side == .left ? .trailing : .leading, drawerOverlap).background(Color(nsColor: .windowBackgroundColor)).environmentObject(self).environmentObject(engine))
+    }
+    /// ドロワーを開いたまま窓を動かして、ドロワーが画面の外に出そうになったら、反対側に出し直す（反対側に収まるときだけ）
+    private func flipDrawerIfOffscreen(_ w: NSWindow) {
+        guard let p = drawerWin, let host = p.contentView?.subviews.first as? NSHostingView<AnyView> else { return }
+        let v = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        func fits(_ side: DrawerSide) -> Bool { let r = drawerRect(w, side: side); return r.minX >= v.minX - 1 && r.maxX <= v.maxX + 1 }
+        guard !fits(drawerSide) else { return }
+        let other: DrawerSide = drawerSide == .left ? .right : .left
+        guard fits(other) else { return }
+        drawerSide = other
+        host.rootView = drawerContent(other)
+        host.frame = host.superview?.bounds ?? host.frame
+        p.setFrame(drawerRect(w), display: true)
+    }
+    func drawerRect(_ w: NSWindow, side: DrawerSide? = nil) -> NSRect {
         let width = drawerW + drawerOverlap
-        return drawerSide == .left ? NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: width, height: w.frame.height)
+        return (side ?? drawerSide) == .left ? NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: width, height: w.frame.height)
                                    : NSRect(x: w.frame.maxX - drawerOverlap, y: w.frame.minY, width: width, height: w.frame.height)
     }
     private var drawerShift: CGFloat = 0       // 左に出す余地がなくて、本体の窓を右にずらしたぶん
@@ -538,8 +554,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             p.isOpaque = false; p.backgroundColor = .clear
             let box = NSView(frame: NSRect(origin: .zero, size: full.size))
             box.wantsLayer = true; box.layer?.masksToBounds = true; box.autoresizingMask = [.width, .height]
-            let content = MainView(embedded: true).uiScaled(self).padding(side == .left ? .trailing : .leading, drawerOverlap).background(Color(nsColor: .windowBackgroundColor)).environmentObject(self).environmentObject(engine)
-            let host = NSHostingView(rootView: content)
+            let host = NSHostingView(rootView: drawerContent(side))
             host.autoresizingMask = [.width, .height]
             host.frame = box.bounds.offsetBy(dx: side == .left ? drawerW : -drawerW, dy: 0)
             box.addSubview(host); p.contentView = box
@@ -818,7 +833,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     private var snapping = false
     var forceSnap = false
     func windowDidMove(_ n: Notification) {
-        if let m = n.object as? NSWindow, m === mainWin { updateDrawerSide() }
+        if let m = n.object as? NSWindow, m === mainWin { updateDrawerSide(); flipDrawerIfOffscreen(m) }
         guard let w = n.object as? NSWindow, !snapping, (forceSnap || NSEvent.pressedMouseButtons & 1 == 1), w !== mainWin || singlePane,
               [mainWin, roomWin, chatWin, mailWin, letterWin, settingsWin, cardEditWin, cardAuthWin, profileWin, helpWin, bannedWin].contains(where: { $0 === w }) else { return }
         snapping = true; defer { snapping = false }
