@@ -55,8 +55,8 @@ struct SinglePaneView: View {
     /// 上のタブ・ひとこと・部屋の画面を合わせて、切れずに収まる高さを、窓の下限にする
     func measure() {
         guard model.tab == .room, roomNeed > 0, tabH > 0, barH > 0 else { return }
-        // 上のタブ＋部屋の画面＋ひとことの見出し（仕切りの線は、タブの下と見出しの上の2本）＋部屋以外のタブで出る下の帯
-        model.paneNeedH = (tabH + 1 + roomNeed + 1 + barH + model.miniH).rounded(.up)
+        // 上のタブ＋部屋の画面＋ひとことの見出し（仕切りの線は、タブの下と見出しの上の2本）。メンバー表示は、4人分くらいで足りる（それ以上は、スクロール）
+        model.paneNeedH = (tabH + 1 + roomNeed + 1 + barH).rounded(.up)
     }
     var shownChatH: CGFloat { min(model.chatH, model.chatCap) }
 

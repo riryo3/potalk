@@ -90,17 +90,19 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     @Published var chatH: CGFloat = {
         let v = UserDefaults.standard.double(forKey: "single.chatH"); return v >= 60 ? CGFloat(v) : 220
     }() {
-        didSet { UserDefaults.standard.set(Double(chatH), forKey: "single.chatH"); if chatDrawer { syncChatGrow() } }
+        didSet { UserDefaults.standard.set(Double(chatH), forKey: "single.chatH"); if chatDrawer, !adoptingResize { syncChatGrow() } }
     }
     /// 画面の下に余地がなくて、窓を伸ばしきれなかったときの、ひとことの高さの上限
     /// 部屋以外のタブで下に出る、ミュート・退出の帯の高さ（窓の最小の高さは、どのタブでも同じにするため、部屋のタブにも見込む）
     @Published var miniH: CGFloat = 105 { didSet { if oldValue != miniH { applyMinSize() } } }
     @Published var chatCap: CGFloat = .infinity
+    private var adoptingResize = false     // 窓の縁をつかんで変えた高さを、ひとことの高さとして取り込んでいる間
+    private var liveResizing = false, lastMainH: CGFloat = 0
     private var chatGrown: CGFloat = 0     // ひとこと用に、窓を下へ伸ばしているぶん
     /// 部屋の画面（上のタブからひとことまで）が、切れずに収まるのに要る高さ。これより窓を縮められないようにする
     @Published var paneNeedH: CGFloat = 0 { didSet { if oldValue != paneNeedH { applyMinSize() } } }
     /// ひとことを閉じているときの必要な高さ（paneNeedH）に、開いているときは、ひとことの高さを足す
-    var minPaneH: CGFloat { (paneNeedH > 0 ? paneNeedH : 560) + (chatDrawer ? chatH + 1 : 0) }
+    var minPaneH: CGFloat { (paneNeedH > 0 ? paneNeedH : 520) + (chatDrawer ? chatH + 1 : 0) }
     func applyMinSize() {
         guard singlePane, engine.room.joined, let w = mainWin else { return }
         w.contentMinSize = NSSize(width: 340 * uiScale, height: minPaneH * uiScale)
@@ -258,7 +260,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             quiet(for: 6)
             if r.joined { joinedAt = Date(); knownMembers = []; roomHot = false; openRoom() } else { closeRoomGroup() }
             drawerOpen = false
-            fitSingleFrame(joined: r.joined)
+            fitSingleFrame(joined: r.joined, resetHeight: true)
         }
         if !r.joined { lastRid = ""; if speakerMuted { speakerMuted = false; engine.cmd(["type": "spk", "on": false]) } }
         guard r.joined else { return }
@@ -451,7 +453,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         set { UserDefaults.standard.set(newValue, forKey: "single.roomW") }
     }
     /// シングルペイン：入室前は縦長の一覧、入室したら部屋の小窓くらいの幅にする。右端と上端の位置は動かさない
-    func fitSingleFrame(joined: Bool) {
+    func fitSingleFrame(joined: Bool, resetHeight: Bool = false) {
         guard singlePane, let w = mainWin else { return }
         if !joined { chatDrawer = false }
         w.contentMinSize = joined ? NSSize(width: 340 * uiScale, height: minPaneH * uiScale) : NSSize(width: 360 * uiScale, height: 420 * uiScale)
@@ -460,8 +462,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let right = f.maxX     // 右端を基準に、幅を変える
         f.size.width = min(joined ? roomW : lobbyW, screen.width)
         f.origin.x = right - f.width
-        let minH = 640 * uiScale
-        if joined, f.height < minH { f.origin.y -= minH - f.height; f.size.height = minH }
+        let minH = minPaneH * uiScale
+        if joined, resetHeight ? f.height != minH : f.height < minH { f.origin.y += f.height - minH; f.size.height = minH }      // 入室したら、必要な高さ（メンバー4人分くらい）にそろえる
         if f.maxX > screen.maxX { f.origin.x = max(screen.minX, screen.maxX - f.width) }
         if f.minX < screen.minX { f.origin.x = screen.minX }
         if f.minY < screen.minY { f.origin.y = screen.minY }
@@ -539,14 +541,30 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     /// シングルペインの窓の最小の大きさ（幅・高さ）を守る（表示を縮めているときも、なくならないように）
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
         guard singlePane, sender === mainWin else { return frameSize }
-        let m = minFrameSize(sender)
+        var m = minFrameSize(sender)
+        if liveResizing, chatDrawer {      // 縁で縮めるのは、ひとことのぶん。ひとこと側は60まで
+            let c = NSSize(width: 340 * uiScale, height: ((paneNeedH > 0 ? paneNeedH : 520) + 61) * uiScale)
+            m.height = sender.frameRect(forContentRect: NSRect(origin: .zero, size: c)).height
+        }
         return NSSize(width: max(frameSize.width, m.width), height: max(frameSize.height, m.height))
     }
     func windowDidResize(_ n: Notification) {
-        guard let w = n.object as? NSWindow, w === mainWin, let p = drawerWin else { return }
+        guard let w = n.object as? NSWindow, w === mainWin else { return }
+        // ひとことを開いているとき、窓の縁を引っぱった分は、ひとことの高さにする（上の部屋の画面は変えない）
+        if liveResizing, singlePane, chatDrawer {
+            let d = w.frame.height - lastMainH
+            if d != 0 { adoptingResize = true; chatGrown += d; chatH = max(60, chatH + d / uiScale); adoptingResize = false }
+        }
+        lastMainH = w.frame.height
+        guard let p = drawerWin else { return }
         p.setFrame(NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: drawerW + drawerOverlap, height: w.frame.height), display: true)
     }
+    func windowWillStartLiveResize(_ n: Notification) {
+        guard let w = n.object as? NSWindow, w === mainWin else { return }
+        liveResizing = true; lastMainH = w.frame.height
+    }
     func windowDidEndLiveResize(_ n: Notification) {
+        if let w = n.object as? NSWindow, w === mainWin { liveResizing = false }
         guard singlePane, let w = n.object as? NSWindow, w === mainWin else { return }
         if engine.room.joined { roomW = w.frame.width } else { lobbyW = w.frame.width }
     }
