@@ -6,6 +6,29 @@ Potalker（ぽっと通話 非公式クライアント）の、Electron によ�
 - **橋の JS**: `engine/bridge.js`・`engine/mic.js` は、Linux 版のものを写しています（`#peerNotice`・`#audioWarn` の読み取りを足してあります）。差し込み（`engine/patcher.js`）は、ほかの版と同じ内容です。
 - **本体ページの扱い**: `https://potalk.app/` だけ、取得して差し込みを当てて返します（`main.js` の `installPagePatcher`）。ほかの通信は、そのまま通します。
 
+## 試用版（Linux・AppImage）
+
+**試用版です。** Linux で、ダウンロードして、実行権限をつけるだけで開ける形（AppImage）を、試しています。Ubuntu 24.04（ARM64）の仮想マシンで、Mac の Potalker との通話（声の往復・名刺・効果音）を確認しています。**x64 の実機の Linux では、まだ動作を確認していません。** 動いた・動かなかったの報告をいただけると、助かります。
+
+1. [Releases](https://github.com/riryo3/potalk/releases) から、自分の環境に合う AppImage を取ります（一般的な PC は `x86_64`、ARM 機は `arm64`）。
+2. 初めてだけ、FUSE 2 を入れます（Ubuntu 22.04 以降は、最初から入っていません）。
+
+   ```bash
+   sudo apt install libfuse2t64        # Ubuntu 24.04。22.04 は libfuse2
+   ```
+
+3. 実行権限をつけて、起動します。
+
+   ```bash
+   chmod +x Potalker-*.AppImage
+   ./Potalker-*.AppImage
+   ```
+
+- マイクの許可が求められたら、許可してください。使うマイクは、ロビーの「🎤 入力設定」で選べます。
+- 窓のアイコンは、AppImage をそのまま開いたときは、汎用のアイコンになることがあります（`.deb` などで入れると、緑の「ぽ」になります）。
+- ARM 版（`arm64`）は、起動のために `zlib1g-dev` が、さらに要る場合があります（`sudo apt install zlib1g-dev`）。
+- **非公式のアプリです。** ぽっと通話（potalk.app）の作者とは関係がありません。
+
 ## 動かす
 
 ```bash
