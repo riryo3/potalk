@@ -92,12 +92,32 @@ struct RoomView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: w)
     }
 
+    /// 状態の文言（「通話中：部屋の名前」）を、状態と部屋の名前に分ける
+    var roomStateParts: (status: String, title: String) {
+        let t = r.state.isEmpty ? "未参加" : r.state
+        for sep in ["：", "｜"] {
+            if let i = t.firstIndex(of: Character(sep)) {
+                let st = String(t[..<i]).trimmingCharacters(in: .whitespaces), name = String(t[t.index(after: i)...]).trimmingCharacters(in: .whitespaces)
+                if !st.isEmpty && !name.isEmpty { return (st, name) }
+            }
+        }
+        return ("", t)
+    }
+
     var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(r.state.isEmpty ? "未参加" : r.state).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+            // 1行目：部屋の名前。2行目：状態・人数 … つなぎ直す・マイク（状態の文言は「通話中：部屋の名前」の形。分けられないときは、全体を1行目に出す）
+            let parts = roomStateParts
+            Text(parts.title).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
             HStack(spacing: 8) {
+                if !parts.status.isEmpty {
+                    let c: Color = isBad(r.state) ? redColor : (r.state.contains("通話中") ? tealColor : orangeColor)
+                    Text(parts.status).font(.system(size: 11, weight: .bold)).foregroundColor(c)
+                        .padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(c.opacity(0.16)))
+                }
                 Text("\(r.members.count)人").font(.system(size: 12)).foregroundColor(.secondary)
                 Spacer(minLength: 4)
+                Button("🔄 つなぎ直す") { engine.cmd(["type": "reconnect"]) }.buttonStyle(ChipButton()).help("通話をつなぎ直す（数秒、声が途切れます）")
                 Menu {
                     Button((model.selectedMic.isEmpty ? "✓ " : "") + "既定のマイク") { model.switchMic("") }
                     ForEach(model.mics, id: \.self) { n in Button((model.selectedMic == n ? "✓ " : "") + n) { model.switchMic(n) } }
