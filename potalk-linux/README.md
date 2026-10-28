@@ -41,7 +41,7 @@ python3 -m potalk_linux
 
 - 退出の演出
 - 更新の知らせ
-- AppImage / Flatpak / .deb などの配布形式（PyInstaller のフォルダ形式までは用意あり）
+- Flatpak / .deb などの配布形式（PyInstaller のフォルダ形式と AppImage は用意あり）
 
 ## 配布用に固める
 
@@ -49,7 +49,9 @@ python3 -m potalk_linux
 sh packaging/build_linux.sh   # dist/Potalker/ にフォルダ形式で出力
 ```
 
-PyInstaller で Python と Qt WebEngine を同梱します（約 590MB と大きめです。Qt WebEngine の分です）。ビルドした環境と近いディストリビューション向けです。AppImage 化は `dist/Potalker` を AppDir に入れて appimagetool で包む形が想定ですが、未検証です。デスクトップ登録用の `packaging/potalker.desktop` も同梱しています。
+PyInstaller で Python と Qt WebEngine を同梱します（約 590MB と大きめです。Qt WebEngine の分です）。ビルドした環境と近いディストリビューション向けです。デスクトップ登録用の `packaging/potalker.desktop` も同梱しています。
+
+単一ファイルの AppImage にするには、フォルダを作ったあと `sh packaging/make_appimage.sh` を実行します（appimagetool を自動で取得します）。約 227MB の `Potalker-x86_64.AppImage` ができます。中身を取り出して起動するところまで確認済みですが、FUSE でそのまま実行する形と実機での動作は未確認です。ビルド環境が Ubuntu 24.04 相当のため、新しめのディストリビューション向けです。
 
 確認できていないこと:
 
