@@ -25,7 +25,7 @@ struct SinglePaneView: View {
                 }
                 .frame(minWidth: 340, minHeight: 300)
                 .background(GeometryReader { g in Color.clear.onAppear { stackH = g.size.height; measure() }.onChange(of: g.size.height) { _, h in stackH = h; measure() } })
-                .onChange(of: model.tab) { _, t in if t != .room { model.paneNeedH = 0 } else { measure() } }
+                .onChange(of: model.tab) { _, t in if t == .room { measure() } }
                 .onChange(of: model.chatDrawer) { _, _ in measure() }
                 .onChange(of: roomNeed) { _, _ in measure() }
             } else {
@@ -53,7 +53,7 @@ struct SinglePaneView: View {
     /// 上のタブ・ひとこと・部屋の画面を合わせて、切れずに収まる高さを、窓の下限にする
     func measure() {
         guard model.tab == .room, roomNeed > 0, stackH > 0 else { return }
-        model.paneNeedH = (stackH - areaSize.height + roomNeed).rounded(.up)
+        model.paneNeedH = (stackH - areaSize.height + roomNeed + model.miniH).rounded(.up)   // 部屋以外のタブの、下の帯のぶんも含めて、どのタブでも同じ高さにする
     }
     var shownChatH: CGFloat { min(model.chatH, model.chatCap) }
 

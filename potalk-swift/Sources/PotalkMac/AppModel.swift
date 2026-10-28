@@ -93,8 +93,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         didSet { UserDefaults.standard.set(Double(chatH), forKey: "single.chatH"); if chatDrawer { syncChatGrow() } }
     }
     /// 画面の下に余地がなくて、窓を伸ばしきれなかったときの、ひとことの高さの上限
-    /// 部屋以外のタブで下に出る、ミュート・退出の帯の高さ（窓をそのぶん伸ばして、中身を狭くしない）
-    @Published var miniH: CGFloat = 49 { didSet { if oldValue != miniH { syncChatGrow() } } }
+    /// 部屋以外のタブで下に出る、ミュート・退出の帯の高さ（窓の最小の高さは、どのタブでも同じにするため、部屋のタブにも見込む）
+    @Published var miniH: CGFloat = 49 { didSet { if oldValue != miniH { applyMinSize() } } }
     @Published var chatCap: CGFloat = .infinity
     private var chatGrown: CGFloat = 0     // ひとこと用に、窓を下へ伸ばしているぶん
     /// 部屋の画面（上のタブからひとことまで）が、切れずに収まるのに要る高さ。これより窓を縮められないようにする
@@ -120,8 +120,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     /// 画面の下に余地がなければ、窓を上にずらし、それでも足りなければ、ひとことのほうを縮める
     func syncChatGrow() {
         guard singlePane, engine.room.joined, let w = mainWin else { chatGrown = 0; chatCap = .infinity; return }
-        let miniWant: CGFloat = tab != .room ? (miniH * uiScale).rounded() : 0     // 部屋以外のタブでは、下にミュート・退出の帯が出る
-        let want: CGFloat = (chatDrawer ? ((chatH + 7) * uiScale).rounded() : 0) + miniWant
+        let want: CGFloat = chatDrawer ? ((chatH + 7) * uiScale).rounded() : 0
         var f = w.frame
         var delta = want - chatGrown
         if delta > 0 {
@@ -136,7 +135,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             chatGrown += delta
         }
         applyMinSize()
-        let cap: CGFloat = chatGrown < want ? max(60, (chatGrown - miniWant) / uiScale - 7) : .infinity
+        let cap: CGFloat = chatGrown < want ? max(60, chatGrown / uiScale - 7) : .infinity
         if cap != chatCap { chatCap = cap }
     }
     /// シングルペインで、左から出す部屋一覧（ドロワー）が開いているか
