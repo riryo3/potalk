@@ -21,10 +21,11 @@ struct MainView: View {
     }
     private var filtered: [LobbyRoom] {
         let v = model.search.trimmingCharacters(in: .whitespacesAndNewlines)
-        if v.isEmpty { return engine.lobby.rooms }
-        if let id = linkID { return engine.lobby.rooms.filter { $0.id == id } }
+        if let id = linkID, !v.isEmpty { return engine.lobby.rooms.filter { $0.id == id } }      // 部屋のURLを貼ったときは、禁止ワードがあっても出す
+        let shown = engine.lobby.rooms.filter { !model.isBanned($0) }
+        if v.isEmpty { return shown }
         let q = Self.fold(v)
-        return engine.lobby.rooms.filter { r in
+        return shown.filter { r in
             ([r.name, r.sub, r.subBy] + r.people.map { $0.name }).contains { Self.fold($0).contains(q) }
         }
     }

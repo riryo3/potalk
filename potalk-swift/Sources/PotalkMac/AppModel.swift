@@ -159,6 +159,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     var letterWin: NSPanel?
     var settingsWin: NSPanel?
     var profileWin: NSWindow?
+    var bannedWin: NSWindow?
     var helpWin: NSWindow?
     var cardEditWin: NSWindow?
     var cardAuthWin: NSWindow?
@@ -314,7 +315,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     private func lobbyChanged(_ l: LobbyState) {
         for room in l.rooms {
-            if seenRooms.insert(room.key).inserted && armed && notifyRooms && Self.isFresh(room.dur) { notify(newRoom: room) }
+            if seenRooms.insert(room.key).inserted && armed && notifyRooms && Self.isFresh(room.dur) && !isBanned(room) { notify(newRoom: room) }
         }
     }
     /// 新しい部屋の通知を、しばらく止める（nil なら、読み込みが済むまで止めたまま）。入室・退出・作成・読み込み直しのあとは、一覧が入れ替わるため
@@ -656,6 +657,33 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         p.setFrameAutosaveName("win.settings")
         settingsWin = p; p.orderFront(nil)
     }
+    // MARK: 禁止ワード（Potalker 独自：含む部屋を、一覧に出さない）
+    /// 登録した禁止ワード。新しく登録したものが先頭
+    @Published var bannedWords: [String] = UserDefaults.standard.stringArray(forKey: "bannedWords") ?? [] {
+        didSet { UserDefaults.standard.set(bannedWords, forKey: "bannedWords") }
+    }
+    /// 登録する。空・すでにあるもの（全角半角・大文字小文字・ひらがなカタカナの違いは区別しない）は、受け付けない。登録できたら true
+    @discardableResult func addBanned(_ w: String) -> Bool {
+        let t = w.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, !bannedWords.contains(where: { MainView.fold($0) == MainView.fold(t) }) else { return false }
+        bannedWords.insert(t, at: 0)
+        return true
+    }
+    func removeBanned(_ w: String) { bannedWords.removeAll { $0 == w } }
+    /// 部屋の名前・話題タグ・タグを付けた人・いまいる人の名前に、禁止ワードが含まれるか
+    func isBanned(_ r: LobbyRoom) -> Bool {
+        guard !bannedWords.isEmpty else { return false }
+        let hay = ([r.name, r.sub, r.subBy] + r.people.map { $0.name }).map { MainView.fold($0) }
+        return bannedWords.contains { w in let q = MainView.fold(w); return hay.contains { $0.contains(q) } }
+    }
+    func openBanned() {
+        if let w = bannedWin { w.makeKeyAndOrderFront(nil); return }
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 460), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        w.title = "禁止ワード"; w.isReleasedWhenClosed = false
+        w.contentView = NSHostingView(rootView: BannedWordsView().environmentObject(self))
+        w.contentMinSize = NSSize(width: 320, height: 300)
+        w.center(); w.setFrameAutosaveName("win.banned"); w.delegate = self; bannedWin = w; w.makeKeyAndOrderFront(nil)
+    }
     func openProfile() {
         if let w = profileWin { w.makeKeyAndOrderFront(nil); return }
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 600), styleMask: [.titled, .closable], backing: .buffered, defer: false)
@@ -687,7 +715,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if let rf = roomWin?.frame { place(settingsWin, NSSize(width: 340, height: 460), NSPoint(x: max(0, rf.minX - 348), y: rf.maxY - 460)) }
         else { place(settingsWin, NSSize(width: 340, height: 460), rightOf(mainWin, width: 340, height: 460)) }
         place(letterWin, NSSize(width: 440, height: 250), NSPoint(x: screen.midX - 220, y: screen.maxY - 250 - 60))
-        for w in [profileWin, helpWin, cardEditWin, cardAuthWin] { w?.center() }
+        for w in [profileWin, helpWin, bannedWin, cardEditWin, cardAuthWin] { w?.center() }
     }
     @objc func resetWindowLayoutAction() { resetWindowLayout() }
 
@@ -719,14 +747,14 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     var forceSnap = false
     func windowDidMove(_ n: Notification) {
         guard let w = n.object as? NSWindow, !snapping, (forceSnap || NSEvent.pressedMouseButtons & 1 == 1), w !== mainWin || singlePane,
-              [mainWin, roomWin, chatWin, mailWin, letterWin, settingsWin, cardEditWin, cardAuthWin, profileWin, helpWin].contains(where: { $0 === w }) else { return }
+              [mainWin, roomWin, chatWin, mailWin, letterWin, settingsWin, cardEditWin, cardAuthWin, profileWin, helpWin, bannedWin].contains(where: { $0 === w }) else { return }
         snapping = true; defer { snapping = false }
         let T: CGFloat = 14
         var f = w.frame
         let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? .zero
         var xs: [CGFloat] = [screen.minX - f.minX, screen.maxX - f.maxX]
         var ys: [CGFloat] = [screen.minY - f.minY, screen.maxY - f.maxY]
-        for o in [mainWin, roomWin, chatWin, mailWin, letterWin, settingsWin, cardEditWin, cardAuthWin, profileWin, helpWin].compactMap({ $0 }) where o !== w && o !== drawerWin && o.isVisible {
+        for o in [mainWin, roomWin, chatWin, mailWin, letterWin, settingsWin, cardEditWin, cardAuthWin, profileWin, helpWin, bannedWin].compactMap({ $0 }) where o !== w && o !== drawerWin && o.isVisible {
             let g = o.frame
             // 縦に重なっているときだけ、横の吸着（隣・端そろえ）を考える。横も同じ
             if g.maxY > f.minY - T && g.minY < f.maxY + T { xs += [g.maxX - f.minX, g.minX - f.maxX, g.minX - f.minX, g.maxX - f.maxX] }
@@ -746,6 +774,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         else if w === letterWin { letterDismissed = lastLetter; letterWin = nil }
         else if w === settingsWin { settingsWin = nil }
         else if w === profileWin { profileWin = nil }
+        else if w === bannedWin { bannedWin = nil }
         else if w === helpWin { helpWin = nil }
         else if w === cardEditWin { cardEditWin = nil; engine.cmd(["type": "ceClose"]) }
         else if w === cardAuthWin { cardAuthWin = nil; engine.cmd(["type": "caCancel"]) }

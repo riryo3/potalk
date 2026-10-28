@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             let d = DebugChannel(engine: engine)
             d.snapshots["main"] = { [weak self] in self?.model.mainWin?.contentView }
             d.snapshots["room"] = { [weak self] in self?.model.roomWin?.contentView }
+            d.snapshots["banned"] = { [weak self] in self?.model.bannedWin?.contentView }
             d.snapshots["chat"] = { [weak self] in self?.model.chatWin?.contentView }
             d.snapshots["mail"] = { [weak self] in self?.model.mailWin?.contentView }
             d.snapshots["letter"] = { [weak self] in self?.model.letterWin?.contentView }
@@ -91,6 +92,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "openMail": m.openMail()
                 case "openSettings": m.openSettings()
                 case "openProfile": m.openProfile()
+                case "openBanned": m.openBanned()
+                case "addBanned": for w in ["お茶", "ラジオ"] { m.addBanned(w) }
                 case "openHelp": m.openHelp()
                 case "openCreate": m.createOpen = true
                 case "join0": if let r = m.engine.lobby.rooms.first { m.joinCandidate = r }
@@ -129,6 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func toggleSinglePane() { model.singlePane.toggle() }
     @objc func toggleDrawer() { if model.singlePane { model.drawerOpen.toggle() } }
     @objc func setScale(_ sender: NSMenuItem) { model.scalePct = sender.tag }
+    @objc func showBanned() { model.openBanned() }
     @objc func nextTab() { model.cycleTab(1) }
     @objc func prevTab() { model.cycleTab(-1) }
     /// 入室していないあいだは、部屋まわりの項目を、グレーにする
@@ -192,6 +196,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         item("部屋一覧を開く／閉じる", #selector(toggleDrawer), "l")
         item("次のタブ", #selector(nextTab), "]")
         item("前のタブ", #selector(prevTab), "[")
+        win.addItem(.separator())
+        item("禁止ワードの登録…", #selector(showBanned), "")
         win.addItem(.separator())
         win.addItem(withTitle: "しまう", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
         win.addItem(.separator())

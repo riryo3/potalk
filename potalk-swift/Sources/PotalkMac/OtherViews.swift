@@ -182,6 +182,7 @@ struct ProfileView: View {
                 }
             }
             Button("📇 名刺（プロフィールカード）を設定…") { engine.cmd(["type": "cardEdit"]) }.frame(maxWidth: .infinity)
+            Button("🚫 禁止ワードを登録…（含む部屋を一覧に出さない）") { model.openBanned() }.frame(maxWidth: .infinity)
             VStack(alignment: .leading, spacing: 6) {
                 Text("ウインドウの使い方").font(.caption).foregroundColor(.secondary)
                 Toggle("シングルペイン（1つの窓にまとめる）", isOn: $model.singlePane)
@@ -226,5 +227,58 @@ struct HelpView: View {
                 Text("Potalker は、通話の仕組みに potalk.app をそのまま使い、画面だけを Mac 用に作り直した非公式のアプリです。").font(.caption).foregroundColor(.secondary)
             }.padding(20)
         }.frame(minWidth: 380, minHeight: 420)
+    }
+}
+
+
+// MARK: 禁止ワード（Potalker 独自）
+struct BannedWordsView: View {
+    @EnvironmentObject var model: AppModel
+    @State private var text = ""
+    @State private var target: String?
+    @State private var dup = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("ここに登録した言葉を含む部屋は、部屋の一覧に出しません。").font(.system(size: 13))
+            Text("部屋の名前・話題タグ・いまいる人の名前を見ます。全角半角・大文字小文字・ひらがなカタカナは、区別しません。").font(.caption).foregroundColor(.secondary)
+            HStack {
+                TextField("禁止ワード", text: $text).textFieldStyle(.roundedBorder).onSubmit(add)
+                Button("登録", action: add).keyboardShortcut(.defaultAction).disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            if dup { Text("すでに登録されています。").font(.caption).foregroundColor(.orange) }
+            Divider()
+            HStack {
+                Text("登録したワード（新しい順）").font(.caption).foregroundColor(.secondary)
+                Spacer()
+                Text("\(model.bannedWords.count)件").font(.caption).foregroundColor(.secondary)
+            }
+            ScrollView {
+                if model.bannedWords.isEmpty {
+                    Text("まだ登録されていません。").foregroundColor(.secondary).frame(maxWidth: .infinity).padding(.top, 20)
+                } else {
+                    FlowLayout(spacing: 6) {
+                        ForEach(model.bannedWords, id: \.self) { w in
+                            Button { target = w } label: {
+                                Text(w).font(.system(size: 13)).lineLimit(1).padding(.horizontal, 10).padding(.vertical, 5)
+                                    .background(Capsule().fill(Color.primary.opacity(0.1))).overlay(Capsule().stroke(Color.primary.opacity(0.15)))
+                            }.buttonStyle(.plain).help("押すと、消すかどうかを聞きます")
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .frame(maxHeight: .infinity)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+        }
+        .padding(16)
+        .frame(minWidth: 320, minHeight: 300)
+        .alert("このワードを消しますか？", isPresented: Binding(get: { target != nil }, set: { if !$0 { target = nil } }), presenting: target) { w in
+            Button("消す", role: .destructive) { model.removeBanned(w); target = nil }
+            Button("やめる", role: .cancel) { target = nil }
+        } message: { w in
+            Text("「\(w)」を消すと、このワードを含む部屋が、また一覧に出ます。")
+        }
+    }
+    func add() {
+        if model.addBanned(text) { text = ""; dup = false } else if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { dup = true }
     }
 }
