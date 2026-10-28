@@ -5,6 +5,7 @@ import UserNotifications
 import AVFoundation
 
 enum PaneTab: Hashable { case room, mail, settings }
+enum DrawerSide { case left, right }
 
 struct FlyEffect: Identifiable { let id = UUID(); let emoji: String; let who: String; let isSelf: Bool; let dx: CGFloat }
 
@@ -146,6 +147,19 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         didSet { if oldValue != drawerOpen { applyDrawer() } }
     }
     var drawerWin: NSPanel?
+    /// 部屋一覧のドロワーを出す側。窓の左に出す余地があれば左、なければ右（開いている間は動かさない）
+    @Published var drawerSide: DrawerSide = .left
+    func updateDrawerSide() {
+        guard !drawerOpen, drawerWin == nil, let w = mainWin else { return }
+        let v = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let side: DrawerSide = (w.frame.minX - v.minX >= drawerW || v.maxX - w.frame.maxX < drawerW) ? .left : .right
+        if side != drawerSide { drawerSide = side }
+    }
+    func drawerRect(_ w: NSWindow) -> NSRect {
+        let width = drawerW + drawerOverlap
+        return drawerSide == .left ? NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: width, height: w.frame.height)
+                                   : NSRect(x: w.frame.maxX - drawerOverlap, y: w.frame.minY, width: width, height: w.frame.height)
+    }
     private var drawerShift: CGFloat = 0       // 左に出す余地がなくて、本体の窓を右にずらしたぶん
     var drawerW: CGFloat { 360 * uiScale }
     let drawerOverlap: CGFloat = 24        // 本体の窓の下に潜り込ませるぶん（つなぎ目を、角丸にせず、まっすぐに見せる）
@@ -506,13 +520,17 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     func applyDrawer() {
         if drawerOpen {
             guard singlePane, engine.room.joined, let w = mainWin, drawerWin == nil else { drawerOpen = false; return }
+            updateDrawerSide()
             let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-            // 左に出す余地がないときは、本体の窓を右にずらす
-            let deficit = max(0, screen.minX - (w.frame.minX - drawerW))
-            drawerShift = min(deficit, max(0, screen.maxX - w.frame.maxX))
-            if drawerShift > 0 { var f = w.frame; f.origin.x += drawerShift; w.setFrame(f, display: true, animate: true) }
-            // 窓の大きさは最初から最後まで変えず、中身を、本体の窓の左の縁から、マスク（はみ出しを切る）の中へ滑り出させる
-            let full = NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: drawerW + drawerOverlap, height: w.frame.height)
+            let side = drawerSide
+            // 左にも右にも出す余地がないときだけ、本体の窓を右にずらして、左に出す
+            if side == .left {
+                let deficit = max(0, screen.minX - (w.frame.minX - drawerW))
+                drawerShift = min(deficit, max(0, screen.maxX - w.frame.maxX))
+                if drawerShift > 0 { var f = w.frame; f.origin.x += drawerShift; w.setFrame(f, display: true, animate: true) }
+            }
+            // 窓の大きさは最初から最後まで変えず、中身を、本体の窓の縁から、マスク（はみ出しを切る）の中へ滑り出させる
+            let full = drawerRect(w)
             let p = DrawerPanel(contentRect: full, styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
             p.titleVisibility = .hidden; p.titlebarAppearsTransparent = true
             for b in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] { p.standardWindowButton(b)?.isHidden = true }
@@ -520,9 +538,10 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             p.isOpaque = false; p.backgroundColor = .clear
             let box = NSView(frame: NSRect(origin: .zero, size: full.size))
             box.wantsLayer = true; box.layer?.masksToBounds = true; box.autoresizingMask = [.width, .height]
-            let host = NSHostingView(rootView: MainView(embedded: true).uiScaled(self).padding(.trailing, drawerOverlap).background(Color(nsColor: .windowBackgroundColor)).environmentObject(self).environmentObject(engine))
+            let content = MainView(embedded: true).uiScaled(self).padding(side == .left ? .trailing : .leading, drawerOverlap).background(Color(nsColor: .windowBackgroundColor)).environmentObject(self).environmentObject(engine)
+            let host = NSHostingView(rootView: content)
             host.autoresizingMask = [.width, .height]
-            host.frame = box.bounds.offsetBy(dx: drawerW, dy: 0)
+            host.frame = box.bounds.offsetBy(dx: side == .left ? drawerW : -drawerW, dy: 0)
             box.addSubview(host); p.contentView = box
             p.delegate = self
             w.addChildWindow(p, ordered: .below)
@@ -540,7 +559,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             let shift = drawerShift; drawerShift = 0
             NSAnimationContext.runAnimationGroup({ c in
                 c.duration = 0.2; c.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                if let h = host, let box = h.superview { h.animator().frame = box.bounds.offsetBy(dx: drawerW, dy: 0) }
+                if let h = host, let box = h.superview { h.animator().frame = box.bounds.offsetBy(dx: drawerSide == .left ? drawerW : -drawerW, dy: 0) }
             }, completionHandler: {
                 MainActor.assumeIsolated {
                     main?.removeChildWindow(p); p.orderOut(nil); p.close()
@@ -574,8 +593,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             if d != 0 { adoptingResize = true; chatGrown += d; chatH = max(60, chatH + d / uiScale); adoptingResize = false }
         }
         lastMainH = w.frame.height
-        guard let p = drawerWin else { return }
-        p.setFrame(NSRect(x: w.frame.minX - drawerW, y: w.frame.minY, width: drawerW + drawerOverlap, height: w.frame.height), display: true)
+        guard let p = drawerWin else { updateDrawerSide(); return }
+        p.setFrame(drawerRect(w), display: true)
     }
     func windowWillStartLiveResize(_ n: Notification) {
         guard let w = n.object as? NSWindow, w === mainWin else { return }
@@ -781,6 +800,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     private var snapping = false
     var forceSnap = false
     func windowDidMove(_ n: Notification) {
+        if let m = n.object as? NSWindow, m === mainWin { updateDrawerSide() }
         guard let w = n.object as? NSWindow, !snapping, (forceSnap || NSEvent.pressedMouseButtons & 1 == 1), w !== mainWin || singlePane,
               [mainWin, roomWin, chatWin, mailWin, letterWin, settingsWin, cardEditWin, cardAuthWin, profileWin, helpWin, bannedWin].contains(where: { $0 === w }) else { return }
         snapping = true; defer { snapping = false }

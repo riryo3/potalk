@@ -14,7 +14,7 @@ struct SinglePaneView: View {
                     tabBar.background(GeometryReader { g in Color.clear.onAppear { tabH = g.size.height; measure() }.onChange(of: g.size.height) { _, h in tabH = h; measure() } })
                     Divider()
                     HStack(spacing: 0) {
-                        handle
+                        if model.drawerSide == .left { handle }
                         // 部屋以外のタブでも、下のボタンは、部屋のタブと同じ並び・同じ位置（取っ手の右）に出す
                         VStack(spacing: 0) {
                             content.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -22,6 +22,7 @@ struct SinglePaneView: View {
                         }
                             .background(GeometryReader { g in Color.clear.onAppear { areaSize = g.size; measure() }.onChange(of: g.size) { _, v in areaSize = v; measure() } })
                             .overlay(alignment: .top) { measurer }
+                        if model.drawerSide == .right { handle }
                     }
                     Divider()
                     chatDrawer
@@ -102,7 +103,7 @@ struct SinglePaneView: View {
             ZStack {
                 Rectangle().fill(Color.primary.opacity(model.drawerOpen ? 0.14 : 0.07))
                 VStack(spacing: 6) {
-                    Image(systemName: model.drawerOpen ? "chevron.right" : "chevron.left").font(.system(size: 10, weight: .bold))
+                    Image(systemName: (model.drawerOpen == (model.drawerSide == .left)) ? "chevron.right" : "chevron.left").font(.system(size: 10, weight: .bold))
                     VStack(spacing: 1) { ForEach(Array("部屋一覧"), id: \.self) { Text(String($0)).font(.system(size: 10)) } }
                 }.foregroundColor(.secondary)
             }.frame(width: handleW).frame(maxHeight: .infinity)

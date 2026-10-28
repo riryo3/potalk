@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "resetLayout": m.resetWindowLayout()
                 case "menuItems": print("menu:", NSApp.mainMenu?.items.compactMap { $0.submenu?.items.map { $0.title } } as Any)
                 case "moveRoom": if let w = m.roomWin { w.setFrame(NSRect(x: 321, y: 123, width: 377, height: 655), display: true) }
-                case "roomFrame": fputs("minSize: \(String(describing: m.mainWin?.contentMinSize)) frame: \(String(describing: m.mainWin?.frame))\n", stderr); print("roomFrame:", m.roomWin?.frame as Any, "main:", m.mainWin?.frame as Any, "drawer:", m.drawerWin?.frame as Any, "level:", m.mainWin?.level.rawValue as Any, m.drawerWin?.level.rawValue as Any)
+                case "roomFrame": fputs("minSize: \(String(describing: m.mainWin?.contentMinSize)) frame: \(String(describing: m.mainWin?.frame)) drawer: \(String(describing: m.drawerWin?.frame)) side: \(m.drawerSide)\n", stderr); print("roomFrame:", m.roomWin?.frame as Any, "main:", m.mainWin?.frame as Any, "drawer:", m.drawerWin?.frame as Any, "level:", m.mainWin?.level.rawValue as Any, m.drawerWin?.level.rawValue as Any)
                 case "openLinkGreeter": if let r = m.engine.lobby.rooms.first(where: { $0.name.contains("ようこそ") }) { m.openRoomLink("https://potalk.app/#room=\(r.id)") }
                 case "createRoom": m.createRoom(name: "ミュート試験", broadcast: false)
                 case "setMuteOnCreate": m.muteOnCreate = false
