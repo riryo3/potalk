@@ -81,6 +81,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "spk": m.toggleSpeakerMute(); print("speakerMuted:", m.speakerMuted)
                 case "toggleDrawer": m.drawerOpen.toggle()
                 case "singleOn": m.singlePane = true
+                case "scale70": m.scalePct = 70
+                case "scale100": m.scalePct = 100
                 case "singleOff": m.singlePane = false
                 case "tabRoom": m.tab = .room
                 case "dragDown": m.setWindowHeight((m.mainWin?.frame.height ?? 0) + 120)
@@ -153,7 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(toggleDrawer), #selector(nextTab), #selector(prevTab): return joined && model.singlePane
         case #selector(micMute): return joined && model.engine.room.canMute
         case #selector(speakerMute): item.state = model.speakerMuted ? .on : .off; return joined
-        case #selector(setScale(_:)): item.state = item.tag == model.scalePct ? .on : .off; return model.singlePane
+        case #selector(setScale(_:)): item.state = item.tag == model.scalePct ? .on : .off; return true
         case #selector(toggleSinglePane): item.state = model.singlePane ? .on : .off; return true
         default: return true
         }
@@ -191,7 +193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         item("メインウインドウ", #selector(showMain), "1")
         item("シングルペインで表示", #selector(toggleSinglePane), "p", [.command, .shift])
-        let sizeItem = NSMenuItem(title: "シングルペインの表示サイズ", action: nil, keyEquivalent: ""); win.addItem(sizeItem)
+        let sizeItem = NSMenuItem(title: "表示サイズ", action: nil, keyEquivalent: ""); win.addItem(sizeItem)
         let sizeMenu = NSMenu(title: "表示サイズ"); sizeItem.submenu = sizeMenu
         for pct in AppModel.scaleSteps {
             let m = NSMenuItem(title: "\(pct)%", action: #selector(setScale(_:)), keyEquivalent: ""); m.tag = pct; m.target = self; sizeMenu.addItem(m)
