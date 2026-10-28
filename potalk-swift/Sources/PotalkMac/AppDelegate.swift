@@ -92,6 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "openMail": m.openMail()
                 case "openSettings": m.openSettings()
                 case "openProfile": m.openProfile()
+                case "framesAll": fputs("frames main \(String(describing: m.mainWin?.frame)) room \(String(describing: m.roomWin?.frame)) chat \(String(describing: m.chatWin?.frame)) settings \(String(describing: m.settingsWin?.frame)) mail \(String(describing: m.mailWin?.frame))\n", stderr)
                 case "openBanned": m.openBanned()
                 case "bannedIO":
                     let u = URL(fileURLWithPath: "/tmp/claude-501/in-words.txt")

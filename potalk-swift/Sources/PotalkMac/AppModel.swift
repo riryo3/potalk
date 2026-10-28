@@ -644,7 +644,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let h = min(size.height, (mainWin?.screen ?? NSScreen.main)?.visibleFrame.height ?? 700)
         let p = makePanel(title: "部屋", size: NSSize(width: 360, height: h), origin: rightOf(mainWin, width: 360, height: h), floating: pinRoom, min: NSSize(width: 320, height: 640), save: "win.room", RoomView())
         roomWin = p; p.orderFront(nil)
-        alignTop(p, to: mainWin)
+        alignToNeighbors(p)
     }
     /// 本体の窓のすぐ隣に開いた小窓は、上の高さをそろえる（覚えていた位置が少しずれていても、段差をなくす）
     func alignTop(_ w: NSWindow, to ref: NSWindow?) {
@@ -660,6 +660,21 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if f.maxY > screen.maxY { f.origin.y = screen.maxY - f.height }
         w.setFrame(f, display: true)
     }
+    /// 隣り合って開いた小窓は、上の高さを、隣の窓にそろえる（覚えていた位置がずれていても、段差をなくす）
+    func alignToNeighbors(_ w: NSWindow) {
+        let others = [roomWin, mainWin, chatWin, mailWin, settingsWin, letterWin].compactMap { $0 }.filter { $0 !== w && $0 !== drawerWin && $0.isVisible }
+        for o in others {
+            let g = o.frame, f = w.frame
+            guard (0...24).contains(f.minX - g.maxX) || (0...24).contains(g.minX - f.maxX), g.maxY > f.minY, g.minY < f.maxY else { continue }
+            let d = g.maxY - f.maxY
+            guard d != 0, abs(d) <= 120 else { return }
+            var n = f; n.origin.y += d
+            let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? .zero
+            if n.maxY > screen.maxY { n.origin.y = screen.maxY - n.height }
+            w.setFrame(n, display: true)
+            return
+        }
+    }
     func togglePin() { pinRoom.toggle(); roomWin?.level = pinRoom ? .floating : .normal; roomWin?.isFloatingPanel = pinRoom }
     func openChat() {
         if singlePane { chatDrawer = true; showMain(); return }
@@ -667,6 +682,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if let w = chatWin { w.orderFront(nil); return }
         let p = makePanel(title: "ひとこと", size: NSSize(width: 340, height: 460), origin: rightOf(roomWin ?? mainWin, width: 340, height: 460), floating: true, min: NSSize(width: 260, height: 240), save: "win.chat", ChatView())
         chatWin = p; p.orderFront(nil)
+        alignToNeighbors(p)
     }
     func toggleChat() {
         if singlePane { chatDrawer.toggle(); return }
@@ -678,6 +694,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if let w = mailWin { w.orderFront(nil); return }
         let p = makePanel(title: "おたより", size: NSSize(width: 360, height: 480), origin: rightOf(roomWin ?? mainWin, width: 360, height: 480, dy: 40), floating: true, min: NSSize(width: 300, height: 280), save: "win.mail", MailView())
         mailWin = p; p.orderFront(nil)
+        alignToNeighbors(p)
     }
     func openLetter() {
         let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
@@ -692,6 +709,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         if let rf = roomWin?.frame { p.setFrameOrigin(NSPoint(x: max(0, rf.minX - 348), y: rf.maxY - 460)) }
         p.setFrameAutosaveName("win.settings")
         settingsWin = p; p.orderFront(nil)
+        alignToNeighbors(p)
     }
     // MARK: 自衛ワード（Potalker 独自：含む部屋を、一覧に出さない）
     /// 登録した自衛ワード。新しく登録したものが先頭
@@ -809,14 +827,17 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let screen = (w.screen ?? NSScreen.main)?.visibleFrame ?? .zero
         var xs: [CGFloat] = [screen.minX - f.minX, screen.maxX - f.maxX]
         var ys: [CGFloat] = [screen.minY - f.minY, screen.maxY - f.maxY]
+        var tops: [CGFloat] = []
         for o in [mainWin, roomWin, chatWin, mailWin, letterWin, settingsWin, cardEditWin, cardAuthWin, profileWin, helpWin, bannedWin].compactMap({ $0 }) where o !== w && o !== drawerWin && o.isVisible {
             let g = o.frame
             // 縦に重なっているときだけ、横の吸着（隣・端そろえ）を考える。横も同じ
             if g.maxY > f.minY - T && g.minY < f.maxY + T { xs += [g.maxX - f.minX, g.minX - f.maxX, g.minX - f.minX, g.maxX - f.maxX] }
             if g.maxX > f.minX - T && g.minX < f.maxX + T { ys += [g.maxY - f.minY, g.minY - f.maxY, g.minY - f.minY, g.maxY - f.maxY] }
+            // 横に並んでいる（隙間が小さい）ときは、上の高さを、少し離れていても、そろえる
+            if (0...T).contains(f.minX - g.maxX) || (0...T).contains(g.minX - f.maxX), g.maxY > f.minY, g.minY < f.maxY { tops.append(g.maxY - f.maxY) }
         }
         let dx = xs.filter { abs($0) <= T }.min { abs($0) < abs($1) }
-        let dy = ys.filter { abs($0) <= T }.min { abs($0) < abs($1) }
+        let dy = ys.filter { abs($0) <= T }.min { abs($0) < abs($1) } ?? tops.filter { abs($0) <= 80 }.min { abs($0) < abs($1) }
         if dx == nil && dy == nil { return }
         f.origin.x += dx ?? 0; f.origin.y += dy ?? 0
         w.setFrame(f, display: true)
