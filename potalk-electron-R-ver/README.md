@@ -88,6 +88,18 @@ npm run dist:linux-x64     # x64
 - **利用者に頼むこと（Ubuntu 22.04 以降）**：AppImage は、FUSE 2 を使います。`sudo apt install libfuse2t64`（22.04 は `libfuse2`）を、1 度だけ。ARM 版は、`zlib1g-dev` も要りました（起動部分が `libz.so` を探すため）。x64 版は、どの Ubuntu にもある `libz.so.1` を探すので、要らないはずです（起動部分の文字列を調べただけで、x64 の実機では、まだ試していません）。
 - **サンドボックス**：AppImage は、一時フォルダに展開されて動くため、Chromium の `chrome-sandbox` に必要な権限（root 所有・4755）を付けられず、そのままでは起動しません。`build/afterPack.js` が、本体を `potalk-electron-r-ver.bin` にして、`--no-sandbox` を付けて呼ぶ起動スクリプトに差し替えます（「クリックで開ける」を優先した選択です）。`.deb` など、権限を付けて入れる配布を足すときは、この処理を AppImage だけに限ってください。
 
+## Mac・Windows 用に作る
+
+```bash
+npm run dist:mac-arm64      # Mac（Apple シリコン）：dist/mac-arm64/Potalker.app と zip
+npm run dist:mac-x64        # Mac（Intel）
+npm run dist:win-x64        # Windows（x64）：dist/Potalker-<版>-win-x64.zip（展開して Potalker.exe を実行）
+```
+
+- いずれも、**署名なし**です。Mac は、簡易署名のみなので、ほかの Mac に zip で渡すと、初回に「開発元を確認できません」と出ることがあります（右クリック→「開く」）。Windows は、初回に SmartScreen の警告が出ることがあります（「詳細情報」→「実行」）。
+- Mac で Windows 用を作るときは、Wine がないため、`Potalker.exe` のアイコンの書き換えを省いています（`signAndEditExecutable: false`）。アプリの動きには、影響しません。
+- 確認の範囲：**Mac は、起動を確認しています。Windows は、zip の中身（`Potalker.exe` と本体）を確認しただけで、実機では、まだ起動していません。** Windows 版（`potalk-win/`）が、すでにあるので、こちらは、Electron 版を試すための入口です。
+
 ## 開発用
 
 `POTALK_STEPS` に、`[{"at":ミリ秒, ...}, ...]` を渡して起動すると、順に実行します。

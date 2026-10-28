@@ -7,7 +7,10 @@
   "scripts": {
     "start": "electron .",
     "dist:linux-arm64": "electron-builder --linux AppImage --arm64",
-    "dist:linux-x64": "electron-builder --linux AppImage --x64"
+    "dist:linux-x64": "electron-builder --linux AppImage --x64",
+    "dist:mac-arm64": "electron-builder --mac --arm64",
+    "dist:mac-x64": "electron-builder --mac --x64",
+    "dist:win-x64": "electron-builder --win zip --x64"
   },
   "license": "MIT",
   "devDependencies": {
@@ -34,6 +37,28 @@
       "artifactName": "Potalker-${version}-${arch}.AppImage",
       "icon": "build/icon.png"
     },
-    "afterPack": "build/afterPack.js"
+    "afterPack": "build/afterPack.js",
+    "mac": {
+      "target": [
+        "zip",
+        "dir"
+      ],
+      "category": "public.app-category.social-networking",
+      "icon": "build/icon.icns",
+      "identity": null
+    },
+    "win": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false,
+      "artifactName": "Potalker-${version}-win-${arch}.${ext}"
+    }
   }
 }
