@@ -191,14 +191,7 @@ struct RoomView: View {
                         .buttonStyle(PillButton(fill: hot ? .orange : Color(nsColor: .controlBackgroundColor), fg: hot ? .black : .primary, hot: hot))
                 }
             } }
-            HStack(spacing: 6) { MuteControl(); SpeakerButton() }
-            HStack(spacing: 8) {
-                Button(copied ? "✓ コピーしました" : "🔗 URLを共有") {
-                    NSPasteboard.general.clearContents(); NSPasteboard.general.setString(r.share, forType: .string)
-                    copied = true; DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
-                }.buttonStyle(PillButton()).disabled(r.share.isEmpty)
-                Button("🚪 退出") { model.requestLeave(from: model.roomHost) }.buttonStyle(PillButton(fill: Color(red: 0.72, green: 0.11, blue: 0.11), fg: .white))
-            }
+            RoomActionRows()
         }.padding(.horizontal, 10).padding(.top, 8).padding(.bottom, 12)
     }
 
@@ -314,5 +307,26 @@ struct FlyingEmoji: View {
     var body: some View {
         Text(emoji).font(.system(size: 26)).scaleEffect(up ? 1.0 : 0.6).opacity(up ? 0 : 1).offset(y: up ? -90 : 0)
             .onAppear { withAnimation(.easeOut(duration: 1.4)) { up = true } }
+    }
+}
+
+
+/// 部屋の下のボタン（ミュート・スピーカー、URL共有・退出）。シングルペインで部屋以外のタブを見ているときも、同じ並び・同じ位置で出す
+struct RoomActionRows: View {
+    @EnvironmentObject var model: AppModel
+    @EnvironmentObject var engine: Engine
+    @State private var copied = false
+    var body: some View {
+        let r = engine.room
+        VStack(spacing: 8) {
+            HStack(spacing: 6) { MuteControl(); SpeakerButton() }
+            HStack(spacing: 8) {
+                Button(copied ? "✓ コピーしました" : "🔗 URLを共有") {
+                    NSPasteboard.general.clearContents(); NSPasteboard.general.setString(r.share, forType: .string)
+                    copied = true; DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
+                }.buttonStyle(PillButton()).disabled(r.share.isEmpty)
+                Button("🚪 退出") { model.requestLeave(from: model.roomHost) }.buttonStyle(PillButton(fill: Color(red: 0.72, green: 0.11, blue: 0.11), fg: .white))
+            }
+        }.padding(.horizontal, 10).padding(.top, 8).padding(.bottom, 12)
     }
 }

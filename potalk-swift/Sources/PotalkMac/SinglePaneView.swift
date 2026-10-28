@@ -15,11 +15,14 @@ struct SinglePaneView: View {
                     Divider()
                     HStack(spacing: 0) {
                         handle
-                        content.frame(maxWidth: .infinity, maxHeight: .infinity)
+                        // 部屋以外のタブでも、下のボタンは、部屋のタブと同じ並び・同じ位置（取っ手の右）に出す
+                        VStack(spacing: 0) {
+                            content.frame(maxWidth: .infinity, maxHeight: .infinity)
+                            if model.tab != .room { Divider(); miniBar }
+                        }
                             .background(GeometryReader { g in Color.clear.onAppear { areaSize = g.size; measure() }.onChange(of: g.size) { _, v in areaSize = v; measure() } })
                             .overlay(alignment: .top) { measurer }
                     }
-                    if model.tab != .room { Divider(); miniBar }
                     Divider()
                     chatDrawer
                 }
@@ -146,18 +149,10 @@ struct SinglePaneView: View {
         }
     }
 
-    /// 部屋の画面を見ていないときも、ミュートと退出が手元にあるように
+    /// 部屋の画面を見ていないときも、ミュートと退出が手元にあるように（部屋のタブと同じ並び・同じ位置）
     var miniBar: some View {
-        let speaking = engine.room.members.filter { $0.speaking }.map { $0.name }
-        return HStack(spacing: 10) {
-            Text(speaking.isEmpty ? "　" : "🔊 " + speaking.joined(separator: "、")).font(.system(size: 12)).foregroundColor(.secondary).lineLimit(1)
-            Spacer(minLength: 4)
-            MuteControl().frame(width: 130)
-            SpeakerButton()
-            Button("🚪 退出") { model.requestLeave(from: model.roomHost) }
-                .buttonStyle(PillButton(fill: Color(red: 0.72, green: 0.11, blue: 0.11), fg: .white)).frame(width: 80)
-        }.padding(.horizontal, 12).padding(.vertical, 8)
-        .background(GeometryReader { g in Color.clear.onAppear { model.miniH = g.size.height + 1 }.onChange(of: g.size.height) { _, h in model.miniH = h + 1 } })
+        RoomActionRows().padding(.horizontal, 10).padding(.bottom, 12)      // 部屋のタブの下・左右の余白と同じ
+            .background(GeometryReader { g in Color.clear.onAppear { model.miniH = g.size.height + 1 }.onChange(of: g.size.height) { _, h in model.miniH = h + 1 } })
     }
 }
 

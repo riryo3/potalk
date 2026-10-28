@@ -94,7 +94,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     /// 画面の下に余地がなくて、窓を伸ばしきれなかったときの、ひとことの高さの上限
     /// 部屋以外のタブで下に出る、ミュート・退出の帯の高さ（窓の最小の高さは、どのタブでも同じにするため、部屋のタブにも見込む）
-    @Published var miniH: CGFloat = 49 { didSet { if oldValue != miniH { applyMinSize() } } }
+    @Published var miniH: CGFloat = 105 { didSet { if oldValue != miniH { applyMinSize() } } }
     @Published var chatCap: CGFloat = .infinity
     private var chatGrown: CGFloat = 0     // ひとこと用に、窓を下へ伸ばしているぶん
     /// 部屋の画面（上のタブからひとことまで）が、切れずに収まるのに要る高さ。これより窓を縮められないようにする
