@@ -128,8 +128,12 @@ struct RoomSettingsView: View {
                         HStack {
                             Text(it.label ?? "").frame(width: 48, alignment: .leading)
                             Slider(value: Binding(get: { drag[it.id ?? ""] ?? (Double(it.value ?? "0") ?? 0) },
-                                                  set: { v in drag[it.id ?? ""] = v; engine.cmd(["type": "set", "id": it.id ?? "", "value": String(Int(v))]) }),
-                                   in: (Double(it.min ?? "0") ?? 0)...(Double(it.max ?? "100") ?? 100), step: Double(it.step ?? "5") ?? 5)
+                                                  set: { v in
+                                       let old = Int(drag[it.id ?? ""] ?? (Double(it.value ?? "0") ?? 0))
+                                       drag[it.id ?? ""] = v
+                                       if Int(v) != old { engine.cmd(["type": "set", "id": it.id ?? "", "value": String(Int(v))]) }    // 目盛りのない、なめらかなスライダー。整数が変わったときだけ送る
+                                   }),
+                                   in: (Double(it.min ?? "0") ?? 0)...(Double(it.max ?? "100") ?? 100))
                             Text("\(Int(drag[it.id ?? ""] ?? (Double(it.value ?? "0") ?? 0)))%").font(.caption).foregroundColor(.secondary).frame(width: 40, alignment: .trailing)
                         }
                     case "radios":
