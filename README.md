@@ -22,7 +22,7 @@
 | **Mac 版**（試用版） | 同上 | `Potalker-0.3.3-beta.zip`（`v0.3.3-beta`） | **試用版** | エラーの帯・「つなぎ直す」ボタンを追加。**実際の通話でのエラー時の動きは、未確認** |
 | **Windows 版**（C# / WPF 製） | Windows 10 / 11、64bit | `Potalker-win-x64.zip`（`win-v0.3.x`） | 安定版 | **Windows 11 の実機**で、確認しています（本人確認（X・GitHub・Nostr）は、まだ、実機で試していません） |
 | **Linux 版**（Python / Qt 製） | Linux（Ubuntu 24.04 相当、x86_64） | `Potalker-x86_64.AppImage`（約 227MB）／`Potalker-linux-x64.zip`（`linux-v0.1.x`） | **アルファ版** | **未確認**（開発した担当が、仮想環境で動かしただけで、リポジトリの管理者は、まだ、確認できていません） |
-| **Electron 版（Linux）** | Linux（PC：x86_64、ARM 機：arm64） | `PotalkerElectron-<版>-linux-x86_64.AppImage`／`…-linux-arm64.AppImage`（約 108MB）（`electron-v…-beta`） | **試用版** | Ubuntu 24.04（ARM64、仮想マシン）で、Mac 版との通話（声の往復）を確認。**x86_64 の実機は、未確認** |
+| **Electron 版（Linux）** | Linux（PC：x86_64、ARM 機：arm64） | `PotalkerElectron-<版>-linux-x86_64.AppImage`／`…-linux-arm64.AppImage`（約 108MB）（`electron-v…-beta`） | **試用版** | **ARM64**：Ubuntu 24.04 の**仮想マシン**（Mac 上）で、Mac 版との通話（声の往復）まで確認。ARM の実機は未確認。**x86_64：未確認** |
 | **Electron 版（Mac）** | Mac（Apple シリコン） | `PotalkerElectron-<版>-mac-arm64.zip`（同上） | **試用版** | 起動・画面を確認 |
 | **Electron 版（Windows）** | Windows（x64） | `PotalkerElectron-<版>-win-x64.zip`（同上） | **試用版** | **実機では、未確認** |
 
@@ -36,7 +36,7 @@
   |---|---|---|
   | 作り | Python と Qt の、ネイティブ版 | Electron（Chromium）。Mac 版に、見た目を合わせています |
   | 大きさ | 約 227MB | 約 108MB |
-  | 確認 | **未確認** | 仮想マシンで、Mac 版との通話（声の往復）・名刺・効果音まで確認。**x86_64 の実機は、未確認** |
+  | 確認 | **未確認** | **ARM64** は仮想マシン（Mac 上の Ubuntu 24.04）で、Mac 版との通話・名刺・効果音まで確認。実機は未確認。**x86_64 は未確認** |
   | 対応 | x86_64 | x86_64、ARM（arm64） |
   | 起動前に | 実行権限をつける | 実行権限をつける + `sudo apt install libfuse2t64`（Ubuntu 22.04 は `libfuse2`） |
   | おすすめ | － | **こちら** |
