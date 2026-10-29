@@ -207,7 +207,7 @@ function renderRoom() {
   const mute = $('btnMute'); mute.disabled = false
   if (r.raise && r.raise.show) { mute.hidden = false; mute.dataset.act = 'raise'; mute.textContent = '🙋 ' + (r.raise.label || '通話希望'); mute.className = 'wide' }
   else if (r.speak && r.speak.show) { mute.hidden = false; mute.dataset.act = 'speak'; mute.textContent = '🎙 ' + (r.speak.label || 'マイクを使う'); mute.disabled = !!r.speak.disabled; mute.className = 'wide' }
-  else { mute.hidden = !r.canMute; mute.dataset.act = 'mute'; mute.textContent = r.muted ? '🔇 ミュート解除' : '🎙 ミュート'; mute.className = 'wide' + (r.muted ? ' muted' : '') }
+  else { mute.hidden = false; mute.disabled = !r.canMute; mute.dataset.act = 'mute'; mute.textContent = r.muted ? '🎤 ミュート解除' : '🎤 ミュート'; mute.className = 'wide' + (r.muted ? ' muted' : '') }
   $('btnShare').disabled = !r.share
   renderOverlays()
   if (KIND === 'single') { renderTabs(); renderSettings(); renderMail() }
@@ -293,7 +293,7 @@ function renderWinBtns() {
   m.hidden = !S.room.bcast; m.classList.toggle('hot-orange', mh); m.classList.toggle('on', !!S.wins.mail)
   $('btnSetWin').classList.toggle('on', !!S.wins.settings)
 }
-function renderSpk() { const b = $('btnSpk'), on = !!S.wins.spk; b.classList.toggle('on', on); b.replaceChildren(el('span', 'emoji', on ? '🔇' : '🔊')) }
+function renderSpk() { const b = $('btnSpk'), on = !!S.wins.spk; b.className = 'wide' + (on ? ' muted' : ''); b.replaceChildren(el('span', 'emoji', '🔈'), ' ' + (on ? 'ミュート解除' : 'ミュート')) }
 // メニュー・ショートカットからの操作（ひとつの窓のタブ・ひとこと、自衛ワードの登録）
 function uiAction({ a, v }) {
   if (a === 'banned') return openBanned()
@@ -328,7 +328,7 @@ function renderJoin() {
   no.onclick = () => { S.joinAsk = null; renderJoin() }
   bt.append(no, yes); box.append(bt); ov.append(box)
 }
-function renderPin() { for (const id of ['btnPin', 'btnPin2']) $(id).classList.toggle('on', !!S.wins.pinned) }
+function renderPin() { for (const id of ['btnPin', 'btnPin2', 'btnPin3']) $(id).classList.toggle('on', !!S.wins.pinned) }
 
 function renderTabs() {
   for (const b of document.querySelectorAll('#tabs button[data-tab]')) b.classList.toggle('on', b.dataset.tab === S.tab)
@@ -639,13 +639,13 @@ $('newName').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) $('btnC
 $('btnRetry').onclick = () => window.potalk.cmd({ type: 'reconnect' })
 $('btnMute').onclick = () => window.potalk.cmd({ type: $('btnMute').dataset.act || 'mute' })
 $('btnLeave').onclick = () => window.potalk.cmd({ type: 'leave' })
-$('btnPin').onclick = $('btnPin2').onclick = () => window.potalk.togglePin()
+$('btnPin').onclick = $('btnPin2').onclick = $('btnPin3').onclick = () => window.potalk.togglePin()
 let shareTimer = 0
 $('btnShare').onclick = () => {
   const u = S.room && S.room.share; if (!u) return
   window.potalk.copyText(u)
-  const b = $('btnShare'); b.replaceChildren(el('span', '', '✓')); b.title = 'コピーしました'; b.classList.add('done')
-  clearTimeout(shareTimer); shareTimer = setTimeout(() => { b.replaceChildren(el('span', 'emoji', '🔗')); b.title = 'この部屋のURLをコピー'; b.classList.remove('done') }, 1600)
+  const b = $('btnShare'); b.replaceChildren('✓ コピーしました'); b.title = 'コピーしました'; b.classList.add('done')
+  clearTimeout(shareTimer); shareTimer = setTimeout(() => { b.replaceChildren(el('span', 'emoji', '🔗'), ' リンクの取得'); b.title = 'この部屋のURLをコピー'; b.classList.remove('done') }, 1600)
 }
 $('btnSpk').onclick = () => window.potalk.toggleSpk()
 $('handle').onclick = () => window.potalk.toggleDrawer()
@@ -667,23 +667,26 @@ window.potalk.setBanned(banned)
 }
 
 // メンバーが 4 人分は見える高さを、窓の最小の高さにする（ひとことを開いているときは、その分も、自動で入る）
-let minSync = 0
+let minSync = 0, sentNeedH = null
 // ロビーの窓の最小の幅：各行が、折り返さずに並ぶ幅（行を、見えない所に複製して、そのままの幅を測る）
 function naturalWidth(row) {
   const c = row.cloneNode(true)
+  c.querySelectorAll('#viewers').forEach(e => e.remove())      // 人数の文字は、長さが変わるので、数えない（収まらないときは、省略表示）
   c.removeAttribute('id'); c.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'))
   c.style.cssText = 'position:absolute;left:-99999px;top:0;width:max-content;max-width:none;visibility:hidden'
   row.parentNode.append(c); const w = c.getBoundingClientRect().width; c.remove(); return w
 }
-let minWSync = 0
+// 測った値が変わったとき（と、窓が足りないとき）だけ、main に送る。窓の端をつかんでいる最中は、何も送らない（最小の大きさを、ずらさない）
+let minWSync = 0, sentNeedW = null
 function syncMinWidth() {
   cancelAnimationFrame(minWSync)
   minWSync = requestAnimationFrame(() => {
     if (KIND !== 'single' && KIND !== 'lobby') return
-    if ($('lobby').hidden) return window.potalk.setMinWidth(1e6)      // 部屋の画面のときは、ふだんの最小に戻す
+    if ($('lobby').hidden) { if (sentNeedW !== -1) { sentNeedW = -1; window.potalk.setMinWidth(1e6) } return }      // 部屋の画面のときは、ふだんの最小に戻す
     const rows = [...document.querySelectorAll('#lobby .bar, #lobby .bar2, #lobby .create, #lobby .searchrow, #lobby .foot')].filter(r => r.offsetParent !== null)
-    const need = Math.max(0, ...rows.map(naturalWidth)) + 4
-    window.potalk.setMinWidth((document.documentElement.clientWidth - need) * ((S.wins.scale || 100) / 100))
+    const z = (S.wins.scale || 100) / 100, need = (Math.max(0, ...rows.map(naturalWidth)) + 4) * z, cur = document.documentElement.clientWidth * z
+    if (sentNeedW !== null && Math.abs(need - sentNeedW) < 1 && cur >= need) return
+    sentNeedW = need; window.potalk.setMinWidth(cur - need)
   })
 }
 window.addEventListener('resize', syncMinWidth)
@@ -699,7 +702,11 @@ function syncMinHeight() {
   cancelAnimationFrame(minSync)
   minSync = requestAnimationFrame(() => {
     const m = $('members'); if (!m || !m.clientHeight || $('room').hidden || growing) return
-    window.potalk.setMinHeight(memberSlack())
+    // 一覧より外の高さ + 4 人分：窓の高さが変わっても、変わらない値。変わったときと、窓が足りないときだけ送る
+    const row = document.querySelector('#members .member'), rowH = row ? row.getBoundingClientRect().height : 42
+    const key = (window.innerHeight - m.clientHeight) + rowH * 4 + 16, slack = memberSlack()
+    if (sentNeedH !== null && Math.abs(key - sentNeedH) < 1 && slack >= 0) return
+    sentNeedH = key; window.potalk.setMinHeight(slack)
   })
 }
 window.addEventListener('resize', syncMinHeight)

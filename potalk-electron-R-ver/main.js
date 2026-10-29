@@ -47,7 +47,7 @@ function loadEngine(hash = '') {
 const cmd = c => engineWin ? engineWin.webContents.executeJavaScript('window.__pm && window.__pm.cmd(' + JSON.stringify(c) + ')').catch(() => {}) : undefined
 
 // ---- 設定（表示のしかた・表示サイズ）。次に起動したときも、そのまま ----
-const prefs = { mode: 'single', scale: 100, pos: {}, muteOnCreate: true, muteOnJoin: true, notifyRooms: true, mic: '', thanksShown: false }       // mode: 'single'（ひとつの窓）／'split'（分けた窓）。pos: 窓の種類ごとの、前回の位置と大きさ
+const prefs = { mode: 'single', scale: 100, pos: {}, minW: {}, muteOnCreate: true, muteOnJoin: true, notifyRooms: true, mic: '', thanksShown: false }       // mode: 'single'（ひとつの窓）／'split'（分けた窓）。pos: 窓の種類ごとの、前回の位置と大きさ
 const SCALES = [50, 60, 70, 80, 90, 100]
 const prefsFile = () => path.join(app.getPath('userData'), 'settings.json')
 function loadPrefs() {
@@ -56,6 +56,7 @@ function loadPrefs() {
     if (j.mode === 'single' || j.mode === 'split') prefs.mode = j.mode
     if (SCALES.includes(j.scale)) prefs.scale = j.scale
     if (j.pos && typeof j.pos === 'object') prefs.pos = j.pos
+    if (j.minW && typeof j.minW === 'object') prefs.minW = j.minW
     for (const k of ['muteOnCreate', 'muteOnJoin', 'notifyRooms', 'thanksShown']) if (typeof j[k] === 'boolean') prefs[k] = j[k]
     if (typeof j.mic === 'string') prefs.mic = j.mic.slice(0, 200)
   } catch {}
@@ -92,7 +93,7 @@ function createWin(kind, pos) {
   const b = BASE[kind], s = sc(), rec = savedBounds(kind)
   const minW = Math.round(b.mw * s), minH = Math.round(b.mh * s)
   const w = new BrowserWindow({
-    width: Math.max(minW, rec && rec.width ? rec.width : Math.round(b.w * s)), height: Math.max(minH, rec && rec.height ? rec.height : Math.round(b.h * s)), minWidth: minW, minHeight: minH,
+    width: Math.max(minW, Math.round((prefs.minW[kind] || 0) * s), rec && rec.width ? rec.width : Math.round(b.w * s)), height: Math.max(minH, rec && rec.height ? rec.height : Math.round(b.h * s)), minWidth: minW, minHeight: minH,
     title: TITLE[kind], alwaysOnTop: pinned, icon: path.join(__dirname, 'build', 'icon.png'), ...(pos || (rec ? { x: rec.x, y: rec.y } : {})),
     autoHideMenuBar: kind !== 'lobby' && kind !== 'single',      // 補助の窓は、メニューを隠す（Alt で出る。Windows・Linux のみ。Mac は、上のメニューバー）
     webPreferences: { preload: path.join(__dirname, 'ui', 'preload.js'), contextIsolation: true, sandbox: true },
@@ -486,6 +487,7 @@ ipcMain.handle('setMinWidth', (e, slack) => {
   if (!w || !Number.isFinite(slack)) return
   const base = BASE[w._kind]; if (!base) return
   const b = w.getBounds(), minW = Math.max(Math.round(base.mw * sc()), Math.ceil(b.width - slack))
+  if (slack < 1e5 && prefs.minW[w._kind] !== Math.round(minW / sc())) { prefs.minW[w._kind] = Math.round(minW / sc()); savePrefs() }      // ロビーの最小の幅（表示サイズ 100% 換算）。次の起動で、はじめから、この幅で開く
   const [, mh] = w.getMinimumSize()
   w.setMinimumSize(minW, mh)
   if (b.width < minW) { const wa = screen.getDisplayMatching(b).workArea, nw = Math.min(minW, wa.width); w.setBounds({ x: Math.max(wa.x, Math.min(b.x, wa.x + wa.width - nw)), y: b.y, width: nw, height: b.height }) }
@@ -616,7 +618,8 @@ app.whenReady().then(() => {
           if (st.eng) { const r = await engineWin.webContents.executeJavaScript(st.eng); if (r !== undefined) console.log('[eng]', JSON.stringify(r)) }
           if (st.audible) console.log('[audible]', st.audible, engineWin.webContents.isCurrentlyAudible(), 'muted=' + engineWin.webContents.isAudioMuted())
           if (st.shot) fs.writeFileSync(st.shot, (await tw().webContents.capturePage()).toPNG())
-          if (st.bounds) console.log('[bounds]', JSON.stringify(Object.fromEntries(Object.entries(wins).map(([k, w]) => [k, w.getBounds()]))))
+          if (st.bounds) console.log('[bounds]', JSON.stringify(Object.fromEntries(Object.entries(wins).map(([k, w]) => [k, Object.assign({}, w.getBounds(), { min: w.getMinimumSize() })]))))
+          if (st.pin) console.log('[pin]', JSON.stringify(Object.fromEntries(Object.entries(wins).map(([k, w]) => [k, w.isAlwaysOnTop()]))), 'platform=' + process.platform, 'ozone=' + (process.env.XDG_SESSION_TYPE || ''))
         } catch (e) { console.error('[step]', e.message) }
         if (st.quit) { quitting = true; app.quit() }
       }, st.at)
