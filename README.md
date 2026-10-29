@@ -12,7 +12,7 @@
 |---|---|---|
 | **Mac**（macOS 14 以降） | **Mac 版（安定版）** | `Potalker-0.3.2.zip` |
 | **Windows**（10 / 11、64bit） | **Windows 版** | `Potalker-win-x64.zip` |
-| **Linux** | 下の「Linux の方」を見てください（2 種類あります） | `PotalkerElectron-…-linux-….AppImage` または `Potalker-x86_64.AppImage` |
+| **Linux** | **Electron 版（Linux）** | `PotalkerElectron-<版>-linux-x86_64.AppImage`（ARM 機は `…-linux-arm64.AppImage`） |
 
 ### 全部の一覧
 
@@ -20,8 +20,8 @@
 |---|---|---|---|---|
 | **Mac 版**（Swift 製・安定版） | Mac（Apple シリコン・Intel 両対応）、macOS 14 以降 | `Potalker-0.3.2.zip`（`v0.3.2`） | 安定版 | 実機で、通話まで、使っています |
 | **Mac 版**（試用版） | 同上 | `Potalker-0.3.3-beta.zip`（`v0.3.3-beta`） | **試用版** | エラーの帯・「つなぎ直す」ボタンを追加。**実際の通話でのエラー時の動きは、未確認** |
-| **Windows 版**（C# / WPF 製） | Windows 10 / 11、64bit | `Potalker-win-x64.zip`（`win-v0.3.x`） | 安定版 | 実機で、通話まで、使っています（**本人確認（X・GitHub・Nostr）は、まだ、実機で試していません**） |
-| **Linux 版**（Python / Qt 製） | Linux（Ubuntu 24.04 相当、x86_64） | `Potalker-x86_64.AppImage`（約 227MB）／`Potalker-linux-x64.zip`（`linux-v0.1.x`） | **アルファ版** | 仮想環境で確認。**実機の Linux は、未確認** |
+| **Windows 版**（C# / WPF 製） | Windows 10 / 11、64bit | `Potalker-win-x64.zip`（`win-v0.3.x`） | 安定版 | **Windows 11 の実機**で、確認しています（本人確認（X・GitHub・Nostr）は、まだ、実機で試していません） |
+| **Linux 版**（Python / Qt 製） | Linux（Ubuntu 24.04 相当、x86_64） | `Potalker-x86_64.AppImage`（約 227MB）／`Potalker-linux-x64.zip`（`linux-v0.1.x`） | **アルファ版** | **未確認**（開発した担当が、仮想環境で動かしただけで、リポジトリの管理者は、まだ、確認できていません） |
 | **Electron 版（Linux）** | Linux（PC：x86_64、ARM 機：arm64） | `PotalkerElectron-<版>-linux-x86_64.AppImage`／`…-linux-arm64.AppImage`（約 108MB）（`electron-v…-beta`） | **試用版** | Ubuntu 24.04（ARM64、仮想マシン）で、Mac 版との通話（声の往復）を確認。**x86_64 の実機は、未確認** |
 | **Electron 版（Mac）** | Mac（Apple シリコン） | `PotalkerElectron-<版>-mac-arm64.zip`（同上） | **試用版** | 起動・画面を確認 |
 | **Electron 版（Windows）** | Windows（x64） | `PotalkerElectron-<版>-win-x64.zip`（同上） | **試用版** | **実機では、未確認** |
@@ -30,15 +30,16 @@
 
 - **Mac の方**: 普通に使うなら、**Mac 版（安定版）**です。新しい機能（エラーの帯・つなぎ直すボタン）を、試したい方は、試用版を。Electron 版（Mac）は、Linux 版と、見た目や動きを、そろえるための、試用版です。
 - **Windows の方**: **Windows 版**です。Electron 版（Windows）は、まだ、実機で動かしていないので、特別な理由がなければ、選ばないでください。
-- **Linux の方**: 2 種類あります。どちらも、試験段階で、実機での報告を、集めています。迷ったら、どちらか 1 つを、試してください。
+- **Linux の方**: **Electron 版（Linux）をおすすめします。** Qt 製の Linux 版は、まだ、確認できていません。どちらも、試験段階で、実機での報告を、集めています。
 
   | | Linux 版（Qt 製） | Electron 版（Linux） |
   |---|---|---|
   | 作り | Python と Qt の、ネイティブ版 | Electron（Chromium）。Mac 版に、見た目を合わせています |
   | 大きさ | 約 227MB | 約 108MB |
-  | 確認 | 仮想環境で、ロビー・入室・退出まで | 仮想マシンで、Mac 版との通話（声の往復）・名刺・効果音まで |
+  | 確認 | **未確認** | 仮想マシンで、Mac 版との通話（声の往復）・名刺・効果音まで確認。**x86_64 の実機は、未確認** |
   | 対応 | x86_64 | x86_64、ARM（arm64） |
   | 起動前に | 実行権限をつける | 実行権限をつける + `sudo apt install libfuse2t64`（Ubuntu 22.04 は `libfuse2`） |
+  | おすすめ | － | **こちら** |
 
 ### 名前の見分け方
 
