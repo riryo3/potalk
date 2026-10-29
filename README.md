@@ -54,7 +54,7 @@
 | `potalk-win/` | C# 製（WPF / WebView2）の **Potalker**（Windows 版）。画面に出ない WebView2 で、通話の仕組みを動かす。 |
 | `potalk-linux/` | Python 製（Qt）の **Potalker**（Linux 版・アルファ）。 |
 | `potalk-electron-R-ver/` | Electron 製の **PotalkerElectron**（Linux・Mac・Windows 向けの試用版）。 |
-| `potalk-mac/` | Electron 製（先に作った試作版）。 |
+| `potalk-mac/` | Electron 製（先に作った試作版）。現在は、田上光さん（[@wanderingdj](https://x.com/wanderingdj)）が、保守してくださっています。現役の Electron 版は、`potalk-electron-R-ver/` です。 |
 
 - どれも、通話の仕組みは、画面に出ないブラウザ部品で、potalk.app を、そのまま動かし、画面だけを、それぞれの環境向けに、作り直しています。
 - 動いた・動かなかったの報告や、プルリクエスト、Issue を、お待ちしています。
