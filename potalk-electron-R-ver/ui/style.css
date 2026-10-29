@@ -42,7 +42,7 @@ input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in sr
 .people { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
 .person { display: inline-flex; align-items: center; gap: 5px; background: var(--soft); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; }
 .empty { color: var(--muted); text-align: center; padding: 28px; }
-.foot { display: flex; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; text-align: right; }
+.foot { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; text-align: right; }
 .foot .chip-btn { font-size: 12px; padding: 3px 10px; }
 .foot .chip-btn.on { background: var(--accent); color: #fff; border-color: transparent; }
 
@@ -253,3 +253,4 @@ body[data-w=drawer] { box-shadow: inset -1px 0 0 var(--line); }
 .pin3 { padding: 4px 10px; }
 .pin3.on { background: var(--accent); border-color: transparent; }
 body[data-w=drawer] #btnPin3 { display: none; }
+

@@ -47,7 +47,7 @@ function loadEngine(hash = '') {
 const cmd = c => engineWin ? engineWin.webContents.executeJavaScript('window.__pm && window.__pm.cmd(' + JSON.stringify(c) + ')').catch(() => {}) : undefined
 
 // ---- 設定（表示のしかた・表示サイズ）。次に起動したときも、そのまま ----
-const prefs = { mode: 'single', scale: 100, pos: {}, minW: {}, muteOnCreate: true, muteOnJoin: true, notifyRooms: true, mic: '', thanksShown: false }       // mode: 'single'（ひとつの窓）／'split'（分けた窓）。pos: 窓の種類ごとの、前回の位置と大きさ
+const prefs = { mode: 'single', scale: 100, pos: {}, minW: {}, view: {}, viewVer: 3, muteOnCreate: true, muteOnJoin: true, notifyRooms: true, mic: '', thanksShown: false }       // mode: 'single'（ひとつの窓）／'split'（分けた窓）。pos: 窓の種類ごとの、前回の位置と大きさ
 const SCALES = [50, 60, 70, 80, 90, 100]
 const prefsFile = () => path.join(app.getPath('userData'), 'settings.json')
 function loadPrefs() {
@@ -57,6 +57,8 @@ function loadPrefs() {
     if (SCALES.includes(j.scale)) prefs.scale = j.scale
     if (j.pos && typeof j.pos === 'object') prefs.pos = j.pos
     if (j.minW && typeof j.minW === 'object') prefs.minW = j.minW
+    if (j.view && typeof j.view === 'object') prefs.view = j.view
+    if (j.viewVer !== 3) { prefs.minW = {}; delete prefs.view.lobby }      // ロビーの標準の幅を、約 7 割に変えたので、前の版が覚えた、広いロビーの大きさは、いちど、捨てる
     for (const k of ['muteOnCreate', 'muteOnJoin', 'notifyRooms', 'thanksShown']) if (typeof j[k] === 'boolean') prefs[k] = j[k]
     if (typeof j.mic === 'string') prefs.mic = j.mic.slice(0, 200)
   } catch {}
@@ -93,8 +95,8 @@ function createWin(kind, pos) {
   const b = BASE[kind], s = sc(), rec = savedBounds(kind)
   const minW = Math.round(b.mw * s), minH = Math.round(b.mh * s)
   const w = new BrowserWindow({
-    width: Math.max(minW, Math.round((prefs.minW[kind] || 0) * s), rec && rec.width ? rec.width : Math.round(b.w * s)), height: Math.max(minH, rec && rec.height ? rec.height : Math.round(b.h * s)), minWidth: minW, minHeight: minH,
-    title: TITLE[kind], alwaysOnTop: pinned, icon: path.join(__dirname, 'build', 'icon.png'), ...(pos || (rec ? { x: rec.x, y: rec.y } : {})),
+    width: kind === 'single' ? Math.max(minW, Math.round((prefs.minW[kind] || 0) * s)) : Math.max(minW, Math.round((prefs.minW[kind] || 0) * s), rec && rec.width ? rec.width : Math.round(b.w * s)),      // ひとつの窓は、はじめから、ロビーの最小の幅で作る（開いたあとに、縮む動きを見せない） height: Math.max(minH, rec && rec.height ? rec.height : Math.round(b.h * s)), minWidth: minW, minHeight: minH,
+    show: kind !== 'single', title: TITLE[kind], alwaysOnTop: pinned, icon: path.join(__dirname, 'build', 'icon.png'), ...(pos || (rec ? { x: rec.x, y: rec.y } : {})),
     autoHideMenuBar: kind !== 'lobby' && kind !== 'single',      // 補助の窓は、メニューを隠す（Alt で出る。Windows・Linux のみ。Mac は、上のメニューバー）
     webPreferences: { preload: path.join(__dirname, 'ui', 'preload.js'), contextIsolation: true, sandbox: true },
   })
@@ -105,7 +107,16 @@ function createWin(kind, pos) {
   w.loadFile(path.join(__dirname, 'ui', 'index.html'), { query: { w: kind } })
   w.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' } })
   w.on('move', () => { scheduleSnap(w); schedulePos(w); if (kind === 'single') syncDrawer() })
-  w.on('resize', () => { schedulePos(w); if (kind === 'single') syncDrawer() })
+  w.on('resize', () => { schedulePos(w); if (kind === 'single') { syncDrawer(); scheduleViewSave(w) } })
+  if (kind === 'single') {      // 中身の大きさを決めてから、見せる（開いたあとの、大きさの変化を見せない）
+    let shown = false; const show = () => {
+      if (shown || w.isDestroyed()) return; shown = true
+      applyView(w, isJoined() ? 'room' : 'lobby'); w.show()
+      // Linux（X11）では、見えていない窓の大きさの指定が、無視されることがある。見せたあとに、もう一度、決める
+      setTimeout(() => { if (!w.isDestroyed()) applyView(w, isJoined() ? 'room' : 'lobby') }, 300)
+    }
+    w.once('ready-to-show', show); setTimeout(show, 3000)
+  }
   w.on('close', e => onClose(e, w))
   w.on('closed', () => {
     if (wins[kind] !== w) return            // 切り替えで、すでに外した窓
@@ -134,6 +145,35 @@ function onClose(e, w) {
 }
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, Math.max(lo, hi)))
+
+// ---- ひとつの窓：ロビー用・部屋用の、窓の中身の大きさ（表示サイズ 100% のときの値）。どの環境でも、同じ見た目の大きさになるよう、枠を除いた中身で決める。窓の端で変えた大きさは、次の標準になる ----
+// ロビーの標準の幅は、細く決めておく：実際には、ボタンが 1 行に並ぶ幅（最小の幅。環境の文字の大きさで測る）まで、広がる
+const VIEW_DEF = { lobby: { w: 320, h: 732 }, room: { w: 340, h: 600 } }
+// ロビーの幅は、覚えない（いつも、ボタンが改行されない最小の幅で開く。広くすると、次から、戻らなくなるため）。ロビーの高さと、部屋の大きさは、覚える
+const viewSize = k => { const v = prefs.view[k]; const ok = v && v.w >= 200 && v.h >= 200; return k === 'lobby' ? { w: VIEW_DEF.lobby.w, h: ok ? v.h : VIEW_DEF.lobby.h } : (ok ? v : VIEW_DEF[k]) }
+// 窓の右端・下端が、画面の使える範囲の端に、接しているか（吸着と同じ、14px 以内）
+const edgesTouched = (b, wa) => ({ right: Math.abs(b.x + b.width - (wa.x + wa.width)) <= SNAP, bottom: Math.abs(b.y + b.height - (wa.y + wa.height)) <= SNAP })
+function applyView(w, k) {
+  if (!w || w.isDestroyed()) return
+  const v = viewSize(k), s = sc(), b = w.getBounds(), wa = screen.getDisplayMatching(b).workArea
+  w._lockUntil = Date.now() + 800; w._chatExtra = 0
+  // 大きさを決める前に、最小の大きさも、その画面用にする（ロビー用の最小の幅が残っていると、部屋が細くならない）
+  const base = BASE[w._kind]
+  if (base) w.setMinimumSize(Math.round((k === 'lobby' ? Math.max(base.mw, prefs.minW[w._kind] || 0) : base.mw) * s), Math.round(base.mh * s))
+  const edge = edgesTouched(b, wa)      // 画面の右端・下端に接していたか（大きさが変わっても、その端に、くっついたままにする）
+  w.setContentSize(Math.round(v.w * s), Math.min(Math.round(v.h * s), wa.height - 40))
+  const nb = w.getBounds()
+  const x = edge.right ? wa.x + wa.width - nb.width : nb.x, y = edge.bottom ? wa.y + wa.height - nb.height : nb.y
+  w.setBounds({ x: Math.max(wa.x, Math.min(x, wa.x + wa.width - nb.width)), y: Math.max(wa.y, Math.min(y, wa.y + wa.height - nb.height)), width: nb.width, height: nb.height })
+}
+function saveView(w, k) {
+  if (!w || w.isDestroyed() || Date.now() < (w._lockUntil || 0)) return
+  const [cw, ch] = w.getContentSize(), s = sc(), h = Math.round((ch - (w._chatExtra || 0)) / s)      // ひとことで伸びた分は、入れない
+  if (h < 200) return
+  prefs.view[k] = { w: Math.round(cw / s), h }; savePrefs()
+}
+const currentView = () => (wasJoined ? 'room' : 'lobby')
+function scheduleViewSave(w) { clearTimeout(w._viewTimer); w._viewTimer = setTimeout(() => saveView(w, currentView()), 500) }
 
 // ---- 窓の位置と大きさの記憶（種類ごと）。画面の外に出てしまう位置は、使わない ----
 function savedBounds(kind) {
@@ -200,6 +240,7 @@ function applyScale(pct) {
   const mw = wins[mainKind()], o = mw ? mw.getBounds() : null
   for (const w of allWins()) {
     const b = w.getBounds(), base = BASE[w._kind]
+    w._chatExtra = Math.round((w._chatExtra || 0) * r); w._lockUntil = Date.now() + 800
     const x = o && w !== mw ? Math.round(o.x + (b.x - o.x) * r) : b.x, y = o && w !== mw ? Math.round(o.y + (b.y - o.y) * r) : b.y
     w.setMinimumSize(Math.round(base.mw * s), Math.round(base.mh * s))
     w.setBounds({ x, y, width: Math.round(b.width * r), height: Math.round(b.height * r) })
@@ -386,6 +427,7 @@ let wasJoined = false
 function onRoom() {
   const j = isJoined()
   if (j === wasJoined) return
+  if (prefs.mode === 'single' && wins.single) { saveView(wins.single, wasJoined ? 'room' : 'lobby'); wasJoined = j; applyView(wins.single, j ? 'room' : 'lobby') }      // いまの大きさを、前の画面用に覚えて、これから出す画面用の大きさにする
   wasJoined = j
   buildMenu()
   if (!j) { state.chat = []; closeDrawer(); if (prefs.mode === 'split') closeAux(['room', 'chat', 'mail', 'settings']) }
@@ -444,11 +486,13 @@ ipcMain.handle('growBy', (e, dh) => {
   const w = BrowserWindow.fromWebContents(e.sender)
   if (!w || typeof dh !== 'number') return
   dh = Math.round(dh * sc())
+  w._chatExtra = Math.max(0, (w._chatExtra || 0) + dh)      // ひとことで伸びた分（覚える大きさには入れない）
   // 縮めるときは、ひとこと分を含んだ最小の高さも、先に、同じだけ下げる（そうしないと、窓が縮まない）
   if (dh < 0 && BASE[w._kind]) { const [mw, mh] = w.getMinimumSize(); w.setMinimumSize(mw, Math.max(Math.round(BASE[w._kind].mh * sc()), mh + dh)) }
   const b = w.getBounds(), wa = screen.getDisplayMatching(b).workArea
   const h = Math.min(Math.max(b.height + dh, 200), wa.height)
-  const y = Math.max(wa.y, Math.min(b.y, wa.y + wa.height - h))
+  const y0 = edgesTouched(b, wa).bottom ? wa.y + wa.height - h : b.y      // 下端に接していたら、伸び縮みしても、下端にそろえる
+  const y = Math.max(wa.y, Math.min(y0, wa.y + wa.height - h))
   w.setBounds({ x: b.x, y, width: b.width, height: h })
 })
 // 名刺のリンクなど：http(s) だけ、確認してから、既定のブラウザで開く
@@ -475,6 +519,7 @@ ipcMain.handle('dragMove', (e, dy) => {
 ipcMain.handle('setMinHeight', (e, slack) => {
   const w = BrowserWindow.fromWebContents(e.sender)
   if (!w || !Number.isFinite(slack)) return
+  if (w._kind === 'single' && (slack >= 1e5) === wasJoined) return      // 同じく、いま出している画面に合わない測定は、無視する
   const base = BASE[w._kind]; if (!base) return
   const b = w.getBounds(), minH = Math.max(Math.round(base.mh * sc()), Math.ceil(b.height - slack))
   const [mw] = w.getMinimumSize()
@@ -485,6 +530,7 @@ ipcMain.handle('setMinHeight', (e, slack) => {
 ipcMain.handle('setMinWidth', (e, slack) => {
   const w = BrowserWindow.fromWebContents(e.sender)
   if (!w || !Number.isFinite(slack)) return
+  if (w._kind === 'single' && (slack >= 1e5) !== wasJoined) return      // いま出している画面（ロビー／部屋）に合わない、古い測定は、無視する（切り替えの直後に、窓が広がるのを防ぐ）
   const base = BASE[w._kind]; if (!base) return
   const b = w.getBounds(), minW = Math.max(Math.round(base.mw * sc()), Math.ceil(b.width - slack))
   if (slack < 1e5 && prefs.minW[w._kind] !== Math.round(minW / sc())) { prefs.minW[w._kind] = Math.round(minW / sc()); savePrefs() }      // ロビーの最小の幅（表示サイズ 100% 換算）。次の起動で、はじめから、この幅で開く
@@ -614,11 +660,12 @@ app.whenReady().then(() => {
           if (st.open) openAux(st.open)
           if (st.move) wins[st.move.win].setPosition(st.move.x, st.move.y)
           if (st.size) wins[st.size.win || mainKind()].setSize(st.size.w, st.size.h)
+          if (st.dock) { const w = wins[st.win || mainKind()], b = w.getBounds(), wa = screen.getDisplayMatching(b).workArea; w.setBounds({ x: st.dock.includes('right') ? wa.x + wa.width - b.width : (st.dock.includes('left') ? wa.x : b.x), y: st.dock.includes('bottom') ? wa.y + wa.height - b.height : (st.dock.includes('top') ? wa.y : b.y), width: b.width, height: b.height }) }
           if (st.ui) { const r = await tw().webContents.executeJavaScript(st.ui); if (r !== undefined) console.log('[ui]', JSON.stringify(r)) }
           if (st.eng) { const r = await engineWin.webContents.executeJavaScript(st.eng); if (r !== undefined) console.log('[eng]', JSON.stringify(r)) }
           if (st.audible) console.log('[audible]', st.audible, engineWin.webContents.isCurrentlyAudible(), 'muted=' + engineWin.webContents.isAudioMuted())
           if (st.shot) fs.writeFileSync(st.shot, (await tw().webContents.capturePage()).toPNG())
-          if (st.bounds) console.log('[bounds]', JSON.stringify(Object.fromEntries(Object.entries(wins).map(([k, w]) => [k, Object.assign({}, w.getBounds(), { min: w.getMinimumSize() })]))))
+          if (st.bounds) console.log('[bounds]', JSON.stringify(Object.fromEntries(Object.entries(wins).map(([k, w]) => [k, Object.assign({}, w.getBounds(), { min: w.getMinimumSize(), content: w.getContentSize(), wa: (({ x, y, width, height }) => [x, y, width, height])(screen.getDisplayMatching(w.getBounds()).workArea) })]))))
           if (st.pin) console.log('[pin]', JSON.stringify(Object.fromEntries(Object.entries(wins).map(([k, w]) => [k, w.isAlwaysOnTop()]))), 'platform=' + process.platform, 'ozone=' + (process.env.XDG_SESSION_TYPE || ''))
         } catch (e) { console.error('[step]', e.message) }
         if (st.quit) { quitting = true; app.quit() }

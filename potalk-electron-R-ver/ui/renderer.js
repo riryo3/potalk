@@ -404,12 +404,13 @@ function renderChat() {
   t.textContent = (S.chatOpen ? '▾ ' : '▴ ') + (S.unread > 0 ? `ひとこと 新着 ${S.unread}` : 'ひとこと')
   t.classList.toggle('hot', S.unread > 0)
 }
-function setChatOpen(open) {
+function setChatOpen(open, silent) {
   if (open === S.chatOpen) return
   S.chatOpen = open; if (open) S.unread = 0
   $('chatOpen').hidden = !open; $('chatBox').classList.toggle('open', open)
   // 開いたときに伸ばした量を覚えておき、閉じるときに、同じ量だけ戻す（開いている間に、ハンドルで高さを変えても、窓はずれない）
   // 窓が伸び縮みし終わるまでは、メンバー一覧の余裕を測らない（途中で測ると、足りないと誤って、窓を余計に広げる）
+  if (silent) { chatGrown = 0; renderChat(); return }      // 部屋を出るときは、main が、窓の大きさを、ロビー用に決めるので、ここでは縮めない
   growing = true
   const done = () => { growing = false; syncMinHeight() }
   if (open) { chatGrown = chatH + 1; window.potalk.growBy(chatGrown).then(done, done) } else { window.potalk.growBy(-chatGrown).then(done, done); chatGrown = 0 }
@@ -594,7 +595,7 @@ $('profileOv').onclick = e => { if (e.target === $('profileOv')) { profileOpen =
 function render() {
   const joined = !!(S.room && S.room.joined)
   if (KIND === 'single' || KIND === 'lobby') syncMinWidth()      // ロビー⇄部屋の切り替えで、最小の幅を測り直す
-  if (S.wasJoined && !joined) { S.chat = []; S.unread = 0; S.warned.clear(); if (KIND === 'single') S.tab = 'room'; if (S.chatOpen) setChatOpen(false) }
+  if (S.wasJoined && !joined) { S.chat = []; S.unread = 0; S.warned.clear(); if (KIND === 'single') S.tab = 'room'; if (S.chatOpen) setChatOpen(false, true) }
   S.wasJoined = joined
   if (KIND === 'cardedit' || KIND === 'cardauth') { $('lobby').hidden = true; $('room').hidden = true; $('cardEditView').hidden = KIND !== 'cardedit'; $('cardAuthView').hidden = KIND !== 'cardauth'; if (KIND === 'cardedit') renderCardEdit(); else renderCardAuth(); return }
   renderPin(); renderSpk(); renderHandle(); renderProfile()
@@ -669,20 +670,22 @@ window.potalk.setBanned(banned)
 // メンバーが 4 人分は見える高さを、窓の最小の高さにする（ひとことを開いているときは、その分も、自動で入る）
 let minSync = 0, sentNeedH = null
 // ロビーの窓の最小の幅：各行が、折り返さずに並ぶ幅（行を、見えない所に複製して、そのままの幅を測る）
+// ロビーの窓の最小の幅：各行が、折り返さずに並ぶ幅（行を、見えない所に複製して、そのままの幅を測る。人数の文字は、長さが変わるので、数えない）
 function naturalWidth(row) {
   const c = row.cloneNode(true)
-  c.querySelectorAll('#viewers').forEach(e => e.remove())      // 人数の文字は、長さが変わるので、数えない（収まらないときは、省略表示）
+  c.querySelectorAll('#viewers').forEach(e => e.remove())
   c.removeAttribute('id'); c.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'))
   c.style.cssText = 'position:absolute;left:-99999px;top:0;width:max-content;max-width:none;visibility:hidden'
   row.parentNode.append(c); const w = c.getBoundingClientRect().width; c.remove(); return w
 }
-// 測った値が変わったとき（と、窓が足りないとき）だけ、main に送る。窓の端をつかんでいる最中は、何も送らない（最小の大きさを、ずらさない）
 let minWSync = 0, sentNeedW = null
 function syncMinWidth() {
   cancelAnimationFrame(minWSync)
   minWSync = requestAnimationFrame(() => {
     if (KIND !== 'single' && KIND !== 'lobby') return
+    if (!S.wins.scale) return      // 表示サイズが分かるまでは、測らない（100% だと思って測ると、窓が広がってしまう）
     if ($('lobby').hidden) { if (sentNeedW !== -1) { sentNeedW = -1; window.potalk.setMinWidth(1e6) } return }      // 部屋の画面のときは、ふだんの最小に戻す
+    if (KIND === 'single' && sentNeedH !== -1) { sentNeedH = -1; window.potalk.setMinHeight(1e6) }      // ロビーでは、部屋用の最小の高さ（メンバー 4 人分）を、解除する
     const rows = [...document.querySelectorAll('#lobby .bar, #lobby .bar2, #lobby .create, #lobby .searchrow, #lobby .foot')].filter(r => r.offsetParent !== null)
     const z = (S.wins.scale || 100) / 100, need = (Math.max(0, ...rows.map(naturalWidth)) + 4) * z, cur = document.documentElement.clientWidth * z
     if (sentNeedW !== null && Math.abs(need - sentNeedW) < 1 && cur >= need) return
@@ -701,7 +704,7 @@ function memberSlack() {
 function syncMinHeight() {
   cancelAnimationFrame(minSync)
   minSync = requestAnimationFrame(() => {
-    const m = $('members'); if (!m || !m.clientHeight || $('room').hidden || growing) return
+    const m = $('members'); if (!m || !m.clientHeight || $('room').hidden || growing || !S.wins.scale) return
     // 一覧より外の高さ + 4 人分：窓の高さが変わっても、変わらない値。変わったときと、窓が足りないときだけ送る
     const row = document.querySelector('#members .member'), rowH = row ? row.getBoundingClientRect().height : 42
     const key = (window.innerHeight - m.clientHeight) + rowH * 4 + 16, slack = memberSlack()
