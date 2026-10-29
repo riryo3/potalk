@@ -170,7 +170,7 @@ class App(QObject):
         if screen is None:
             return
         avail = screen.availableGeometry()
-        w = max(self.lobby.width(), 360)
+        w = max(self.lobby.width(), 252)      # 以前の最小 360 の 70%
         side = choose_drawer_side(
             anchor.x(), anchor.x() + anchor.width(), avail.x(), avail.x() + avail.width(), w
         )

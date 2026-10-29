@@ -119,7 +119,7 @@ class LobbyWindow(QWidget):
         super().__init__()
         self.engine = engine
         self.setWindowTitle("Potalker")
-        self.resize(400, 600)
+        self.resize(280, 600)       # 幅は 70%（以前は 400）。中身は狭くても収まるように並べてある
 
         lay = QVBoxLayout(self)
 
@@ -130,7 +130,9 @@ class LobbyWindow(QWidget):
         self.name_label = QLabel("名前・アバターを設定")
         self.mic_combo = QComboBox()
         self.mic_combo.addItem("（既定）", "")
-        self.mic_combo.setMaximumWidth(170)
+        self.mic_combo.setMaximumWidth(120)
+        self.mic_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.mic_combo.setMinimumContentsLength(5)
         self.mic_combo.currentIndexChanged.connect(
             lambda _i: self.mic_changed.emit(self.mic_combo.currentData() or "")
         )
@@ -141,7 +143,7 @@ class LobbyWindow(QWidget):
         lay.addLayout(prof)
 
         # ボタン行
-        btn_row = QHBoxLayout()
+        btn_row = QGridLayout()       # 狭い幅でも収まるよう、2×2 に並べる
         b_about = QPushButton("？ これはなに？")
         b_about.clicked.connect(lambda: AboutDialog(self).exec())
         b_create = QPushButton("🏠 部屋を作る")
@@ -150,11 +152,10 @@ class LobbyWindow(QWidget):
         btn_prof.clicked.connect(self._open_profile)
         btn_card = QPushButton("名刺…")
         btn_card.clicked.connect(lambda: engine.cmd({"type": "cardEdit"}))
-        btn_row.addWidget(b_about)
-        btn_row.addWidget(b_create)
-        btn_row.addStretch(1)
-        btn_row.addWidget(btn_prof)
-        btn_row.addWidget(btn_card)
+        btn_row.addWidget(b_about, 0, 0)
+        btn_row.addWidget(b_create, 0, 1)
+        btn_row.addWidget(btn_prof, 1, 0)
+        btn_row.addWidget(btn_card, 1, 1)
         lay.addLayout(btn_row)
 
         # 部屋名と配信部屋
@@ -209,8 +210,8 @@ class LobbyWindow(QWidget):
         foot.addWidget(self.notify)
         foot.addWidget(self.quiet)
         foot.addStretch(1)
-        foot.addWidget(self.viewers_label)
         lay.addLayout(foot)
+        lay.addWidget(self.viewers_label)
 
         # 最下段: 単一窓とテーマ
         foot2 = QHBoxLayout()
@@ -222,10 +223,9 @@ class LobbyWindow(QWidget):
         self.theme_combo.currentIndexChanged.connect(
             lambda _i: self.theme_changed.emit(self.theme_combo.currentData() or "system")
         )
-        foot2.addWidget(self.single_pane)
-        foot2.addStretch(1)
+        lay.addWidget(self.single_pane)
         foot2.addWidget(QLabel("テーマ"))
-        foot2.addWidget(self.theme_combo)
+        foot2.addWidget(self.theme_combo, 1)
         lay.addLayout(foot2)
         self.status_label = QLabel("")
         lay.addWidget(self.status_label)
