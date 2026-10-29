@@ -1,6 +1,6 @@
 {
   "name": "potalk-electron-r-ver",
-  "productName": "Potalker",
+  "productName": "PotalkerElectron",
   "version": "0.0.34",
   "description": "Potalker（ぽっと通話 非公式クライアント）の Electron 新作。Mac 版・Windows 版と同じ方式（画面に出ない WebView で potalk.app を動かし、画面だけを作り直す）",
   "main": "main.js",
@@ -20,7 +20,7 @@
   "author": "riryo3",
   "build": {
     "appId": "app.potalker.rver",
-    "productName": "Potalker",
+    "productName": "PotalkerElectron",
     "directories": {
       "output": "dist"
     },
@@ -34,7 +34,7 @@
     "linux": {
       "target": "AppImage",
       "category": "Network",
-      "artifactName": "Potalker-${version}-${arch}.AppImage",
+      "artifactName": "PotalkerElectron-${version}-${arch}.AppImage",
       "icon": "build/icon.png"
     },
     "afterPack": "build/afterPack.js",
@@ -58,7 +58,7 @@
       ],
       "icon": "build/icon.png",
       "signAndEditExecutable": false,
-      "artifactName": "Potalker-${version}-win-${arch}.${ext}"
+      "artifactName": "PotalkerElectron-${version}-win-${arch}.${ext}"
     }
   }
 }

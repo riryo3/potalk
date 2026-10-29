@@ -20,8 +20,8 @@ Potalker（ぽっと通話 非公式クライアント）の、Electron によ�
 3. 実行権限をつけて、起動します。
 
    ```bash
-   chmod +x Potalker-*.AppImage
-   ./Potalker-*.AppImage
+   chmod +x PotalkerElectron-*.AppImage
+   ./PotalkerElectron-*.AppImage
    ```
 
 - マイクの許可が求められたら、許可してください。使うマイクは、ロビーの「🎤 入力設定」で選べます。
@@ -84,7 +84,7 @@ npm run dist:linux-arm64   # ARM（Apple シリコンの VM など）
 npm run dist:linux-x64     # x64
 ```
 
-`dist/` に `Potalker-<版>-<arch>.AppImage` ができます。
+`dist/` に `PotalkerElectron-<版>-<arch>.AppImage` ができます。
 
 - **Mac で作るとき**：electron-builder が持ってくる `mksquashfs` が Intel 用で、Rosetta がないと動きません。`brew install squashfs` のあと、`~/Library/Caches/electron-builder/appimage/appimage-*/darwin/mksquashfs` を、`/opt/homebrew/bin/mksquashfs` へのリンクに差し替えます。
 - **利用者に頼むこと（Ubuntu 22.04 以降）**：AppImage は、FUSE 2 を使います。`sudo apt install libfuse2t64`（22.04 は `libfuse2`）を、1 度だけ。ARM 版は、`zlib1g-dev` も要りました（起動部分が `libz.so` を探すため）。x64 版は、どの Ubuntu にもある `libz.so.1` を探すので、要らないはずです（起動部分の文字列を調べただけで、x64 の実機では、まだ試していません）。
@@ -93,9 +93,9 @@ npm run dist:linux-x64     # x64
 ## Mac・Windows 用に作る
 
 ```bash
-npm run dist:mac-arm64      # Mac（Apple シリコン）：dist/mac-arm64/Potalker.app と zip
+npm run dist:mac-arm64      # Mac（Apple シリコン）：dist/mac-arm64/PotalkerElectron.app と zip
 npm run dist:mac-x64        # Mac（Intel）
-npm run dist:win-x64        # Windows（x64）：dist/Potalker-<版>-win-x64.zip（展開して Potalker.exe を実行）
+npm run dist:win-x64        # Windows（x64）：dist/PotalkerElectron-<版>-win-x64.zip（展開して PotalkerElectron.exe を実行）
 ```
 
 - いずれも、**署名なし**です。Mac は、簡易署名のみなので、ほかの Mac に zip で渡すと、初回に「開発元を確認できません」と出ることがあります（右クリック→「開く」）。Windows は、初回に SmartScreen の警告が出ることがあります（「詳細情報」→「実行」）。

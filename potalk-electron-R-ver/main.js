@@ -77,7 +77,7 @@ const BASE = {      // 表示サイズ 100% のときの大きさ（w, h）と�
   cardedit: { w: 500, h: 740, mw: 460, mh: 520 },
   cardauth: { w: 460, h: 520, mw: 440, mh: 420 },
 }
-const TITLE = { single: 'Potalker', lobby: 'Potalker', room: '部屋', chat: 'ひとこと', mail: 'おたより', settings: '設定', cardedit: '名刺の設定', cardauth: '本人確認' }
+const TITLE = { single: 'Potalker-Electron', lobby: 'Potalker-Electron', room: '部屋', chat: 'ひとこと', mail: 'おたより', settings: '設定', cardedit: '名刺の設定', cardauth: '本人確認' }
 const wins = {}
 let pinned = false         // 最前面
 let drawerSideNow = 'left', drawerShift = 0     // 部屋一覧のドロワーを出す側／左に余地がなくて、本体を右にずらしたぶん
@@ -583,7 +583,7 @@ function resetLayout() {
 function buildMenu() {
   const mac = process.platform === 'darwin'
   const t = [
-    ...(mac ? [{ label: 'Potalker', submenu: [{ role: 'about', label: 'Potalker について' }, { type: 'separator' }, { role: 'hide', label: 'Potalker を隠す' }, { role: 'hideOthers', label: 'ほかを隠す' }, { role: 'unhide', label: 'すべて表示' }, { type: 'separator' }, { role: 'quit', label: 'Potalker を終了' }] }] : [{ label: 'ファイル', submenu: [{ role: 'quit', label: '終了' }] }]),
+    ...(mac ? [{ label: 'Potalker-Electron', submenu: [{ role: 'about', label: 'Potalker-Electron について' }, { type: 'separator' }, { role: 'hide', label: 'Potalker-Electron を隠す' }, { role: 'hideOthers', label: 'ほかを隠す' }, { role: 'unhide', label: 'すべて表示' }, { type: 'separator' }, { role: 'quit', label: 'Potalker-Electron を終了' }] }] : [{ label: 'ファイル', submenu: [{ role: 'quit', label: '終了' }] }]),
     { label: '編集', submenu: [{ role: 'undo', label: '取り消す' }, { role: 'redo', label: 'やり直す' }, { type: 'separator' }, { role: 'cut', label: '切り取り' }, { role: 'copy', label: 'コピー' }, { role: 'paste', label: '貼り付け' }, { role: 'selectAll', label: 'すべてを選択' }] },
     {
       label: '表示', submenu: [
@@ -631,6 +631,20 @@ function buildMenu() {
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(t))
 }
+
+// 旧名（Potalker）のときの、設定・名前や名刺などのデータ（%AppData%\Potalker など）を、新しい名前の置き場へ、1回だけ引き継ぐ。
+// 旧名の置き場に、Windows ネイティブ版の設定が同居していることがあるので、Electron 版のデータ（Local Storage があるもの）のときだけ
+function migrateOldData() {
+  try {
+    const oldDir = path.join(app.getPath('appData'), 'Potalker'), newDir = app.getPath('userData')
+    if (path.resolve(oldDir) === path.resolve(newDir)) return
+    if (fs.existsSync(path.join(newDir, 'settings.json')) || fs.existsSync(path.join(newDir, 'Local Storage'))) return
+    if (!fs.existsSync(path.join(oldDir, 'Local Storage'))) return
+    fs.cpSync(oldDir, newDir, { recursive: true, filter: src => !/(^|[\\/])(Singleton\w*|lockfile|Cache|Code Cache|GPUCache|DawnCache)$/i.test(src) })
+    try { if (!('mode' in JSON.parse(fs.readFileSync(path.join(newDir, 'settings.json'), 'utf8')))) fs.rmSync(path.join(newDir, 'settings.json')) } catch {}
+  } catch {}
+}
+migrateOldData()
 
 app.whenReady().then(() => {
   loadPrefs()
