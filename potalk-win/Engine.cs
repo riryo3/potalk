@@ -28,7 +28,7 @@ public sealed class Engine
 
     Window host;
     WebView2 wv;
-    readonly HttpClient http = new();
+    readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(15) };
 
     public bool Joined => Room.B("joined");
 
@@ -103,6 +103,8 @@ public sealed class Engine
             using var req = new HttpRequestMessage(HttpMethod.Get, Home);
             req.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
             using var res = await http.SendAsync(req);
+            // エラーのページ（5xx など）を、200 の本物のページとして差し込まない。ページ本来の読み込みに任せる
+            if (!res.IsSuccessStatusCode) { Log("ページの取得に失敗: " + (int)res.StatusCode); return; }
             var html = await res.Content.ReadAsStringAsync();
             var (outHtml, ok, missing) = PagePatcher.Apply(html);
             Patched = ok;
@@ -115,11 +117,15 @@ public sealed class Engine
         finally { d.Complete(); }
     }
 
+    static JsonDocument ParseOrNull(string json) { try { return JsonDocument.Parse(json); } catch { return null; } }
+
     // ---- ページからの知らせ ----
     void OnMessage(object sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
         JsonElement msg;
-        try { msg = JsonDocument.Parse(e.WebMessageAsJson).RootElement; } catch { return; }
+        using var doc = ParseOrNull(e.WebMessageAsJson);
+        if (doc == null) return;
+        msg = doc.RootElement;
         var d = msg.P("d").Clone();
         switch (msg.S("t"))
         {

@@ -5,6 +5,17 @@ namespace Potalker;
 
 public static class Program
 {
+    static void LogError(Exception ex)
+    {
+        try
+        {
+            var dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Potalker");
+            System.IO.Directory.CreateDirectory(dir);
+            System.IO.File.AppendAllText(System.IO.Path.Combine(dir, "error.log"), $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex}\n\n");
+        }
+        catch { }
+    }
+
     [STAThread]
     public static void Main()
     {
@@ -23,6 +34,8 @@ public static class Program
             }
             HelpWindows.ShowThanksIfFirst(model);
         };
+        // 画面の操作中の思わぬエラーで、通話ごと落ちないようにする（内容は記録に残す）
+        app.DispatcherUnhandledException += (_, e) => { LogError(e.Exception); e.Handled = true; };
         Shortcuts.Install(model);
         Scaling.Install(model);
         app.SessionEnding += (_, _) => model.Quitting = true;     // Windows のサインアウト・シャットダウンでは、確認しない

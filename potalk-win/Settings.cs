@@ -25,11 +25,24 @@ public sealed class Settings
 
     public static Settings Load()
     {
-        try { return JsonSerializer.Deserialize<Settings>(File.ReadAllText(PathName)) ?? new Settings(); } catch { return new Settings(); }
+        Settings s;
+        try { s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(PathName)) ?? new Settings(); } catch { s = new Settings(); }
+        // 手で書き換えられた・壊れた値でも動くようにする
+        s.BannedWords ??= new(); s.Windows ??= new(); s.MicLabel ??= "";
+        s.SingleScale = double.IsNaN(s.SingleScale) ? 1.0 : Math.Clamp(s.SingleScale, 0.5, 1.0);
+        return s;
     }
     public void Save()
     {
-        try { Directory.CreateDirectory(Path.GetDirectoryName(PathName)); File.WriteAllText(PathName, JsonSerializer.Serialize(this)); } catch { }
+        // 途中で止まっても、設定が空にならないよう、いったん別のファイルに書いてから置き換える
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(PathName));
+            var tmp = PathName + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(this));
+            File.Move(tmp, PathName, true);
+        }
+        catch { }
     }
 
     /// <summary>1つの窓にまとめて使う（シングルペイン）</summary>
