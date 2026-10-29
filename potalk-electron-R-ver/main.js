@@ -679,7 +679,7 @@ app.whenReady().then(() => {
           if (st.eng) { const r = await engineWin.webContents.executeJavaScript(st.eng); if (r !== undefined) console.log('[eng]', JSON.stringify(r)) }
           if (st.audible) console.log('[audible]', st.audible, engineWin.webContents.isCurrentlyAudible(), 'muted=' + engineWin.webContents.isAudioMuted())
           if (st.shot) fs.writeFileSync(st.shot, (await tw().webContents.capturePage()).toPNG())
-          if (st.bounds) console.log('[bounds]', JSON.stringify(Object.fromEntries(Object.entries(wins).map(([k, w]) => [k, Object.assign({}, w.getBounds(), { min: w.getMinimumSize(), content: w.getContentSize(), wa: (({ x, y, width, height }) => [x, y, width, height])(screen.getDisplayMatching(w.getBounds()).workArea) })]))))
+          if (st.bounds) console.log('[bounds]', JSON.stringify(Object.fromEntries(Object.entries(wins).map(([k, w]) => [k, Object.assign({}, w.getBounds(), { title: w.getTitle(), min: w.getMinimumSize(), content: w.getContentSize(), wa: (({ x, y, width, height }) => [x, y, width, height])(screen.getDisplayMatching(w.getBounds()).workArea) })]))))
           if (st.pin) console.log('[pin]', JSON.stringify(Object.fromEntries(Object.entries(wins).map(([k, w]) => [k, w.isAlwaysOnTop()]))), 'platform=' + process.platform, 'ozone=' + (process.env.XDG_SESSION_TYPE || ''))
         } catch (e) { console.error('[step]', e.message) }
         if (st.quit) { quitting = true; app.quit() }

@@ -34,8 +34,9 @@
     "linux": {
       "target": "AppImage",
       "category": "Network",
-      "artifactName": "PotalkerElectron-${version}-${arch}.AppImage",
-      "icon": "build/icon.png"
+      "artifactName": "PotalkerElectron-${version}-linux-${arch}.AppImage",
+      "icon": "build/icon.png",
+      "executableName": "PotalkerElectron"
     },
     "afterPack": "build/afterPack.js",
     "mac": {
@@ -45,7 +46,11 @@
       ],
       "category": "public.app-category.social-networking",
       "icon": "build/icon.icns",
-      "identity": null
+      "identity": null,
+      "artifactName": "PotalkerElectron-${version}-mac-${arch}.${ext}",
+      "extendInfo": {
+        "CFBundleDisplayName": "Potalker-Electron"
+      }
     },
     "win": {
       "target": [

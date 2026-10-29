@@ -8,6 +8,8 @@ Potalker（ぽっと通話 非公式クライアント）の、Electron によ�
 
 ## 試用版（Linux・AppImage）
 
+> **名前**：ファイル名は `PotalkerElectron`、窓の名前（タイトルバー）は `Potalker-Electron` です。Mac 版（Swift 製）・Windows 版・Linux 版（Qt 製）の `Potalker` と、見分けるためです。前の名前（`Potalker`）で使っていた保存場所（プロフィール・名刺・自衛ワード・設定）は、前の保存場所に、Electron 版のデータ（`Local Storage`）があるときだけ、初回の起動で、新しい保存場所へ、コピーして引き継ぎます（キャッシュは、コピーしません。前のものは、そのまま残ります。同じ場所に、ほかのアプリのファイルがあると、一緒にコピーされますが、設定ファイルが、Electron 版のものでなければ、取り除きます）。
+
 **試用版です。** Linux で、ダウンロードして、実行権限をつけるだけで開ける形（AppImage）を、試しています。Ubuntu 24.04（ARM64）の仮想マシンで、Mac の Potalker との通話（声の往復・名刺・効果音）を確認しています。**x64 の実機の Linux では、まだ動作を確認していません。** 動いた・動かなかったの報告をいただけると、助かります。
 
 1. [Releases](https://github.com/riryo3/potalk/releases) から、自分の環境に合う AppImage を取ります（一般的な PC は `x86_64`、ARM 機は `arm64`）。
@@ -84,7 +86,7 @@ npm run dist:linux-arm64   # ARM（Apple シリコンの VM など）
 npm run dist:linux-x64     # x64
 ```
 
-`dist/` に `PotalkerElectron-<版>-<arch>.AppImage` ができます。
+`dist/` に `PotalkerElectron-<版>-linux-<arch>.AppImage` ができます。
 
 - **Mac で作るとき**：electron-builder が持ってくる `mksquashfs` が Intel 用で、Rosetta がないと動きません。`brew install squashfs` のあと、`~/Library/Caches/electron-builder/appimage/appimage-*/darwin/mksquashfs` を、`/opt/homebrew/bin/mksquashfs` へのリンクに差し替えます。
 - **利用者に頼むこと（Ubuntu 22.04 以降）**：AppImage は、FUSE 2 を使います。`sudo apt install libfuse2t64`（22.04 は `libfuse2`）を、1 度だけ。ARM 版は、`zlib1g-dev` も要りました（起動部分が `libz.so` を探すため）。x64 版は、どの Ubuntu にもある `libz.so.1` を探すので、要らないはずです（起動部分の文字列を調べただけで、x64 の実機では、まだ試していません）。
@@ -93,14 +95,14 @@ npm run dist:linux-x64     # x64
 ## Mac・Windows 用に作る
 
 ```bash
-npm run dist:mac-arm64      # Mac（Apple シリコン）：dist/mac-arm64/PotalkerElectron.app と zip
+npm run dist:mac-arm64      # Mac（Apple シリコン）：dist/mac-arm64/PotalkerElectron.app と zip（`PotalkerElectron-<版>-mac-arm64.zip`）
 npm run dist:mac-x64        # Mac（Intel）
 npm run dist:win-x64        # Windows（x64）：dist/PotalkerElectron-<版>-win-x64.zip（展開して PotalkerElectron.exe を実行）
 ```
 
 - いずれも、**署名なし**です。Mac は、簡易署名のみなので、ほかの Mac に zip で渡すと、初回に「開発元を確認できません」と出ることがあります（右クリック→「開く」）。Windows は、初回に SmartScreen の警告が出ることがあります（「詳細情報」→「実行」）。
-- Mac で Windows 用を作るときは、Wine がないため、`Potalker.exe` のアイコンの書き換えを省いています（`signAndEditExecutable: false`）。アプリの動きには、影響しません。
-- 確認の範囲：**Mac は、起動を確認しています。Windows は、zip の中身（`Potalker.exe` と本体）を確認しただけで、実機では、まだ起動していません。** Windows 版（`potalk-win/`）が、すでにあるので、こちらは、Electron 版を試すための入口です。
+- Mac で Windows 用を作るときは、Wine がないため、`PotalkerElectron.exe` のアイコンの書き換えを省いています（`signAndEditExecutable: false`）。アプリの動きには、影響しません。
+- 確認の範囲：**Mac は、起動を確認しています。Windows は、zip の中身（`PotalkerElectron.exe` と本体）を確認しただけで、実機では、まだ起動していません。** Windows 版（`potalk-win/`）が、すでにあるので、こちらは、Electron 版を試すための入口です。
 
 ## 開発用
 
