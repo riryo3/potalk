@@ -4,27 +4,27 @@
 
 ## どれをダウンロードする？
 
-ダウンロードは、すべて [Releases](https://github.com/riryo3/potalk/releases) からです。**Releases の「Latest」の印は、Windows 版についていることがあります。Mac の方も、下の表で、ご自分のファイルを選んでください。**
+下の表のファイル名を押すと、そのままダウンロードが始まります（ファイルの置き場は [Releases](https://github.com/riryo3/potalk/releases) です）。新しい版が出たときは、表が少し遅れることがあります。そのときは、Releases で、同じ系統の最新版を探してください。**Releases の「Latest」の印は、Windows 版についていることがあります。Mac の方も、下の表で、ご自分のファイルを選んでください。**
 
 ### まず、これだけ（迷ったら）
 
 | あなたの環境 | おすすめ | ファイル |
 |---|---|---|
-| **Mac**（macOS 14 以降） | **Mac 版（安定版）** | `Potalker-0.3.2.zip` |
-| **Windows**（10 / 11、64bit） | **Windows 版** | `Potalker-win-x64.zip` |
-| **Linux** | **Electron 版（Linux）** | `PotalkerElectron-<版>-linux-x86_64.AppImage`（ARM 機は `…-linux-arm64.AppImage`） |
+| **Mac**（macOS 14 以降） | **Mac 版（安定版）** | [`Potalker-0.3.2.zip`](https://github.com/riryo3/potalk/releases/download/v0.3.2/Potalker-0.3.2.zip) |
+| **Windows**（10 / 11、64bit） | **Windows 版** | [`Potalker-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/win-v0.3.9/Potalker-win-x64.zip) |
+| **Linux** | **Electron 版（Linux）** | [`PotalkerElectron-0.0.34-linux-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-linux-x86_64.AppImage)（ARM 機は [`…-linux-arm64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-linux-arm64.AppImage)） |
 
 ### 全部の一覧
 
 | 種類 | 対象 | ファイル（Releases のタグ） | 状態 | 確認できていること |
 |---|---|---|---|---|
-| **Mac 版**（Swift 製・安定版） | Mac（Apple シリコン・Intel 両対応）、macOS 14 以降 | `Potalker-0.3.2.zip`（`v0.3.2`） | 安定版 | 実機で、通話まで、使っています |
-| **Mac 版**（試用版） | 同上 | `Potalker-0.3.3-beta.zip`（`v0.3.3-beta`） | **試用版** | エラーの帯・「つなぎ直す」ボタンを追加。**実際の通話でのエラー時の動きは、未確認** |
-| **Windows 版**（C# / WPF 製） | Windows 10 / 11、64bit | `Potalker-win-x64.zip`（`win-v0.3.x`） | 安定版 | **Windows 11 の実機**で、確認しています（本人確認（X・GitHub・Nostr）は、まだ、実機で試していません） |
-| **Linux 版**（Python / Qt 製） | Linux（Ubuntu 24.04 相当、x86_64） | `Potalker-x86_64.AppImage`（約 227MB）／`Potalker-linux-x64.zip`（`linux-v0.1.x`） | **アルファ版** | **未確認**（開発した担当が、仮想環境で動かしただけで、リポジトリの管理者は、まだ、確認できていません） |
-| **Electron 版（Linux）** | Linux（PC：x86_64、ARM 機：arm64） | `PotalkerElectron-<版>-linux-x86_64.AppImage`／`…-linux-arm64.AppImage`（約 108MB）（`electron-v…-beta`） | **試用版** | **ARM64**：Ubuntu 24.04 の**仮想マシン**（Mac 上）で、Mac 版との通話（声の往復）まで確認。ARM の実機は未確認。**x86_64：未確認** |
-| **Electron 版（Mac）** | Mac（Apple シリコン） | `PotalkerElectron-<版>-mac-arm64.zip`（同上） | **試用版** | 起動・画面を確認 |
-| **Electron 版（Windows）** | Windows（x64） | `PotalkerElectron-<版>-win-x64.zip`（同上） | **試用版** | **Windows 11 の実機**で、動かしています |
+| **Mac 版**（Swift 製・安定版） | Mac（Apple シリコン・Intel 両対応）、macOS 14 以降 | [`Potalker-0.3.2.zip`](https://github.com/riryo3/potalk/releases/download/v0.3.2/Potalker-0.3.2.zip)（`v0.3.2`） | 安定版 | 実機で、通話まで、使っています |
+| **Mac 版**（試用版） | 同上 | [`Potalker-0.3.3-beta.zip`](https://github.com/riryo3/potalk/releases/download/v0.3.3-beta/Potalker-0.3.3-beta.zip)（`v0.3.3-beta`） | **試用版** | エラーの帯・「つなぎ直す」ボタンを追加。**実際の通話でのエラー時の動きは、未確認** |
+| **Windows 版**（C# / WPF 製） | Windows 10 / 11、64bit | [`Potalker-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/win-v0.3.9/Potalker-win-x64.zip)（`win-v0.3.9`） | 安定版 | **Windows 11 の実機**で、確認しています（本人確認（X・GitHub・Nostr）は、まだ、実機で試していません） |
+| **Linux 版**（Python / Qt 製） | Linux（Ubuntu 24.04 相当、x86_64） | [`Potalker-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.2/Potalker-x86_64.AppImage)（約 227MB）／[`Potalker-linux-x64.zip`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.2/Potalker-linux-x64.zip)（`linux-v0.1.2`） | **アルファ版** | **未確認**（開発した担当が、仮想環境で動かしただけで、リポジトリの管理者は、まだ、確認できていません） |
+| **Electron 版（Linux）** | Linux（PC：x86_64、ARM 機：arm64） | [`PotalkerElectron-0.0.34-linux-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-linux-x86_64.AppImage)／[`…-linux-arm64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-linux-arm64.AppImage)（約 108MB）（`electron-v0.0.34-beta`） | **試用版** | **ARM64**：Ubuntu 24.04 の**仮想マシン**（Mac 上）で、Mac 版との通話（声の往復）まで確認。ARM の実機は未確認。**x86_64：未確認** |
+| **Electron 版（Mac）** | Mac（Apple シリコン） | [`PotalkerElectron-0.0.34-mac-arm64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-mac-arm64.zip)（同上） | **試用版** | 起動・画面を確認 |
+| **Electron 版（Windows）** | Windows（x64） | [`PotalkerElectron-0.0.34-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-win-x64.zip)（同上） | **試用版** | **Windows 11 の実機**で、動かしています |
 
 ### 選び方
 
