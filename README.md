@@ -24,12 +24,12 @@
 | **Linux 版**（Python / Qt 製） | Linux（Ubuntu 24.04 相当、x86_64） | `Potalker-x86_64.AppImage`（約 227MB）／`Potalker-linux-x64.zip`（`linux-v0.1.x`） | **アルファ版** | **未確認**（開発した担当が、仮想環境で動かしただけで、リポジトリの管理者は、まだ、確認できていません） |
 | **Electron 版（Linux）** | Linux（PC：x86_64、ARM 機：arm64） | `PotalkerElectron-<版>-linux-x86_64.AppImage`／`…-linux-arm64.AppImage`（約 108MB）（`electron-v…-beta`） | **試用版** | **ARM64**：Ubuntu 24.04 の**仮想マシン**（Mac 上）で、Mac 版との通話（声の往復）まで確認。ARM の実機は未確認。**x86_64：未確認** |
 | **Electron 版（Mac）** | Mac（Apple シリコン） | `PotalkerElectron-<版>-mac-arm64.zip`（同上） | **試用版** | 起動・画面を確認 |
-| **Electron 版（Windows）** | Windows（x64） | `PotalkerElectron-<版>-win-x64.zip`（同上） | **試用版** | **実機では、未確認** |
+| **Electron 版（Windows）** | Windows（x64） | `PotalkerElectron-<版>-win-x64.zip`（同上） | **試用版** | **Windows 11 の実機**で、動かしています |
 
 ### 選び方
 
 - **Mac の方**: 普通に使うなら、**Mac 版（安定版）**です。新しい機能（エラーの帯・つなぎ直すボタン）を、試したい方は、試用版を。Electron 版（Mac）は、Linux 版と、見た目や動きを、そろえるための、試用版です。
-- **Windows の方**: **Windows 版**です。Electron 版（Windows）は、まだ、実機で動かしていないので、特別な理由がなければ、選ばないでください。
+- **Windows の方**: **Windows 版**です。Electron 版（Windows）は、試用版ですが、Windows 11 の実機で、動かしています。Linux・Mac の Electron 版と、見た目や動きを、そろえたい方は、こちらも選べます。
 - **Linux の方**: **Electron 版（Linux）をおすすめします。** Qt 製の Linux 版は、まだ、確認できていません。どちらも、試験段階で、実機での報告を、集めています。
 
   | | Linux 版（Qt 製） | Electron 版（Linux） |
