@@ -255,9 +255,14 @@ public sealed class RoomWindow : Window
         Links.Fill(tagText, "🏷 " + (tag.S("text").Length == 0 ? "話題はまだありません" : tag.S("text")), u => M.ConfirmOpen(u, this));
         tagBtn.Content = tag.S("btn").Length == 0 ? "つける" : tag.S("btn");
 
-        members.Children.Clear(); nameFits.Clear();
+        members.Children.Clear(); nameFits.Clear(); memberRows.Clear();
         int Rank(JsonElement m) => m.S("mark") == "📣" ? 0 : (m.S("mark").Length == 0 ? 2 : 1);
-        foreach (var (m, idx) in all.Select((m, i) => (m, i)).OrderBy(x => Rank(x.m)).ThenBy(x => x.i)) members.Children.Add(MemberRow(m, idx));
+        foreach (var (m, idx) in all.Select((m, i) => (m, i)).OrderBy(x => Rank(x.m)).ThenBy(x => x.i))
+        {
+            var row = MemberRow(m, idx);
+            memberRows[m.B("you") ? "\0you" : "n:" + m.S("name")] = row;      // リアクションの絵文字が、押した人の行から出るために、行を覚えておく
+            members.Children.Add(row);
+        }
         if (r.S("more").Length > 0) members.Children.Add(Ui.Txt(r.S("more"), 12, Ui.Dim));
         FitNames();
 
@@ -307,6 +312,7 @@ public sealed class RoomWindow : Window
     RoutedEventHandler MuteHandler = (_, _) => { };
 
     readonly List<Action<double>> nameFits = new();
+    readonly Dictionary<string, UIElement> memberRows = new();
 
     /// <summary>一覧の幅から、各行の名前の最大幅を決める（行の左右の余白・罫線の分を引く）。</summary>
     void FitNames()
@@ -454,21 +460,28 @@ public sealed class RoomWindow : Window
     }
 
     // ---- 飛ぶ絵文字 ----
+    /// <summary>リアクションの絵文字：押した人の行から出て、1.4 秒で 90 上がり、少し大きくなりながら、薄くなって消える（Mac 版と同じ）</summary>
     void FlyEmoji(string emoji, string who, bool self)
     {
         if (fx.Children.Count >= 12) return;
-        var sp = new StackPanel();
-        sp.Children.Add(new TextBlock { Text = emoji, FontSize = 26, HorizontalAlignment = HorizontalAlignment.Center });
-        if (who.Length > 0) sp.Children.Add(new TextBlock { Text = who, FontSize = 10, Foreground = Ui.Dim, HorizontalAlignment = HorizontalAlignment.Center });
         var rnd = Random.Shared;
-        var x = self ? 40 + rnd.Next(-8, 8) : Math.Max(40, rnd.NextDouble() * Math.Max(60, fx.ActualWidth - 100));
-        var y = Math.Max(120, fx.ActualHeight * 0.6);
+        double x = 20, y = 200;
+        if (memberRows.TryGetValue(self ? "\0you" : "n:" + who, out var row) && row is FrameworkElement fe && fe.IsLoaded)
+        {
+            try { var pt = fe.TranslatePoint(new Point(0, fe.ActualHeight / 2), fx); x = pt.X; y = pt.Y; } catch { }
+        }
+        x = x + 36 + rnd.Next(-10, 10) - 15; y -= 17;
+        var sp = new TextBlock { Text = emoji, FontSize = 26, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(0.6, 0.6) };
         Canvas.SetLeft(sp, x); Canvas.SetTop(sp, y);
         fx.Children.Add(sp);
         var dur = TimeSpan.FromSeconds(1.4);
-        var up = new DoubleAnimation(y, y - 110, dur) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-        var fade = new DoubleAnimation(1, 0, dur);
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var up = new DoubleAnimation(y, y - 90, dur) { EasingFunction = ease };
+        var fade = new DoubleAnimation(1, 0, dur) { EasingFunction = ease };
+        var grow = new DoubleAnimation(0.6, 1.0, dur) { EasingFunction = ease };
         fade.Completed += (_, _) => fx.Children.Remove(sp);
         sp.BeginAnimation(Canvas.TopProperty, up); sp.BeginAnimation(OpacityProperty, fade);
+        ((ScaleTransform)sp.RenderTransform).BeginAnimation(ScaleTransform.ScaleXProperty, grow);
+        ((ScaleTransform)sp.RenderTransform).BeginAnimation(ScaleTransform.ScaleYProperty, grow);
     }
 }
