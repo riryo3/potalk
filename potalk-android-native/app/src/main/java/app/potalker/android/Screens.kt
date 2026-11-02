@@ -58,38 +58,79 @@ fun JSONObject.arr(k: String): List<JSONObject> { val a = optJSONArray(k) ?: JSO
 @Composable
 fun LobbyScreen() {
     val me = Engine.profile
-    var name by remember { mutableStateOf("") }
-    var broadcast by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
+    var create by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
-            Spacer(Modifier.height(12.dp))
-            Text("ぽっと通話", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("非公式クライアント（Android・試作）", fontSize = 12.sp, color = Dim)
             Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Card).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(me?.optString("emoji").orEmpty().ifEmpty { "🙂" }, fontSize = 28.sp)
-                Spacer(Modifier.padding(6.dp))
-                Text(me?.optString("name").orEmpty().ifEmpty { "…" }, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("ぽっと通話", Modifier.weight(1f), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("非公式・Android", fontSize = 11.sp, color = Dim)
             }
         }
-        item { ProfileEntries() }
+        // 自分の名前（押すと、名前・アイコン、名刺、自衛ワードの入口が出る）と、部屋を作るボタン
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(name, { name = it.take(30) }, Modifier.weight(1f), placeholder = { Text("部屋の名前（○○の部屋）") }, singleLine = true)
-                Button({ if (name.isNotBlank()) { Engine.cmd("type" to "create", "name" to name.trim(), "kind" to if (broadcast) "bc" else "chat"); name = "" } }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White)) { Text("作る") }
+                Row(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Card).clickable { menu = true }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(me?.optString("emoji").orEmpty().ifEmpty { "🙂" }, fontSize = 24.sp)
+                    Spacer(Modifier.padding(5.dp))
+                    Text(me?.optString("name").orEmpty().ifEmpty { "…" }, Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                    Text("▾", color = Dim, fontSize = 14.sp)
+                }
+                Button({ create = true }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White)) { Text("＋ 部屋を作る") }
             }
         }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for ((label, bc) in listOf("🏠 雑談（みんなで話す）" to false, "📣 配信（あなたの声だけ）" to true))
-                    Text(label, Modifier.clip(RoundedCornerShape(20.dp)).background(if (broadcast == bc) Teal else Card).clickable { broadcast = bc }.padding(horizontal = 12.dp, vertical = 8.dp),
-                        color = Color.White, fontSize = 13.sp, fontWeight = if (broadcast == bc) FontWeight.Bold else FontWeight.Normal)
-            }
-        }
-        item { Text("通話中の部屋", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+        item { Text("通話中の部屋", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White) }
         roomsList(this) { id -> Engine.cmd("type" to "join", "id" to id, "quiet" to false) }
         item { Spacer(Modifier.height(24.dp)) }
     }
+    if (menu) ProfileMenu { menu = false }
+    if (create) CreateRoomDialog { create = false }
+}
+
+/** 自分の名前を押したときの入口 */
+@Composable
+private fun ProfileMenu(close: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = close, containerColor = Card,
+        title = { Text("設定", color = Color.White) },
+        text = {
+            Column {
+                for ((label, act) in listOf<Pair<String, () -> Unit>>(
+                    "👤 名前・アイコン" to { page = Page.Profile },
+                    "📇 名刺（画像・SNS・本人確認）" to { Engine.cmd("type" to "cardEdit") },
+                    "🛡 自衛ワード" to { page = Page.Banned },
+                )) Text(label, Modifier.fillMaxWidth().clickable { close(); act() }.padding(vertical = 14.dp), color = Color.White, fontSize = 16.sp)
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(close) { Text("閉じる", color = Teal) } }
+    )
+}
+
+/** 部屋を作る：部屋の名前と、雑談・配信を決める */
+@Composable
+private fun CreateRoomDialog(close: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var broadcast by remember { mutableStateOf(false) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = close, containerColor = Card,
+        title = { Text("部屋を作る", color = Color.White) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(name, { name = it.take(30) }, Modifier.fillMaxWidth(), placeholder = { Text("部屋の名前（○○の部屋）") }, singleLine = true)
+                for ((label, bc) in listOf("🏠 雑談（みんなで話す）" to false, "📣 配信（あなたの声だけ）" to true))
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (broadcast == bc) Teal.copy(alpha = 0.35f) else Bg).clickable { broadcast = bc }.padding(horizontal = 12.dp, vertical = 12.dp)) {
+                        Text(label, color = Color.White, fontSize = 15.sp, fontWeight = if (broadcast == bc) FontWeight.Bold else FontWeight.Normal)
+                    }
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton({
+                if (name.isNotBlank()) { Engine.cmd("type" to "create", "name" to name.trim(), "kind" to if (broadcast) "bc" else "chat"); close() }
+            }, enabled = name.isNotBlank()) { Text("作る", color = Teal) }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(close) { Text("やめる", color = Dim) } }
+    )
 }
 
 /** 通話中の部屋の一覧（ロビーの画面と、部屋の中の「部屋一覧」で、同じものを使う） */
