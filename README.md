@@ -21,7 +21,7 @@
 | **Mac 版**（Swift 製・安定版） | Mac（Apple シリコン・Intel 両対応）、macOS 14 以降 | [`Potalker-0.3.2.zip`](https://github.com/riryo3/potalk/releases/download/v0.3.2/Potalker-0.3.2.zip)（`v0.3.2`） | 安定版 | 実機で、通話まで、使っています |
 | **Mac 版**（試用版） | 同上 | [`Potalker-0.3.3-beta.zip`](https://github.com/riryo3/potalk/releases/download/v0.3.3-beta/Potalker-0.3.3-beta.zip)（`v0.3.3-beta`） | **試用版** | エラーの帯・「つなぎ直す」ボタンを追加。**実際の通話でのエラー時の動きは、未確認** |
 | **Windows 版**（C# / WPF 製） | Windows 10 / 11、64bit | [`Potalker-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/win-v0.3.9/Potalker-win-x64.zip)（`win-v0.3.9`） | 安定版 | **Windows 11 の実機**で、確認しています（本人確認（X・GitHub・Nostr）は、まだ、実機で試していません） |
-| **Linux 版**（Python / Qt 製） | Linux（Ubuntu 24.04 相当、x86_64） | [`Potalker-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.2/Potalker-x86_64.AppImage)（約 227MB）／[`Potalker-linux-x64.zip`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.2/Potalker-linux-x64.zip)（`linux-v0.1.2`） | **アルファ版** | **未確認**（開発した担当が、仮想環境で動かしただけで、リポジトリの管理者は、まだ、確認できていません） |
+| **Linux 版**（Python / Qt 製） | Linux（Ubuntu 24.04 相当、x86_64） | [`Potalker-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.2/Potalker-x86_64.AppImage)（約 227MB）／[`Potalker-linux-x64.zip`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.2/Potalker-linux-x64.zip)（`linux-v0.1.2`） | **アルファ版・更新終了** | **未確認**（開発した担当が、仮想環境で動かしただけで、リポジトリの管理者は、まだ、確認できていません） |
 | **Electron 版（Linux）** | Linux（PC：x86_64、ARM 機：arm64） | [`PotalkerElectron-0.0.34-linux-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-linux-x86_64.AppImage)／[`…-linux-arm64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-linux-arm64.AppImage)（約 108MB）（`electron-v0.0.34-beta`） | **試用版** | **ARM64**：Ubuntu 24.04 の**仮想マシン**（Mac 上）で、Mac 版との通話（声の往復）まで確認。ARM の実機は未確認。**x86_64：未確認** |
 | **Electron 版（Mac）** | Mac（Apple シリコン） | [`PotalkerElectron-0.0.34-mac-arm64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-mac-arm64.zip)（同上） | **試用版** | 起動・画面を確認 |
 | **Electron 版（Windows）** | Windows（x64） | [`PotalkerElectron-0.0.34-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-win-x64.zip)（同上） | **試用版** | **Windows 11 の実機**で、動かしています |
@@ -30,7 +30,7 @@
 
 - **Mac の方**: 普通に使うなら、**Mac 版（安定版）**です。新しい機能（エラーの帯・つなぎ直すボタン）を、試したい方は、試用版を。Electron 版（Mac）は、Linux 版と、見た目や動きを、そろえるための、試用版です。
 - **Windows の方**: **Windows 版**です。Electron 版（Windows）は、試用版ですが、Windows 11 の実機で、動かしています。Linux・Mac の Electron 版と、見た目や動きを、そろえたい方は、こちらも選べます。
-- **Linux の方**: **Electron 版（Linux）をおすすめします。** Qt 製の Linux 版は、まだ、確認できていません。どちらも、試験段階で、実機での報告を、集めています。
+- **Linux の方**: **Electron 版（Linux）をおすすめします。** Qt 製の Linux 版は、確認できておらず、**今後の更新も、予定していません**。どちらも、試験段階で、実機での報告を、集めています。
 
   | | Linux 版（Qt 製） | Electron 版（Linux） |
   |---|---|---|
@@ -52,7 +52,7 @@
 |---|---|
 | `potalk-swift/` | Swift 製（AppKit / SwiftUI）の **Potalker**（Mac 版）。画面に出ない WKWebView で、通話の仕組みを動かす。 |
 | `potalk-win/` | C# 製（WPF / WebView2）の **Potalker**（Windows 版）。画面に出ない WebView2 で、通話の仕組みを動かす。 |
-| `potalk-linux/` | Python 製（Qt）の **Potalker**（Linux 版・アルファ）。 |
+| `potalk-linux/` | Python 製（Qt）の **Potalker**（Linux 版・アルファ）。**更新は終了しました。** Linux では、`potalk-electron-R-ver/` の Electron 版を、お使いください。 |
 | `potalk-electron-R-ver/` | Electron 製の **PotalkerElectron**（Linux・Mac・Windows 向けの試用版）。 |
 | `potalk-mac/` | Electron 製（先に作った試作版）。現在は、田上光さん（[@wanderingdj](https://x.com/wanderingdj)）が、保守してくださっています。現役の Electron 版は、`potalk-electron-R-ver/` です。 |
 
