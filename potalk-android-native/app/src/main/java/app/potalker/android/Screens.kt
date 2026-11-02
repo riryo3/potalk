@@ -72,6 +72,7 @@ fun LobbyScreen() {
                 Text(me?.optString("name").orEmpty().ifEmpty { "…" }, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
+        item { ProfileEntries() }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(name, { name = it.take(30) }, Modifier.weight(1f), placeholder = { Text("部屋の名前（○○の部屋）") }, singleLine = true)
@@ -93,7 +94,7 @@ fun LobbyScreen() {
 
 /** 通話中の部屋の一覧（ロビーの画面と、部屋の中の「部屋一覧」で、同じものを使う） */
 fun roomsList(scope: androidx.compose.foundation.lazy.LazyListScope, exceptId: String = "", onPick: (String) -> Unit) {
-    val rooms = Engine.lobby?.arr("rooms").orEmpty().filter { it.optString("id") != exceptId }
+    val rooms = Engine.lobby?.arr("rooms").orEmpty().filter { it.optString("id") != exceptId && !Engine.isBannedRoom(it) }
     if (rooms.isEmpty()) scope.item { Text(Engine.lobby?.optString("status").orEmpty().ifEmpty { "部屋を探しています…" }, color = Dim) }
     scope.items(rooms) { r ->
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Card).clickable { onPick(r.optString("id")) }.padding(14.dp)) {
@@ -171,7 +172,7 @@ private fun RoomMain(room: JSONObject, modifier: Modifier) {
         val members = room.arr("members")
         Text("いま一緒にいる人：${members.size}人", color = Dim, fontSize = 13.sp)
         Spacer(Modifier.height(6.dp))
-        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyColumn(Modifier.weight(1f).padding(end = 26.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {      // 右端のタブが、♥ などに重ならないように、右を空ける
             itemsIndexed(members) { idx, m ->
                 val speaking = m.optBoolean("speaking")
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (speaking) Teal.copy(alpha = 0.25f) else Card)

@@ -35,5 +35,6 @@ class MainActivity : ComponentActivity() {
 fun App() {
     Box(Modifier.fillMaxSize().background(Bg).statusBarsPadding()) {
         if (Engine.isJoined) RoomScreen() else LobbyScreen()
+        PagesOverlay()
     }
 }

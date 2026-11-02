@@ -20,7 +20,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import org.json.JSONArray
 import org.json.JSONObject
+import java.text.Normalizer
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -38,6 +40,9 @@ object Engine {
     var profile by mutableStateOf<JSONObject?>(null)
     var room by mutableStateOf<JSONObject?>(null)
     var ready by mutableStateOf(false)
+    var cards by mutableStateOf<JSONObject?>(null)        // 名刺の編集・本人確認の窓の状態
+    val banned = mutableStateListOf<String>()             // 自衛ワード（新しいものが先頭）
+    private val warned = HashSet<String>()                // 自衛ワードの警告を、もう出した名前
     var spkMuted by mutableStateOf(false)
     val chat = mutableStateListOf<JSONObject>()
     var unread by mutableStateOf(0)         // ひとこと欄を開いていない間に届いた、新着の数
@@ -51,6 +56,7 @@ object Engine {
     fun start(context: Context) {
         if (web != null) return
         app = context.applicationContext as Application
+        loadBanned()
         val w = WebView(app)
         web = w
         w.settings.apply {
@@ -129,7 +135,8 @@ object Engine {
             "ready" -> { ready = true; pendingLink?.let { openLink(it) } }
             "lobby" -> lobby = d as? JSONObject
             "profile" -> profile = d as? JSONObject
-            "room" -> { room = d as? JSONObject; onJoinedChanged() }
+            "cards" -> cards = d as? JSONObject
+            "room" -> { room = d as? JSONObject; onJoinedChanged(); checkBannedMembers() }
             "chat" -> (d as? JSONObject)?.let {
                 chat.add(it); if (chat.size > 300) chat.removeAt(0)
                 if (!chatOpen && !it.optBoolean("sys") && !it.optBoolean("hist") && !it.optString("who").endsWith("（あなた）")) unread++
@@ -143,6 +150,50 @@ object Engine {
         if (now == joined) return
         joined = now
         if (now) { app.startForegroundService(Intent(app, CallService::class.java)) } else { chat.clear(); unread = 0; app.stopService(Intent(app, CallService::class.java)) }
+    }
+
+    // ---- 自衛ワード（Mac 版・Windows 版と同じ：含む部屋を、一覧に出さない。いまの部屋に含む名前の人がいたら、知らせる） ----
+    private val prefs get() = app.getSharedPreferences("potalker", Context.MODE_PRIVATE)
+    private fun loadBanned() {
+        banned.clear()
+        try { val a = JSONArray(prefs.getString("bannedWords", "[]")); for (i in 0 until a.length()) banned.add(a.getString(i)) } catch (e: Exception) {}
+    }
+    private fun saveBanned() { prefs.edit().putString("bannedWords", JSONArray(banned.toList()).toString()).apply() }
+    /** 大文字小文字・全角半角・ひらがなカタカナの違いを、そろえる */
+    fun fold(t: String): String = Normalizer.normalize(t, Normalizer.Form.NFKC).lowercase().map { if (it in '\u3041'..'\u3096') (it.code + 0x60).toChar() else it }.joinToString("")
+    fun addBanned(word: String): Boolean {
+        val t = word.trim(); if (t.isEmpty() || banned.any { fold(it) == fold(t) }) return false
+        banned.add(0, t); saveBanned(); return true
+    }
+    fun removeBanned(word: String) { banned.remove(word); saveBanned() }
+    /** 1 行 1 ワードのテキストを、まとめて足す（ファイルの先頭が最新なので、後ろから足して、並びを保つ）。（足した数, 飛ばした数） */
+    fun importBanned(text: String): Pair<Int, Int> {
+        var added = 0; var skipped = 0
+        for (l in text.lines().map { it.trim() }.filter { it.isNotEmpty() }.reversed()) if (addBanned(l)) added++ else skipped++
+        return added to skipped
+    }
+    fun matchedBanned(name: String): String? { if (banned.isEmpty()) return null; val h = fold(name); return banned.firstOrNull { h.contains(fold(it)) } }
+    fun isBannedRoom(r: JSONObject): Boolean {
+        if (banned.isEmpty()) return false
+        val names = mutableListOf(r.optString("name"), r.optString("sub"), r.optString("subBy"))
+        r.optJSONArray("people")?.let { a -> for (i in 0 until a.length()) names += a.getJSONObject(i).optString("name") }
+        return names.any { matchedBanned(it) != null }
+    }
+    private fun checkBannedMembers() {
+        val ms = room?.optJSONArray("members") ?: return
+        for (i in 0 until ms.length()) {
+            val m = ms.getJSONObject(i); if (m.optBoolean("you")) continue
+            val name = m.optString("name"); val w = matchedBanned(name) ?: continue
+            if (warned.add(name)) notifyBanned(name, w)
+        }
+    }
+    private fun notifyBanned(name: String, word: String) {
+        try {
+            val nm = app.getSystemService(android.app.NotificationManager::class.java)
+            nm.createNotificationChannel(android.app.NotificationChannel("warn", "自衛ワード", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+            nm.notify(name.hashCode(), android.app.Notification.Builder(app, "warn").setContentTitle("自衛ワードを含む名前の人がいます")
+                .setContentText("$name（登録ワード：$word）").setSmallIcon(android.R.drawable.ic_dialog_alert).setAutoCancel(true).build())
+        } catch (e: Exception) {}
     }
 
     private class Bridge {

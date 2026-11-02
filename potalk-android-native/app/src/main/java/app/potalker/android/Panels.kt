@@ -111,6 +111,8 @@ fun SettingsSheet(room: JSONObject) {
         Spacer(Modifier.height(12.dp))
         Text("⚙ 設定", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(Modifier.height(8.dp))
+        ProfileEntries()
+        Spacer(Modifier.height(8.dp))
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(room.arr("settings")) { s ->
                 when (s.optString("k")) {
@@ -209,7 +211,7 @@ fun CardDialog(room: JSONObject) {
             }, color = Teal, fontSize = 14.sp)
             if (c.optString("foot").isNotEmpty()) Text(c.optString("foot"), color = Dim, fontSize = 11.sp)
         } },
-        confirmButton = { TextButton({ Engine.cmd("type" to "cardClose") }) { Text("閉じる", color = Teal) } },
+        confirmButton = { Row { if (c.optBoolean("edit")) TextButton({ Engine.cmd("type" to "cardEditFromCard") }) { Text("編集", color = Teal) }; TextButton({ Engine.cmd("type" to "cardClose") }) { Text("閉じる", color = Teal) } } },
         dismissButton = c.optJSONObject("ignore")?.let { ig -> { TextButton({ Engine.cmd("type" to "cardIgnore") }, enabled = !ig.optBoolean("disabled")) { Text(ig.optString("text").ifEmpty { "無視する" }, color = Red) } } }
     )
 }
