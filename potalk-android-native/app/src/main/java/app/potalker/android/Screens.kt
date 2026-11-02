@@ -60,6 +60,7 @@ fun LobbyScreen() {
     val me = Engine.profile
     var menu by remember { mutableStateOf(false) }
     var create by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Spacer(Modifier.height(8.dp))
@@ -68,20 +69,24 @@ fun LobbyScreen() {
                 Text("非公式・Android", fontSize = 11.sp, color = Dim)
             }
         }
-        // 自分の名前（押すと、名前・アイコン、名刺、自衛ワードの入口が出る）と、部屋を作るボタン
+        // 自分の名前（押すと、名前・アイコン、名刺、自衛ワードの入口が出る）
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Card).clickable { menu = true }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(me?.optString("emoji").orEmpty().ifEmpty { "🙂" }, fontSize = 24.sp)
-                    Spacer(Modifier.padding(5.dp))
-                    Text(me?.optString("name").orEmpty().ifEmpty { "…" }, Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
-                    Text("▾", color = Dim, fontSize = 14.sp)
-                }
-                Button({ create = true }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White)) { Text("＋ 部屋を作る") }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Card).clickable { menu = true }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(me?.optString("emoji").orEmpty().ifEmpty { "🙂" }, fontSize = 24.sp)
+                Spacer(Modifier.padding(5.dp))
+                Text(me?.optString("name").orEmpty().ifEmpty { "…" }, Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                Text("設定 ▾", color = Dim, fontSize = 13.sp)
             }
         }
+        // 部屋を作るボタン（1 行）
+        item { Button({ create = true }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White)) { Text("＋ 部屋を作る") } }
+        // 検索（1 行）
+        item {
+            OutlinedTextField(query, { query = it.take(200) }, Modifier.fillMaxWidth(), placeholder = { Text("🔍 部屋名・話題・人の名前・URL", maxLines = 1) }, singleLine = true,
+                trailingIcon = { if (query.isNotEmpty()) Text("✕", Modifier.clickable { query = "" }.padding(12.dp), color = Dim) })
+        }
         item { Text("通話中の部屋", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White) }
-        roomsList(this) { id -> Engine.cmd("type" to "join", "id" to id, "quiet" to false) }
+        roomsList(this, query = query) { id -> Engine.cmd("type" to "join", "id" to id, "quiet" to false) }
         item { Spacer(Modifier.height(24.dp)) }
     }
     if (menu) ProfileMenu { menu = false }
@@ -133,10 +138,22 @@ private fun CreateRoomDialog(close: () -> Unit) {
     )
 }
 
+/** 検索：部屋名・話題タグ・いまいる人の名前を探す。全角半角・大文字小文字・ひらがなカタカナを区別しない。部屋の URL（#room=…）を貼ると、その部屋に絞り込む */
+private fun roomMatches(r: JSONObject, q: String): Boolean {
+    val t = q.trim(); if (t.isEmpty()) return true
+    val m = Regex("room=([^&\\s]+)").find(t)
+    if (m != null) return r.optString("id") == m.groupValues[1]
+    val key = Engine.fold(t)
+    val texts = mutableListOf(r.optString("name"), r.optString("sub"), r.optString("subBy"))
+    r.optJSONArray("people")?.let { a -> for (i in 0 until a.length()) texts += a.getJSONObject(i).optString("name") }
+    return texts.any { Engine.fold(it).contains(key) }
+}
+
 /** 通話中の部屋の一覧（ロビーの画面と、部屋の中の「部屋一覧」で、同じものを使う） */
-fun roomsList(scope: androidx.compose.foundation.lazy.LazyListScope, exceptId: String = "", onPick: (String) -> Unit) {
-    val rooms = Engine.lobby?.arr("rooms").orEmpty().filter { it.optString("id") != exceptId && !Engine.isBannedRoom(it) }
-    if (rooms.isEmpty()) scope.item { Text(Engine.lobby?.optString("status").orEmpty().ifEmpty { "部屋を探しています…" }, color = Dim) }
+fun roomsList(scope: androidx.compose.foundation.lazy.LazyListScope, exceptId: String = "", query: String = "", onPick: (String) -> Unit) {
+    val all = Engine.lobby?.arr("rooms").orEmpty().filter { it.optString("id") != exceptId && !Engine.isBannedRoom(it) }
+    val rooms = all.filter { roomMatches(it, query) }
+    if (rooms.isEmpty()) scope.item { Text(if (all.isNotEmpty()) "「${query.trim()}」に合う部屋は、ありません" else Engine.lobby?.optString("status").orEmpty().ifEmpty { "部屋を探しています…" }, color = Dim) }
     scope.items(rooms) { r ->
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Card).clickable { onPick(r.optString("id")) }.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
