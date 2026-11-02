@@ -16,6 +16,7 @@ struct ChatView: View {
                         Color.clear.frame(height: 1).id("end")
                     }.padding(12)
                 }
+                .onAppear { DispatchQueue.main.async { proxy.scrollTo("end") } }   // 開いたときは、いちばん新しい行（下）から見せる
                 .onChange(of: model.chat.count) { _, _ in withAnimation { proxy.scrollTo("end") } }
                 .onChange(of: model.past.count) { _, _ in proxy.scrollTo("end") }
             }
