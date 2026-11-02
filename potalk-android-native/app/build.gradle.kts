@@ -14,6 +14,22 @@ android {
         versionCode = 2
         versionName = "0.1.0"
     }
+    // リリース用の署名：鍵は、リポジトリの外（~/Documents/potalk-keys/）に置く。パスワードは、Mac のキーチェーンから読む（環境変数 POTALKER_KEYSTORE_PASSWORD でも渡せる）。
+    // 鍵がない環境（他の人が取ってきたとき）では、署名なしのリリース版になる（デバッグ版のビルドには、影響しない）
+    val keystoreFile = file(System.getProperty("user.home") + "/Documents/potalk-keys/potalker-release.jks")
+    val keystorePassword: String? = System.getenv("POTALKER_KEYSTORE_PASSWORD") ?: runCatching {
+        val p = ProcessBuilder("security", "find-generic-password", "-a", "potalker-android", "-s", "potalker-android-keystore", "-w").redirectErrorStream(false).start()
+        p.inputStream.bufferedReader().readText().trim().also { p.waitFor() }
+    }.getOrNull()?.takeIf { it.isNotEmpty() }
+    if (keystoreFile.exists() && keystorePassword != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = keystoreFile; storePassword = keystorePassword
+                keyAlias = "potalker"; keyPassword = keystorePassword
+            }
+        }
+        buildTypes { getByName("release") { signingConfig = signingConfigs.getByName("release") } }
+    }
     buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
