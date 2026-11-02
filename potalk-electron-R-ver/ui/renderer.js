@@ -172,7 +172,10 @@ function renderRoom() {
   }
   // エラー・お知らせの帯（状態の文言のエラー、ページの #peerNotice・#audioWarn、自衛ワード）
   const msgs = []
-  if (isBad(r.state)) msgs.push({ t: r.state, cls: 'bad' })
+  // 接続の失敗・切断の文言は、10 秒だけ出す（押しても消える）。同じ文言が続いても、出し直さない
+  if (!isBad(r.state)) S.errState = ''
+  else if (r.state !== S.errState) { S.errState = r.state; S.errAt = Date.now(); S.errHidden = false; setTimeout(() => { if (S.errState === r.state) renderRoom() }, 10100) }
+  if (isBad(r.state) && !S.errHidden && Date.now() - S.errAt < 10000) msgs.push({ t: r.state, cls: 'bad', onclick: () => { S.errHidden = true; renderRoom() } })
   if (r.notice && r.notice !== S.dismissed) msgs.push({ t: r.notice, cls: /^🔌|失敗|できません/.test(r.notice) ? 'bad' : 'warn', dismiss: true })
   if (r.audioWarn) msgs.push({ t: r.audioWarn, cls: 'warn' })
   for (const h of hits) msgs.push({ t: `🛡 自衛ワード「${h.w}」を含む名前の人がいます：${h.name}`, cls: 'warn' })
@@ -180,6 +183,7 @@ function renderRoom() {
   for (const m of msgs) {
     const d = el('div', 'banner-item ' + m.cls, m.t)
     if (m.dismiss) d.onclick = () => { S.dismissed = r.notice; renderRoom() }
+    if (m.onclick) d.onclick = m.onclick
     ban.append(d)
   }
   if (!r.notice) S.dismissed = ''
