@@ -29,6 +29,11 @@ const PATCHES = [
   ["const roomUrl = (id, name) => location.origin + location.pathname + '#room=' + id + (name ? '&name=' + encodeURIComponent(name) : '')",
     constant("const roomUrl = (id, name) => location.origin + location.pathname + '#room=' + id")],
   ["btn.onclick = () => askRoom(room, lobbyName(room, people))", prepend("btn.dataset.room = room; ")],
+  // ひとこと着信音：相手のひとこと（自分の分・履歴は除く）が届いたら、ピコンと鳴らす。設定の「🔔」並びにスイッチを足す（既定オン・ブラウザの localStorage に保存）
+  ["id=\"sndReact\"> 🎵 リアクションを音で鳴らす</label>", append("\n      <label class=\"snd-opt\" id=\"sndChatRow\"><input type=\"checkbox\" id=\"sndChat\"> 💬 ひとことが届いたら音で鳴らす</label>")],
+  ["const seenRooms = new Set()", prepend("const SND_CHAT_KEY = 'pot-call-snd-chat'\nlet sndChat = lsGet(SND_CHAT_KEY) !== '0'   // 未保存＝オン\nconst soundChat = () => { if (sndChat) playTones([[880, 0, 0.07], [1175, 0.07, 0.12]]) }   // 短いピコン＝ひとこと\n")],
+  ["  reactBox.onchange = () => {\n", prepend("  { const chatBox = $('sndChat'); chatBox.checked = sndChat; chatBox.onchange = () => { sndChat = chatBox.checked; lsSet(SND_CHAT_KEY, sndChat ? '1' : '0'); if (sndChat) { try { ensureAudioCtx() } catch {} ; soundChat() } } }\n")],
+  ["const logChat = (uid, text) => {\n  const me = uid === 'self'\n", append("  if (!me) { try { soundChat() } catch {} }\n")],
   ["const flyReaction = (uid, idx) => {\n", append("  try { window.__pm && window.__pm.react(uid, idx, REACTIONS[idx], uid === 'self' ? '' : ((call.profiles.get(uid) || {}).name || '')) } catch {}\n")],
 ]
 
