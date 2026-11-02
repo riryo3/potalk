@@ -59,10 +59,62 @@ object Engine {
 
     val isJoined: Boolean get() = room?.optBoolean("joined") == true
 
+    // ---- 接続の見張り：相手と一人もつながっていない（またはマイクが止まった）状態が続いたら、自動でつなぎ直す ----
+    var callNote = "通話中です。タップすると開きます"      // 通話中の通知の文
+    private var pcN = 0; private var pcOk = 0; private var micState = ""
+    private var micLive = false                         // 今回の入室で、マイクが動いているのを見たか（前の通話の止まったマイクを、数えないため）
+    private var healthAt = 0L                           // 最後に、ページから状態が届いた時刻
+    private var badSince = 0L                           // 「切れている」が続き始めた時刻（0＝いま、切れていない）
+    private var goodSince = 0L                          // 「つながっている」が続き始めた時刻
+    private var nextTryAt = 0L                          // この時刻までは、つなぎ直さない
+    private var backoffMs = 60_000L
+    private var autoCount = 0
+    private var lastSig = ""
+    private val badGraceMs = 90_000L                    // 切れた状態がこれだけ続いたら、つなぎ直す
+    private val watchdog = object : Runnable {
+        override fun run() {
+            if (!isJoined) return
+            val now = System.currentTimeMillis()
+            val others = (room?.optJSONArray("members")?.length() ?: 0) > 1
+            val micBad = micLive && (micState.startsWith("ended") || micState.endsWith("/muted"))
+            val stale = healthAt != 0L && now - healthAt > 60_000          // ページから、1 分以上、何も届かない
+            val netBad = others && pcN > 0 && pcOk == 0 || others && pcN == 0 && healthAt != 0L
+            val bad = netBad || micBad || stale
+            if (!bad) { badSince = 0L; if (goodSince == 0L) goodSince = now; if (now - goodSince > 120_000) backoffMs = 60_000L }
+            else {
+                goodSince = 0L
+                if (badSince == 0L) { badSince = now; log("切れているようです（相手との接続 $pcOk/$pcN、マイク $micState、ページの応答 ${if (stale) "なし" else "あり"}）") }
+                if (now - badSince >= badGraceMs && now >= nextTryAt) {
+                    autoCount++
+                    log("自動でつなぎ直します（$autoCount 回目）")
+                    callNote = "通話中です（${android.text.format.DateFormat.format("H:mm", now)} に、自動でつなぎ直しました：$autoCount 回）"
+                    CallService.update(app, callNote)
+                    cmd("type" to "reconnect")
+                    nextTryAt = now + backoffMs; backoffMs = minOf(backoffMs * 2, 600_000L); badSince = 0L
+                }
+            }
+            main.postDelayed(this, 15_000)
+        }
+    }
+    private fun startWatchdog() { main.removeCallbacks(watchdog); healthAt = 0L; badSince = 0L; goodSince = 0L; nextTryAt = 0L; backoffMs = 60_000L; autoCount = 0; main.postDelayed(watchdog, 15_000) }
+
+    // ---- 通話の記録（切れた原因を、後から調べるため。端末の中だけに残す） ----
+    private val logFile get() = java.io.File(app.filesDir, "call.log")
+    @Synchronized fun log(msg: String) {
+        try {
+            val f = logFile
+            if (f.length() > 200_000) f.writeText(f.readText().takeLast(100_000).substringAfter('\n'))
+            f.appendText("${java.text.SimpleDateFormat("MM/dd HH:mm:ss", java.util.Locale.JAPAN).format(java.util.Date())} $msg\n")
+        } catch (e: Exception) {}
+    }
+    fun readLog(): String = try { logFile.readText().takeLast(30_000).ifEmpty { "（まだ記録がありません）" } } catch (e: Exception) { "（まだ記録がありません）" }
+
     @SuppressLint("SetJavaScriptEnabled")
     fun start(context: Context) {
         if (web != null) return
         app = context.applicationContext as Application
+        if (prefs.getBoolean("wasJoined", false)) { log("アプリが起動しました（前回は、通話中にアプリが終了していました）"); prefs.edit().putBoolean("wasJoined", false).apply() }
+        else log("アプリが起動しました")
         loadBanned()
         muteOnJoin = prefs.getBoolean("muteOnJoin", true); muteOnCreate = prefs.getBoolean("muteOnCreate", true)
         Look.mode = prefs.getString("theme", "time").takeIf { it in listOf("time", "auto", "day", "night") } ?: "time"
@@ -182,6 +234,11 @@ object Engine {
             "react" -> (d as? JSONObject)?.let { r ->
                 if (flies.size < 12 && r.optString("e").isNotEmpty()) flies.add(Fly(++flySeq, r.optString("e"), if (r.optString("u") == "self") "" else r.optString("n"), r.optString("u") == "self", (Math.random() * 20 - 10).toFloat()))
             }
+            "health" -> (d as? JSONObject)?.let { h ->
+                healthAt = System.currentTimeMillis(); pcN = h.optInt("n"); pcOk = h.optInt("ok"); micState = h.optString("mic"); if (micState == "live") micLive = true
+                val sig = "$pcOk/$pcN ${micState}"
+                if (isJoined && sig != lastSig) { lastSig = sig; log("接続 $pcOk/$pcN、マイク ${micState.ifEmpty { "なし" }}") }
+            }
             "room" -> { room = d as? JSONObject; onJoinedChanged(); checkBannedMembers(); applyPendingMute() }
             "chat" -> (d as? JSONObject)?.let {
                 chat.add(it); if (chat.size > 300) chat.removeAt(0)
@@ -195,7 +252,14 @@ object Engine {
         val now = isJoined
         if (now == joined) return
         joined = now
-        if (now) { app.startForegroundService(Intent(app, CallService::class.java)) } else { chat.clear(); unread = 0; app.stopService(Intent(app, CallService::class.java)) }
+        prefs.edit().putBoolean("wasJoined", now).apply()
+        if (now) {
+            log("入室しました"); micLive = false; callNote = "通話中です。タップすると開きます"; lastSig = ""
+            app.startForegroundService(Intent(app, CallService::class.java)); startWatchdog()
+        } else {
+            log("退出しました"); main.removeCallbacks(watchdog)
+            chat.clear(); unread = 0; app.stopService(Intent(app, CallService::class.java))
+        }
     }
 
     // ---- 自衛ワード（Mac 版・Windows 版と同じ：含む部屋を、一覧に出さない。いまの部屋に含む名前の人がいたら、知らせる） ----

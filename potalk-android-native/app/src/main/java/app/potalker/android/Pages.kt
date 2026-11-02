@@ -111,6 +111,14 @@ fun MuteSettings() {
             }
         }
         Text("時刻：昼と夜が時刻で変わる／端末：端末の設定に合わせる", color = Dim, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        Spacer(Modifier.height(10.dp))
+        Box(Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(10.dp)).background(Card).clickable {
+            val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("Potalker の通話の記録", Engine.readLog()))
+            android.widget.Toast.makeText(ctx, "通話の記録をコピーしました", android.widget.Toast.LENGTH_SHORT).show()
+        }, contentAlignment = Alignment.Center) { Text("📝 通話の記録をコピー", color = Ink, fontSize = 13.sp) }
+        Text("通話が切れた原因を調べるための記録です（端末の中だけに残ります）。報告のときに貼ってください", color = Dim, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
     }
 }
 

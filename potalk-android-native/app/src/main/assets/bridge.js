@@ -4,6 +4,28 @@
       const post = (t, d) => { try { window.PotalkAndroid.post(JSON.stringify({ t: t, d: d === undefined ? null : d })); } catch (e) {} };
       const T = (e, sel) => (e && e.querySelector(sel) ? e.querySelector(sel).textContent : '') || '';
 
+      // ---- 接続の見張り：相手との接続（RTCPeerConnection）とマイクの状態を、10 秒ごとに知らせる（切れたままのときに、アプリが自動でつなぎ直す）----
+      const pcs = new Set(), mics = [];
+      try {
+        const RPC = window.RTCPeerConnection;
+        if (RPC && !RPC.__pmWatch) {
+          const W = function (...a) { const pc = new RPC(...a); pcs.add(pc); return pc; };
+          W.prototype = RPC.prototype; Object.setPrototypeOf(W, RPC); W.__pmWatch = true; window.RTCPeerConnection = W;
+        }
+        const MP = window.MediaDevices && window.MediaDevices.prototype;
+        if (MP && !MP.__pmGum) {
+          const g = MP.getUserMedia;
+          MP.getUserMedia = async function (c) { const st = await g.call(this, c); try { st.getAudioTracks().forEach(t => mics.push(t)); if (mics.length > 8) mics.shift(); } catch (e) {} return st; };
+          MP.__pmGum = true;
+        }
+      } catch (e) {}
+      setInterval(() => {
+        let n = 0, ok = 0;
+        for (const pc of [...pcs]) { if (pc.connectionState === 'closed') { pcs.delete(pc); continue; } n++; if (pc.connectionState === 'connected') ok++; }
+        const t = mics[mics.length - 1];
+        post('health', { n: n, ok: ok, mic: t ? t.readyState + (t.muted ? '/muted' : '') : '' });
+      }, 10000);
+
       // ---- ロビー（通話中の部屋の一覧）----
       const lobbyState = () => {
         const list = $('lobbyList');

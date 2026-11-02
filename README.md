@@ -13,7 +13,7 @@
 | **Mac**（macOS 14 以降） | **Mac 版（安定版）** | [`Potalker-0.3.5.zip`](https://github.com/riryo3/potalk/releases/download/v0.3.5/Potalker-0.3.5.zip) |
 | **Windows**（10 / 11、64bit） | **Windows 版** | [`Potalker-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/win-v0.3.12/Potalker-win-x64.zip) |
 | **Linux** | **Electron 版（Linux）** | [`PotalkerElectron-0.0.39-linux-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-linux-x86_64.AppImage)（ARM 機は [`…-linux-arm64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-linux-arm64.AppImage)） |
-| **Android**（Android 10 以降） | **Android 版（試用版）** | [`Potalker-Android-0.1.7.apk`](https://github.com/riryo3/potalk/releases/download/android-v0.1.7/Potalker-Android-0.1.7.apk) |
+| **Android**（Android 10 以降） | **Android 版（試用版）** | [`Potalker-Android-0.1.8.apk`](https://github.com/riryo3/potalk/releases/download/android-v0.1.8/Potalker-Android-0.1.8.apk) |
 
 ### 全部の一覧
 
@@ -25,7 +25,7 @@
 | **Electron 版（Linux）** | Linux（PC：x86_64、ARM 機：arm64） | [`PotalkerElectron-0.0.39-linux-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-linux-x86_64.AppImage)／[`…-linux-arm64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-linux-arm64.AppImage)（約 108MB）（`electron-v0.0.39-beta`） | **試用版** | **ARM64**：Ubuntu 24.04 の**仮想マシン**（Mac 上）で、Mac 版との通話（声の往復）まで確認。ARM の実機は未確認。**x86_64：未確認** |
 | **Electron 版（Mac）** | Mac（Apple シリコン） | [`PotalkerElectron-0.0.39-mac-arm64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-mac-arm64.zip)（同上） | **試用版** | 自動テストで、起動・画面の表示を確認しています（人が使っての確認は、まだです） |
 | **Electron 版（Windows）** | Windows（x64） | [`PotalkerElectron-0.0.39-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-win-x64.zip)（同上） | **試用版** | 実機では、まだ確認できていません（Windows 版〔ネイティブ〕は、実機で確認しています） |
-| **Android 版**（Kotlin / Compose 製） | Android 10 以降 | [`Potalker-Android-0.1.7.apk`](https://github.com/riryo3/potalk/releases/download/android-v0.1.7/Potalker-Android-0.1.7.apk)（`android-v0.1.7`） | **試用版** | **Galaxy S9（Android 10）と Pixel 3a（Android 12）の実機**で、入室・通話（声の往復）・画面を閉じても通話が続くこと・ひとこと着信音・人数の警告を確認。名刺の画像の登録・本人確認の実行は、未確認 |
+| **Android 版**（Kotlin / Compose 製） | Android 10 以降 | [`Potalker-Android-0.1.8.apk`](https://github.com/riryo3/potalk/releases/download/android-v0.1.8/Potalker-Android-0.1.8.apk)（`android-v0.1.8`） | **試用版** | **Galaxy S9（Android 10）と Pixel 3a（Android 12）の実機**で、入室・通話（声の往復）・画面を閉じても通話が続くこと・ひとこと着信音・人数の警告を確認。名刺の画像の登録・本人確認の実行は、未確認 |
 
 動作を確認できた機種・環境の一覧は、[動作確認の一覧](docs/動作確認.md)にあります。
 
@@ -91,7 +91,7 @@
 
 ### Android 版（試用版）
 
-[Releases](https://github.com/riryo3/potalk/releases) から `Potalker-Android-0.1.7.apk` をダウンロードして、入れてください（Android 10 以降）。
+[Releases](https://github.com/riryo3/potalk/releases) から `Potalker-Android-0.1.8.apk` をダウンロードして、入れてください（Android 10 以降）。
 
 1. ブラウザ（Chrome など）で、APK をダウンロードして、開きます。
 2. 「このアプリ（Chrome など）に、アプリのインストールを許可しますか？」と出たら、**設定を開いて、許可**します。Google Play 以外から入れるための、確認です（「提供元不明のアプリ」の許可）。許可したら、戻ります。
