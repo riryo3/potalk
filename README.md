@@ -23,9 +23,11 @@
 | **Windows 版**（C# / WPF 製） | Windows 10 / 11、64bit | [`Potalker-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/win-v0.3.12/Potalker-win-x64.zip)（`win-v0.3.12`） | 安定版 | **Windows 11 の実機**で、確認しています（ひとこと着信音・人数の警告も確認済み。本人確認（X・GitHub・Nostr）は、まだ、実機で試していません） |
 | **Linux 版**（Python / Qt 製） | Linux（Ubuntu 24.04 相当、x86_64） | [`Potalker-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.2/Potalker-x86_64.AppImage)（約 227MB）／[`Potalker-linux-x64.zip`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.2/Potalker-linux-x64.zip)（`linux-v0.1.2`） | **アルファ版・更新終了** | **未確認**（開発した担当が、仮想環境で動かしただけで、リポジトリの管理者は、まだ、確認できていません） |
 | **Electron 版（Linux）** | Linux（PC：x86_64、ARM 機：arm64） | [`PotalkerElectron-0.0.39-linux-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-linux-x86_64.AppImage)／[`…-linux-arm64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-linux-arm64.AppImage)（約 108MB）（`electron-v0.0.39-beta`） | **試用版** | **ARM64**：Ubuntu 24.04 の**仮想マシン**（Mac 上）で、Mac 版との通話（声の往復）まで確認。ARM の実機は未確認。**x86_64：未確認** |
-| **Electron 版（Mac）** | Mac（Apple シリコン） | [`PotalkerElectron-0.0.39-mac-arm64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-mac-arm64.zip)（同上） | **試用版** | 起動・画面を確認 |
-| **Electron 版（Windows）** | Windows（x64） | [`PotalkerElectron-0.0.39-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-win-x64.zip)（同上） | **試用版** | **Windows 11 の実機**で、動かしています |
+| **Electron 版（Mac）** | Mac（Apple シリコン） | [`PotalkerElectron-0.0.39-mac-arm64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-mac-arm64.zip)（同上） | **試用版** | 自動テストで、起動・画面の表示を確認しています（人が使っての確認は、まだです） |
+| **Electron 版（Windows）** | Windows（x64） | [`PotalkerElectron-0.0.39-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.39-beta/PotalkerElectron-0.0.39-win-x64.zip)（同上） | **試用版** | 実機では、まだ確認できていません（Windows 版〔ネイティブ〕は、実機で確認しています） |
 | **Android 版**（Kotlin / Compose 製） | Android 10 以降 | [`Potalker-Android-0.1.6.apk`](https://github.com/riryo3/potalk/releases/download/android-v0.1.6/Potalker-Android-0.1.6.apk)（`android-v0.1.6`） | **試用版** | **Galaxy S9（Android 10）と Pixel 3a（Android 12）の実機**で、入室・通話（声の往復）・画面を閉じても通話が続くこと・ひとこと着信音・人数の警告を確認。名刺の画像の登録・本人確認の実行は、未確認 |
+
+動作を確認できた機種・環境の一覧は、[動作確認の一覧](docs/動作確認.md)にあります。
 
 ### 選び方
 
