@@ -64,6 +64,8 @@ struct RoomState: Codable, Equatable {
     var mail: MailInfo; var reactions: [String]
     var canMute: Bool; var muted: Bool; var share: String; var settings: [SettingItem]
     var rid: String? = nil      // いまいる部屋の ID（URL の #room= から）
+    var notice: String = ""       // ページが出す一時のお知らせ（#peerNotice。マイクの失敗・接続が切れた など）
+    var audioWarn: String = ""     // 音が届いていない人がいるときの警告（#audioWarn）
 
     static let empty = RoomState(joined: false, state: "", members: [], card: nil, ignoreAsk: nil, mailNow: nil, more: "", mailOpen: false,
                                  bcast: false, tag: TagInfo(show: false, text: "", btn: ""), speak: ButtonState(show: false, label: "", disabled: nil),

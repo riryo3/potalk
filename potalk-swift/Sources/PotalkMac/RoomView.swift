@@ -8,6 +8,7 @@ struct RowFrameKey: PreferenceKey {
 
 struct RoomView: View {
     var embedded = false      // シングルペインの中に置くとき
+    var measuring = false     // 窓の最小の高さを測るための複製（一時的な表示は含めない）
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var engine: Engine
     @State private var legendOpen = false
@@ -15,6 +16,9 @@ struct RoomView: View {
     @State private var rowFrames: [String: CGRect] = [:]
     @State private var tagEditing = false
     @State private var tagText = ""
+    @State private var errorText: String? = nil
+    @State private var dismissedNotice = ""
+    @State private var errorTask: DispatchWorkItem? = nil
 
     var r: RoomState { engine.room }
     var ordered: [(Int, Member)] {
@@ -29,6 +33,11 @@ struct RoomView: View {
                 Divider()
                 if let m = r.mailNow { mailBanner(m); Divider() }
                 if r.tag.show { tagRow; Divider() }
+                if !measuring {
+                    if let e = errorText { errorBanner(e) }
+                    if !r.notice.isEmpty && r.notice != dismissedNotice { pageBanner(r.notice, bad: r.notice.hasPrefix("🔌") || r.notice.contains("失敗") || r.notice.contains("できません")) { dismissedNotice = r.notice } }
+                    if !r.audioWarn.isEmpty { pageBanner(r.audioWarn, bad: false) {} }
+                }
                 members
                 legendAndEq
                 Divider()
@@ -43,15 +52,72 @@ struct RoomView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .coordinateSpace(name: "room")
         .onPreferenceChange(RowFrameKey.self) { rowFrames = $0 }
+        .onChange(of: r.state) { _, t in if !measuring { noteState(t) } }
+        .onChange(of: r.notice) { _, t in if t.isEmpty { dismissedNotice = "" } }
         .frame(minWidth: 320, minHeight: embedded ? 440 : 600)
+    }
+
+    /// 接続に失敗・切断したときだけ、話題の下に、一時的に出す（しばらくすると消える。押しても消える）
+    func isBad(_ t: String) -> Bool { t.contains("失敗") || t.contains("切断") || t.contains("エラー") || t.contains("できません") }
+    func errorBanner(_ t: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.white)
+            Text(t).font(.system(size: 14, weight: .bold)).foregroundColor(.white).lineLimit(2)
+            Spacer(minLength: 4)
+            Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundColor(.white.opacity(0.85))
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9).frame(maxWidth: .infinity, alignment: .leading)
+        .background(redColor).contentShape(Rectangle())
+        .onTapGesture { errorText = nil }
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+    /// ページが出すお知らせ・警告（#peerNotice・#audioWarn）。お知らせは、押すと消える（ページ側でも12秒で消える）
+    func pageBanner(_ t: String, bad: Bool, dismiss: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            Text(t).font(.system(size: 13, weight: .bold)).foregroundColor(.white).lineLimit(3).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9).frame(maxWidth: .infinity, alignment: .leading)
+        .background(bad ? redColor : orangeColor).contentShape(Rectangle())
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.4)).frame(height: 1) }
+        .onTapGesture(perform: dismiss)
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+    func noteState(_ t: String) {
+        errorTask?.cancel()
+        guard isBad(t) else { withAnimation { errorText = nil }; return }
+        withAnimation { errorText = t }
+        let w = DispatchWorkItem { withAnimation { errorText = nil } }
+        errorTask = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: w)
+    }
+
+    /// 状態の文言（「通話中：部屋の名前」）を、状態と部屋の名前に分ける
+    var roomStateParts: (status: String, title: String) {
+        let t = r.state.isEmpty ? "未参加" : r.state
+        for sep in ["：", "｜"] {
+            if let i = t.firstIndex(of: Character(sep)) {
+                let st = String(t[..<i]).trimmingCharacters(in: .whitespaces), name = String(t[t.index(after: i)...]).trimmingCharacters(in: .whitespaces)
+                if !st.isEmpty && !name.isEmpty { return (st, name) }
+            }
+        }
+        return ("", t)
     }
 
     var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(r.state.isEmpty ? "未参加" : r.state).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+            // 1行目：部屋の名前。2行目：状態・人数 … つなぎ直す・マイク（状態の文言は「通話中：部屋の名前」の形。分けられないときは、全体を1行目に出す）
+            let parts = roomStateParts
+            Text(parts.title).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
             HStack(spacing: 8) {
+                if !parts.status.isEmpty {
+                    let c: Color = isBad(r.state) ? redColor : (r.state.contains("通話中") ? tealColor : orangeColor)
+                    Text(parts.status).font(.system(size: 11, weight: .bold)).foregroundColor(c)
+                        .padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(c.opacity(0.16)))
+                }
                 Text("\(r.members.count)人").font(.system(size: 12)).foregroundColor(.secondary)
                 Spacer(minLength: 4)
+                Button("🔄 つなぎ直す") { engine.cmd(["type": "reconnect"]) }.buttonStyle(ChipButton()).help("通話をつなぎ直す（数秒、声が途切れます）")
                 Menu {
                     Button((model.selectedMic.isEmpty ? "✓ " : "") + "既定のマイク") { model.switchMic("") }
                     ForEach(model.mics, id: \.self) { n in Button((model.selectedMic == n ? "✓ " : "") + n) { model.switchMic(n) } }

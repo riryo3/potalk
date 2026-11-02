@@ -101,6 +101,8 @@ enum BridgeJS {
           joined: j,
           rid: (() => { const m = location.hash.match(/room=([^&]*)/); try { return m ? decodeURIComponent(m[1]) : ''; } catch { return ''; } })(),
           state: $('state') ? $('state').textContent : '',
+          notice: (() => { const e = $('peerNotice'); return e && !e.hidden ? e.textContent.trim() : ''; })(),
+          audioWarn: (() => { const e = $('audioWarn'); return e && !e.hidden ? e.textContent.trim() : ''; })(),
           members: members,
           card: cd && cd.open ? {
             emoji: T(document, '#cdEmoji'), img: av && !av.hidden ? av.src : '', name: T(document, '#cdName'), state: T(document, '#cdState'), bio: T(document, '#cdBio'),
