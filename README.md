@@ -13,6 +13,7 @@
 | **Mac**（macOS 14 以降） | **Mac 版（安定版）** | [`Potalker-0.3.3.zip`](https://github.com/riryo3/potalk/releases/download/v0.3.3/Potalker-0.3.3.zip) |
 | **Windows**（10 / 11、64bit） | **Windows 版** | [`Potalker-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/win-v0.3.9/Potalker-win-x64.zip) |
 | **Linux** | **Electron 版（Linux）** | [`PotalkerElectron-0.0.34-linux-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-linux-x86_64.AppImage)（ARM 機は [`…-linux-arm64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-linux-arm64.AppImage)） |
+| **Android**（Android 10 以降） | **Android 版（試用版）** | [`Potalker-Android-0.1.0.apk`](https://github.com/riryo3/potalk/releases/download/android-v0.1.0/Potalker-Android-0.1.0.apk) |
 
 ### 全部の一覧
 
@@ -24,11 +25,13 @@
 | **Electron 版（Linux）** | Linux（PC：x86_64、ARM 機：arm64） | [`PotalkerElectron-0.0.34-linux-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-linux-x86_64.AppImage)／[`…-linux-arm64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-linux-arm64.AppImage)（約 108MB）（`electron-v0.0.34-beta`） | **試用版** | **ARM64**：Ubuntu 24.04 の**仮想マシン**（Mac 上）で、Mac 版との通話（声の往復）まで確認。ARM の実機は未確認。**x86_64：未確認** |
 | **Electron 版（Mac）** | Mac（Apple シリコン） | [`PotalkerElectron-0.0.34-mac-arm64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-mac-arm64.zip)（同上） | **試用版** | 起動・画面を確認 |
 | **Electron 版（Windows）** | Windows（x64） | [`PotalkerElectron-0.0.34-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.34-beta/PotalkerElectron-0.0.34-win-x64.zip)（同上） | **試用版** | **Windows 11 の実機**で、動かしています |
+| **Android 版**（Kotlin / Compose 製） | Android 10 以降 | [`Potalker-Android-0.1.0.apk`](https://github.com/riryo3/potalk/releases/download/android-v0.1.0/Potalker-Android-0.1.0.apk)（`android-v0.1.0`） | **試用版** | **Galaxy S9（Android 10）と Pixel 3a（Android 12）の実機**で、入室・通話（声の往復）・画面を閉じても通話が続くことを確認。名刺の画像の登録・本人確認の実行は、未確認 |
 
 ### 選び方
 
 - **Mac の方**: 普通に使うなら、**Mac 版（安定版）**です。Electron 版（Mac）は、Linux 版と、見た目や動きを、そろえるための、試用版です。
 - **Windows の方**: **Windows 版**です。Electron 版（Windows）は、試用版ですが、Windows 11 の実機で、動かしています。Linux・Mac の Electron 版と、見た目や動きを、そろえたい方は、こちらも選べます。
+- **Android の方**: **Android 版（試用版）**です。Google Play には出していないので、APK を直接入れます（下の「開き方の詳細」を見てください）。
 - **Linux の方**: **Electron 版（Linux）をおすすめします。** Qt 製の Linux 版は、確認できておらず、**今後の更新も、予定していません**。どちらも、試験段階で、実機での報告を、集めています。
 
   | | Linux 版（Qt 製） | Electron 版（Linux） |
@@ -53,6 +56,7 @@
 | `potalk-win/` | C# 製（WPF / WebView2）の **Potalker**（Windows 版）。画面に出ない WebView2 で、通話の仕組みを動かす。 |
 | `potalk-linux/` | Python 製（Qt）の **Potalker**（Linux 版・アルファ）。**更新は終了しました。** Linux では、`potalk-electron-R-ver/` の Electron 版を、お使いください。 |
 | `potalk-electron-R-ver/` | Electron 製の **PotalkerElectron**（Linux・Mac・Windows 向けの試用版）。 |
+| `potalk-android-native/` | Kotlin（Jetpack Compose）製の **Potalker**（Android 版・試用版）。通話の部分は、画面に出さない WebView で、potalk.app を動かします。 |
 | `potalk-mac/` | Electron 製（先に作った試作版）。現在は、田上光さん（[@wanderingdj](https://x.com/wanderingdj)）が、保守してくださっています。現役の Electron 版は、`potalk-electron-R-ver/` です。 |
 
 - どれも、通話の仕組みは、画面に出ないブラウザ部品で、potalk.app を、そのまま動かし、画面だけを、それぞれの環境向けに、作り直しています。
@@ -82,6 +86,20 @@
 - Electron 版（Mac）の `PotalkerElectron.app` も、同じ手順です（表示は「"PotalkerElectron" はブロックされました」になります）。コマンドは `/Applications/PotalkerElectron.app` に書き換えてください。
 
 - 初回の起動で、マイク・ローカルネットワーク・通知の許可を求められます。
+
+### Android 版（試用版）
+
+[Releases](https://github.com/riryo3/potalk/releases) から `Potalker-Android-0.1.0.apk` をダウンロードして、入れてください（Android 10 以降）。
+
+1. ダウンロードした APK を、タップして開きます。
+2. 「提供元不明のアプリ」の許可を求められたら、ブラウザ（またはファイル）に対して、許可します。Google Play 以外から入れるためです。
+3. 「Play プロテクト」が、「このアプリは審査されていません」のような確認を出したら、「インストールする」を選びます。
+4. 初回に、マイクの許可を求められます。「アプリの使用時のみ」で大丈夫です（通話中は、通知が出て、画面を閉じても通話が続きます）。
+
+- **署名**: このアプリは、作者の鍵で署名しています。署名の指紋（SHA-256）は、次のとおりです。確かめたい方は、`apksigner verify --print-certs` で、見比べてください。
+  `63:DB:97:84:BA:BC:F3:EE:DF:A2:F9:4A:7F:36:22:39:B6:79:2E:9F:01:34:31:D0:C6:C4:C3:B0:F5:54:94:98`
+- **更新**: 同じ鍵で署名した、次の版は、上書きで入れられます。
+- **使い方**: 部屋の画面の右端の「💬」タブで、ひとことが出ます（配信部屋では「📮」で、おたより）。下のタブで、部屋一覧と設定です。ロビーの「名前・アイコン」「名刺」「自衛ワード」から、それぞれ設定できます。
 
 ### Windows 版
 
