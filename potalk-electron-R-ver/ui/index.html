@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src https: data:">
+<title>Potalker-Electron</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="lobby" class="view">
+  <header class="bar">
+    <button id="me" class="chip emoji chip-me" title="名前・アバター・名刺を設定"></button>
+    <span class="grow"></span>
+    <button id="micBtn" class="chip-btn" title="次に入室するときから反映されます"><span class="emoji">🎤</span> 入力設定</button>
+  </header>
+  <div class="bar2"><button id="btnHelp" class="chip-btn">？ これはなに？</button><button id="btnNew" class="chip-btn"><span class="emoji">🏠</span> 部屋を作る</button><span class="grow"></span><button id="btnPin3" class="chip-btn pin3" title="最前面に表示する／しない"><span class="emoji">📌</span></button><button id="btnBanned" class="chip-btn" title="自衛ワードを登録"><span class="emoji">🛡</span> 自衛ワード</button></div>
+  <div id="createRow" class="create" hidden>
+    <input id="newName" maxlength="30" placeholder="部屋の名前">
+    <button id="btnCreate" class="primary">作る</button>
+  </div>
+  <div id="createKind" class="create kinds" hidden>
+    <label><input type="radio" name="ckind" value="chat" checked> 🏠 雑談部屋にする（全員で話せます）</label>
+    <label><input type="radio" name="ckind" value="bc"> 📣 配信部屋にする（あなたの声だけ流れます）</label>
+  </div>
+  <div class="searchrow"><input id="search" placeholder="部屋を検索／部屋のURLを貼る"><button id="btnRefresh" class="chip-btn"><span class="emoji">🔄</span> 更新</button></div>
+  <div id="rooms" class="rooms"></div>
+  <footer class="foot"><button id="btnNotify" class="chip-btn"></button><span class="grow"></span><span id="viewers"></span></footer>
+</div>
+
+<div id="room" class="view" hidden>
+  <nav id="tabs" class="tabs">
+    <button data-tab="room" class="on">部屋</button>
+    <button data-tab="mail" id="tabMail" hidden>おたより</button>
+    <button data-tab="settings">設定</button>
+    <button id="btnPin" class="pin" title="最前面に表示する／しない"><span class="emoji">📌</span></button>
+  </nav>
+  <div class="mainrow">
+  <button id="handle" class="handle" title="部屋の一覧を開く／閉じる（Ctrl+L）" hidden></button>
+  <div class="maincol">
+  <div id="panes" class="panes">
+    <section id="paneRoom" class="pane">
+      <header class="head">
+        <div id="roomTitle" class="title"></div>
+        <div class="row2">
+          <span id="roomStatus" class="badge"></span>
+          <span id="roomCount" class="muted"></span>
+          <span class="grow"></span>
+          <button id="btnRetry" class="chip-btn"><span class="emoji">🔄</span> つなぎ直す</button>
+          <button id="btnMic2" class="chip-btn" title="入力設定（次に入室するときから反映されます）"><span class="emoji">🎤</span></button>
+          <button id="btnPin2" class="pin pin-room" title="最前面に表示する／しない"><span class="emoji">📌</span></button>
+        </div>
+      </header>
+      <div id="tagRow" class="tag" hidden></div>
+      <div id="banner" class="banner" hidden></div>
+      <div id="members" class="members"></div>
+      <div id="legend" class="legend"></div>
+      <div id="eq" class="eq"></div>
+      <div id="reactions" class="reactions"></div>
+    </section>
+    <section id="paneMail" class="pane" hidden></section>
+    <section id="paneSettings" class="pane" hidden></section>
+  </div>
+  <div id="winBtns" class="winbtns">
+    <button id="btnChatWin" class="chip-btn"><span class="emoji">💬</span> ひとこと</button>
+    <button id="btnMailWin" class="chip-btn" hidden><span class="emoji">📮</span> おたより</button>
+    <button id="btnSetWin" class="chip-btn"><span class="emoji">⚙️</span> 設定</button>
+  </div>
+  <div class="actions">
+    <button id="btnMute" class="wide"></button>
+    <button id="btnSpk" class="wide" title="スピーカーのミュート（Ctrl+Shift+S）"></button>
+    <button id="btnShare" class="wide" title="この部屋のURLをコピー"><span class="emoji">🔗</span> リンクの取得</button>
+    <button id="btnLeave" class="danger">退出</button>
+  </div>
+  </div>
+  </div>
+  <div id="chatBox" class="chatbox">
+    <div class="chat-grip"></div>
+    <button id="chatToggle" class="chat-toggle">▴ ひとこと</button>
+    <div id="chatOpen" class="chat-open" hidden>
+      <div id="chatLog" class="chat-log"></div>
+      <div class="chat-in"><input id="chatText" maxlength="60" placeholder="ひとこと"><span id="chatCount" class="muted">0/60</span><button id="chatSend" class="primary">送る</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="cardEditView" class="view" hidden>
+  <div class="ce-scroll">
+    <h2 class="ce-h">📇 名刺（プロフィール）設定</h2>
+    <p class="muted small">端末にのみ保存され、相手があなたのアイコン・名前を押した時だけ直接渡されます。</p>
+    <div class="ce-sec">
+      <div class="muted small">名刺アイコン（画像または絵文字）</div>
+      <div class="row2"><div id="ceAv" class="ce-av"></div><button id="ceAvPick" class="chip-btn"><span class="emoji">📷</span> 画像を選ぶ</button><button id="ceAvClear" class="linkbtn" hidden>画像を削除</button><input id="ceAvFile" type="file" accept="image/*" hidden></div>
+      <div id="ceAvMsg" class="warn small" hidden></div>
+    </div>
+    <hr class="card-hr">
+    <div class="ce-sec"><div class="row2"><span class="muted small">ひとこと（bio）</span><span class="grow"></span><span id="ceBioN" class="muted small">0/60</span></div><input id="ceBio" maxlength="60" placeholder="自己紹介やステータスなど（最大60文字）"></div>
+    <hr class="card-hr">
+    <div class="ce-sec" id="ceTips"></div>
+    <hr class="card-hr">
+    <div class="ce-sec" id="ceSns"></div>
+    <label class="set-row"><input id="ceNoImg" type="checkbox"><span>相手の名刺の画像を表示しない（絵文字だけにする）</span></label>
+    <div id="ceWarn" class="warn small" hidden></div>
+  </div>
+  <div class="ce-foot"><button id="ceClose" class="chip-btn">閉じる</button><span class="grow"></span><button id="ceSave" class="primary">保存する</button></div>
+</div>
+<div id="cardAuthView" class="view" hidden>
+  <div class="ce-scroll" id="caBody"></div>
+  <div class="ce-foot"><button id="caCancel" class="chip-btn">やめる</button><span class="grow"></span><button id="caVerify" class="primary">確認する</button></div>
+</div>
+<div id="cropOv" class="sheet center" hidden></div>
+<div id="profileOv" class="sheet center" hidden></div>
+<div id="micMenu" class="popmenu" hidden></div>
+<div id="tagOv" class="sheet center" hidden></div>
+<div id="helpOv" class="sheet center" hidden></div>
+<div id="thanksOv" class="sheet center" hidden></div>
+<div id="joinOv" class="sheet center" hidden></div>
+<div id="cardOv" class="sheet center" hidden></div>
+<div id="ignoreOv" class="sheet center" hidden></div>
+<div id="banned" class="sheet" hidden>
+  <div class="sheet-body">
+    <div class="sheet-head"><strong>🛡 自衛ワード</strong><span class="grow"></span><button id="bannedClose" class="chip-btn">閉じる</button></div>
+    <p class="muted small">名前・話題・いまいる人の名前にこのワードを含む部屋を、一覧に出しません。</p>
+    <div class="create"><input id="bannedInput" placeholder="ワード"><button id="bannedAdd" class="primary">登録</button></div>
+    <div class="row2"><button id="bannedOut" class="chip-btn">書き出し…</button><button id="bannedIn" class="chip-btn">読み込み…</button><span id="bannedMsg" class="muted small"></span></div>
+    <div id="bannedChips" class="chips"></div>
+  </div>
+</div>
+<script src="renderer.js"></script>
+</body>
+</html>

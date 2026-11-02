@@ -9,3 +9,6 @@ build/
 .swiftpm/
 *.o
 .DS_Store
+
+# Electron 新作の、配布用ビルドの手順（afterPack.js）は、管理する
+!potalk-electron-R-ver/build/

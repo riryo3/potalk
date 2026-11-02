@@ -1,0 +1,69 @@
+{
+  "name": "potalk-electron-r-ver",
+  "productName": "PotalkerElectron",
+  "version": "0.0.34",
+  "description": "Potalker（ぽっと通話 非公式クライアント）の Electron 新作。Mac 版・Windows 版と同じ方式（画面に出ない WebView で potalk.app を動かし、画面だけを作り直す）",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:linux-arm64": "electron-builder --linux AppImage --arm64",
+    "dist:linux-x64": "electron-builder --linux AppImage --x64",
+    "dist:mac-arm64": "electron-builder --mac --arm64",
+    "dist:mac-x64": "electron-builder --mac --x64",
+    "dist:win-x64": "electron-builder --win zip --x64"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "author": "riryo3",
+  "build": {
+    "appId": "app.potalker.rver",
+    "productName": "PotalkerElectron",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "engine/**",
+      "ui/**",
+      "build/icon.png",
+      "package.json"
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Network",
+      "artifactName": "PotalkerElectron-${version}-linux-${arch}.AppImage",
+      "icon": "build/icon.png",
+      "executableName": "PotalkerElectron"
+    },
+    "afterPack": "build/afterPack.js",
+    "mac": {
+      "target": [
+        "zip",
+        "dir"
+      ],
+      "category": "public.app-category.social-networking",
+      "icon": "build/icon.icns",
+      "identity": null,
+      "artifactName": "PotalkerElectron-${version}-mac-${arch}.${ext}",
+      "extendInfo": {
+        "CFBundleDisplayName": "Potalker-Electron"
+      }
+    },
+    "win": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false,
+      "artifactName": "PotalkerElectron-${version}-win-${arch}.${ext}"
+    }
+  }
+}

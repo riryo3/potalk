@@ -1,0 +1,28 @@
+'use strict'
+const { contextBridge, ipcRenderer } = require('electron')
+contextBridge.exposeInMainWorld('potalk', {
+  cmd: c => ipcRenderer.invoke('cmd', c),
+  reload: () => ipcRenderer.invoke('reload'),
+  growBy: dh => ipcRenderer.invoke('growBy', dh),
+  toggleWin: k => ipcRenderer.invoke('toggleWin', k),
+  togglePin: () => ipcRenderer.invoke('togglePin'),
+  toggleSpk: () => ipcRenderer.invoke('toggleSpk'),
+  openExternal: u => ipcRenderer.invoke('openExternal', u),
+  copyText: t => ipcRenderer.invoke('copyText', t),
+  toggleDrawer: () => ipcRenderer.invoke('toggleDrawer'),
+  dragStart: slack => ipcRenderer.invoke('dragStart', slack),
+  dragMove: dy => ipcRenderer.invoke('dragMove', dy),
+  setMinHeight: h => ipcRenderer.invoke('setMinHeight', h),
+  setMinWidth: w => ipcRenderer.invoke('setMinWidth', w),
+  setPref: (k, v) => ipcRenderer.invoke('setPref', k, v),
+  refreshMics: probe => ipcRenderer.invoke('refreshMics', !!probe),
+  setBanned: w => ipcRenderer.invoke('setBanned', w),
+  openLink: t => ipcRenderer.invoke('openLink', t),
+  askJoin: r => ipcRenderer.invoke('askJoin', r),
+  joinRoom: (id, quiet) => ipcRenderer.invoke('joinRoom', id, quiet),
+  notify: (t, b) => ipcRenderer.invoke('notify', t, b),
+  bannedExport: w => ipcRenderer.invoke('bannedExport', w),
+  bannedImport: () => ipcRenderer.invoke('bannedImport'),
+  snapshot: () => ipcRenderer.invoke('snapshot'),
+  onState: cb => ipcRenderer.on('state', (_e, m) => cb(m)),
+})
