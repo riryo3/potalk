@@ -102,7 +102,7 @@ fun LobbyScreen() {
             onDismissRequest = { joinPick = null }, containerColor = Card,
             title = { Text("部屋に入りますか？", color = Color.White) },
             text = { Text("「$title」に入ります。", color = Color.White) },
-            confirmButton = { androidx.compose.material3.TextButton({ joinPick = null; Engine.cmd("type" to "join", "id" to id, "quiet" to false) }) { Text("入る", color = Teal) } },
+            confirmButton = { androidx.compose.material3.TextButton({ joinPick = null; Engine.joinRoom(id) }) { Text("入る", color = Teal) } },
             dismissButton = { androidx.compose.material3.TextButton({ joinPick = null }) { Text("やめる", color = Dim) } }
         )
     }
@@ -121,6 +121,8 @@ private fun ProfileMenu(close: () -> Unit) {
                     "📇 名刺（画像・SNS・本人確認）" to { Engine.cmd("type" to "cardEdit") },
                     "🛡 自衛ワード" to { page = Page.Banned },
                 )) Text(label, Modifier.fillMaxWidth().clickable { close(); act() }.padding(vertical = 14.dp), color = Color.White, fontSize = 16.sp)
+                Spacer(Modifier.height(6.dp))
+                MuteSettings()
             }
         },
         confirmButton = { androidx.compose.material3.TextButton(close) { Text("閉じる", color = Teal) } }
@@ -146,7 +148,7 @@ private fun CreateRoomDialog(close: () -> Unit) {
         },
         confirmButton = {
             androidx.compose.material3.TextButton({
-                if (name.isNotBlank()) { Engine.cmd("type" to "create", "name" to name.trim(), "kind" to if (broadcast) "bc" else "chat"); close() }
+                if (name.isNotBlank()) { Engine.createRoom(name.trim(), broadcast); close() }
             }, enabled = name.isNotBlank()) { Text("作る", color = Teal) }
         },
         dismissButton = { androidx.compose.material3.TextButton(close) { Text("やめる", color = Dim) } }
@@ -224,7 +226,7 @@ private fun RoomMain(room: JSONObject, modifier: Modifier) {
         if (tag != null && tag.optBoolean("show")) {
             var edit by remember { mutableStateOf(false) }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("🏷 " + tag.optString("text").ifEmpty { "話題はまだありません" }, Modifier.weight(1f), color = Dim, fontSize = 13.sp)
+                LinkText("🏷 " + tag.optString("text").ifEmpty { "話題はまだありません" }, Dim, 13.sp, Modifier.weight(1f))
                 androidx.compose.material3.TextButton({ edit = true }) { Text(tag.optString("btn").ifEmpty { "つける" }, color = Teal) }
             }
             if (edit) TagDialog("") { edit = false; it?.let { t -> Engine.cmd("type" to "tag", "text" to t) } }
@@ -233,7 +235,7 @@ private fun RoomMain(room: JSONObject, modifier: Modifier) {
         room.optJSONObject("mailNow")?.let { m ->
             Column(Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF12524C)).clickable { panel = Panel.Mail }.padding(10.dp)) {
                 Text(m.optString("cap"), color = Dim, fontSize = 11.sp)
-                Text(m.optString("who") + " " + m.optString("text"), color = Color.White, fontSize = 14.sp)
+                LinkText(m.optString("who") + " " + m.optString("text"), Color.White, 14.sp)
             }
         }
         // ページが出すお知らせ・警告（マイクが使えなかった／音が届いていない など）

@@ -41,6 +41,9 @@ object Engine {
     var room by mutableStateOf<JSONObject?>(null)
     var ready by mutableStateOf(false)
     var cards by mutableStateOf<JSONObject?>(null)        // 名刺の編集・本人確認の窓の状態
+    var muteOnJoin by mutableStateOf(true)                // 入室したとき、マイクをミュートにする（Mac 版・Windows 版・Electron 版と同じ。初期値はオン）
+    var muteOnCreate by mutableStateOf(true)              // 部屋を作ったとき、マイクをミュートにする（同上）
+    private var pendingMuteUntil = 0L                     // この時刻まで、「入ったら、ミュートにする」を待つ
     val banned = mutableStateListOf<String>()             // 自衛ワード（新しいものが先頭）
     private val warned = HashSet<String>()                // 自衛ワードの警告を、もう出した名前
     var spkMuted by mutableStateOf(false)
@@ -57,6 +60,7 @@ object Engine {
         if (web != null) return
         app = context.applicationContext as Application
         loadBanned()
+        muteOnJoin = prefs.getBoolean("muteOnJoin", true); muteOnCreate = prefs.getBoolean("muteOnCreate", true)
         val w = WebView(app)
         web = w
         w.settings.apply {
@@ -107,7 +111,7 @@ object Engine {
     /** リンクの部屋が、ロビーの一覧にあれば、一覧から入る（確実）。一覧に出てくるまで少し待ち、出なければ、ページのリンクの入り方にまかせる */
     private fun joinLinkRoom(url: String, id: String, tries: Int) {
         if (isJoined) return
-        if (lobby?.arr("rooms").orEmpty().any { it.optString("id") == id }) { cmd("type" to "join", "id" to id, "quiet" to false); return }
+        if (lobby?.arr("rooms").orEmpty().any { it.optString("id") == id }) { joinRoom(id); return }
         if (tries < 8) { main.postDelayed({ joinLinkRoom(url, id, tries + 1) }, 1500); return }
         // 部屋が、いま開かれていないとき：ページに、リンクを開かせて、「このまま入ってみる」を押す
         val frag = Uri.parse(url).fragment.orEmpty()
@@ -133,10 +137,31 @@ object Engine {
         main.post { web?.evaluateJavascript("window.__pm && window.__pm.cmd($j)", null) }
     }
 
+    /** 部屋に入る（設定がオンなら、入ったあと、マイクをミュートにする） */
+    fun joinRoom(id: String) { armMute(muteOnJoin); cmd("type" to "join", "id" to id, "quiet" to false) }
+
+    /** 部屋を作る（設定がオンなら、入ったあと、マイクをミュートにする） */
+    fun createRoom(name: String, broadcast: Boolean) { armMute(muteOnCreate); cmd("type" to "create", "name" to name, "kind" to if (broadcast) "bc" else "chat") }
+
+    fun changeMuteOnJoin(v: Boolean) { muteOnJoin = v; prefs.edit().putBoolean("muteOnJoin", v).apply() }
+    fun changeMuteOnCreate(v: Boolean) { muteOnCreate = v; prefs.edit().putBoolean("muteOnCreate", v).apply() }
+
+    private fun armMute(on: Boolean) { pendingMuteUntil = if (on) System.currentTimeMillis() + 40000 else 0L }
+
+    /** 入った（マイクが使える状態になった）ら、まだ、ミュートでなければ、1 回だけ、ミュートにする */
+    private fun applyPendingMute() {
+        if (pendingMuteUntil == 0L) return
+        if (System.currentTimeMillis() > pendingMuteUntil) { pendingMuteUntil = 0L; return }
+        val r = room ?: return
+        if (!r.optBoolean("joined") || !r.optBoolean("canMute")) return
+        pendingMuteUntil = 0L
+        if (!r.optBoolean("muted")) cmd("type" to "mute")
+    }
+
     /** いまの部屋を出て、別の部屋に入る */
     fun joinOther(id: String) {
         cmd("type" to "leave")
-        main.postDelayed({ cmd("type" to "join", "id" to id, "quiet" to false) }, 1500)
+        main.postDelayed({ joinRoom(id) }, 1500)
     }
 
     fun toggleSpeaker() { spkMuted = !spkMuted; cmd("type" to "spk", "on" to spkMuted) }
@@ -148,7 +173,7 @@ object Engine {
             "lobby" -> lobby = d as? JSONObject
             "profile" -> profile = d as? JSONObject
             "cards" -> cards = d as? JSONObject
-            "room" -> { room = d as? JSONObject; onJoinedChanged(); checkBannedMembers() }
+            "room" -> { room = d as? JSONObject; onJoinedChanged(); checkBannedMembers(); applyPendingMute() }
             "chat" -> (d as? JSONObject)?.let {
                 chat.add(it); if (chat.size > 300) chat.removeAt(0)
                 if (!chatOpen && !it.optBoolean("sys") && !it.optBoolean("hist") && !it.optString("who").endsWith("（あなた）")) unread++

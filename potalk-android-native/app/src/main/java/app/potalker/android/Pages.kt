@@ -89,6 +89,20 @@ private fun PageFrame(title: String, onBack: () -> Unit, content: @Composable an
     }
 }
 
+/** 入室・部屋作成のときの、ミュートの設定 */
+@Composable
+fun MuteSettings() {
+    Column {
+        for ((label, on, set) in listOf(
+            Triple("入室したとき、マイクをミュートにする", Engine.muteOnJoin, { v: Boolean -> Engine.changeMuteOnJoin(v) }),
+            Triple("部屋を作ったとき、マイクをミュートにする", Engine.muteOnCreate, { v: Boolean -> Engine.changeMuteOnCreate(v) }),
+        )) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, Modifier.weight(1f), color = Color.White, fontSize = 14.sp)
+            androidx.compose.material3.Switch(on, set)
+        }
+    }
+}
+
 /** ロビーと、部屋の設定タブに置く、3 つの入口 */
 @Composable
 fun ProfileEntries() {

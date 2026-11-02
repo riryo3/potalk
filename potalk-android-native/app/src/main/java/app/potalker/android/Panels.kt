@@ -63,7 +63,7 @@ fun ChatDrawer() {
                             Text(c.optString("em"), fontSize = 18.sp)
                             Column(Modifier.padding(start = 8.dp)) {
                                 Text(c.optString("who"), color = if (c.optBoolean("hist")) Dim else Teal, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                Text(c.optString("text"), color = if (c.optBoolean("hist")) Dim else Color.White, fontSize = 15.sp)
+                                LinkText(c.optString("text"), if (c.optBoolean("hist")) Dim else Color.White, 15.sp)
                             }
                         }
                     }
@@ -113,6 +113,8 @@ fun SettingsSheet(room: JSONObject) {
         Spacer(Modifier.height(8.dp))
         ProfileEntries()
         Spacer(Modifier.height(8.dp))
+        MuteSettings()
+        Spacer(Modifier.height(8.dp))
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(room.arr("settings")) { s ->
                 when (s.optString("k")) {
@@ -159,7 +161,7 @@ fun MailDrawer(room: JSONObject) {
                         items(mail.arr("head")) { h -> MailRow(h.optString("text"), h.arr("btns"), null) }
                         items(mail.arr("body")) { b ->
                             if (b.optBoolean("item")) MailRow(b.optString("who") + "　" + b.optString("text"), b.arr("btns"), b.optString("em"))
-                            else if (b.optString("text").isNotEmpty()) Text(b.optString("text"), color = Dim, fontSize = 13.sp)
+                            else if (b.optString("text").isNotEmpty()) LinkText(b.optString("text"), Dim, 13.sp)
                         }
                     }
                 }
@@ -181,7 +183,7 @@ fun MailDrawer(room: JSONObject) {
 @Composable
 private fun MailRow(text: String, btns: List<JSONObject>, em: String?) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Card).padding(10.dp)) {
-        if (text.isNotEmpty()) Text((if (em.isNullOrEmpty()) "" else "$em ") + text, color = Color.White, fontSize = 14.sp)
+        if (text.isNotEmpty()) LinkText((if (em.isNullOrEmpty()) "" else "$em ") + text, Color.White, 14.sp)
         if (btns.isNotEmpty()) Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (b in btns) Text(b.optString("label").trim().ifEmpty { "…" }, Modifier.clip(RoundedCornerShape(8.dp)).background(if (b.optBoolean("on")) Teal else Bg).clickable { Engine.cmd("type" to "mailbtn", "i" to b.optInt("i")) }.padding(horizontal = 10.dp, vertical = 6.dp),
                 color = Color.White, fontSize = 13.sp)
@@ -205,7 +207,7 @@ fun CardDialog(room: JSONObject) {
             }
         } },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (c.optString("bio").isNotEmpty()) Text(c.optString("bio"), color = Color.White, fontSize = 14.sp)
+            if (c.optString("bio").isNotEmpty()) LinkText(c.optString("bio"), Color.White, 14.sp)
             for (s in c.arr("socials")) Text("🔗 " + s.optString("t"), Modifier.clickable {
                 val u = s.optString("u"); if (u.startsWith("https://") || u.startsWith("http://")) ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)))
             }, color = Teal, fontSize = 14.sp)
