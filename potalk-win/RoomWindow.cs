@@ -20,6 +20,13 @@ public sealed class RoomWindow : Window
     readonly System.Windows.Controls.Primitives.UniformGrid eq = new() { Rows = 1, Height = 26, Margin = new Thickness(10, 2, 10, 2) };
     readonly StackPanel legend = new() { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
     readonly Border mailBanner, tagRow;
+    // エラー・お知らせの帯：接続の失敗・切断（状態の文言。10秒で消える）／ページのお知らせ（#peerNotice）／音が届かない警告（#audioWarn）。押すと消える
+    readonly Border errBanner = new() { Background = Ui.Red, Padding = new Thickness(12, 9, 12, 9), Visibility = Visibility.Collapsed, Cursor = System.Windows.Input.Cursors.Hand };
+    readonly Border noticeBanner = new() { Background = Ui.Orange, Padding = new Thickness(12, 9, 12, 9), Visibility = Visibility.Collapsed, Cursor = System.Windows.Input.Cursors.Hand };
+    readonly Border audioBanner = new() { Background = Ui.Orange, Padding = new Thickness(12, 9, 12, 9), Visibility = Visibility.Collapsed };
+    readonly TextBlock errText = Ui.Txt("", 14, Ui.White, true, true), noticeText = Ui.Txt("", 13, Ui.White, true, true), audioText = Ui.Txt("", 13, Ui.White, true, true);
+    string lastErr = "", dismissedNotice = "";
+    System.Windows.Threading.DispatcherTimer errTimer;
     System.Windows.Controls.Primitives.UniformGrid row1;
     readonly Button pin, tagBtn, chatBtn, mailBtn, muteBtn, shareBtn, leaveBtn, spkBtn;
     readonly TextBox tagInput = Ui.Input("", 30);
@@ -48,7 +55,8 @@ public sealed class RoomWindow : Window
         DockPanel.SetDock(pin, Dock.Right); DockPanel.SetDock(settings, Dock.Right); settings.Margin = new Thickness(0, 0, 6, 0);
         head2.Children.Add(pin); head2.Children.Add(settings); head2.Children.Add(mic); mic.HorizontalAlignment = HorizontalAlignment.Left; mic.Margin = new Thickness(0, 0, 6, 0);
         var head = new StackPanel { Margin = new Thickness(12, 8, 12, 8) };
-        head.Children.Add(state); var cr = new StackPanel { Orientation = Orientation.Horizontal }; cr.Children.Add(count); head.Children.Add(cr); head.Children.Add(head2);
+        var retry = Ui.Btn("🔄 つなぎ直す", () => E.Cmd(new { type = "reconnect" }), size: 12); retry.Margin = new Thickness(10, 0, 0, 0); retry.ToolTip = "通話をつなぎ直す（数秒、声が途切れます）";
+        head.Children.Add(state); var cr = new StackPanel { Orientation = Orientation.Horizontal }; cr.Children.Add(count); cr.Children.Add(retry); head.Children.Add(cr); head.Children.Add(head2);
 
         mailBanner = new Border { Background = Ui.TealSoft, Padding = new Thickness(12, 8, 12, 8), Visibility = Visibility.Collapsed };
         var mb = new StackPanel(); mb.Children.Add(mailCap); mb.Children.Add(mailBody); mailBanner.Child = mb;
@@ -85,7 +93,11 @@ public sealed class RoomWindow : Window
         bottom.Children.Add(legend); bottom.Children.Add(eq); bottom.Children.Add(reactions); bottom.Children.Add(actions);
 
         var dock = new DockPanel();
+        errBanner.Child = errText; noticeBanner.Child = noticeText; audioBanner.Child = audioText;
+        errBanner.MouseLeftButtonUp += (_, _) => { errBanner.Visibility = Visibility.Collapsed; errTimer?.Stop(); };
+        noticeBanner.MouseLeftButtonUp += (_, _) => { dismissedNotice = noticeText.Text; noticeBanner.Visibility = Visibility.Collapsed; };
         var top = new StackPanel(); top.Children.Add(head); top.Children.Add(mailBanner); top.Children.Add(tagRow);
+        top.Children.Add(errBanner); top.Children.Add(noticeBanner); top.Children.Add(audioBanner);
         DockPanel.SetDock(top, Dock.Top); dock.Children.Add(top);
         DockPanel.SetDock(bottom, Dock.Bottom); dock.Children.Add(bottom);
         dock.Children.Add(new ScrollViewer { Content = members, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
@@ -198,6 +210,28 @@ public sealed class RoomWindow : Window
         t.Tick += (_, _) => { shareBtn.Content = "🔗 URLを共有"; t.Stop(); }; t.Start();
     }
 
+    // ---- エラー・お知らせの帯 ----
+    static bool IsBad(string t) => t.Contains("失敗") || t.Contains("切断") || t.Contains("エラー") || t.Contains("できません");
+    void UpdateBanners(JsonElement r)
+    {
+        var st = r.S("state");
+        if (!IsBad(st)) { lastErr = ""; errBanner.Visibility = Visibility.Collapsed; errTimer?.Stop(); }
+        else if (st != lastErr)
+        {
+            lastErr = st; errText.Text = "⚠ " + st; errBanner.Visibility = Visibility.Visible;
+            errTimer ??= new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+            errTimer.Stop(); errTimer.Tick -= HideErr; errTimer.Tick += HideErr; errTimer.Start();
+        }
+        var nt = r.S("notice");
+        if (nt.Length == 0) dismissedNotice = "";
+        noticeBanner.Visibility = nt.Length > 0 && nt != dismissedNotice ? Visibility.Visible : Visibility.Collapsed;
+        if (nt.Length > 0) { noticeText.Text = nt; noticeBanner.Background = nt.StartsWith("🔌") || nt.Contains("失敗") || nt.Contains("できません") ? Ui.Red : Ui.Orange; }
+        var aw = r.S("audioWarn");
+        audioBanner.Visibility = aw.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (aw.Length > 0) audioText.Text = aw;
+    }
+    void HideErr(object sender, EventArgs e) { errTimer.Stop(); errBanner.Visibility = Visibility.Collapsed; }
+
     // ---- 状態の反映 ----
     public void Refresh()
     {
@@ -205,6 +239,7 @@ public sealed class RoomWindow : Window
         var all = r.A("members").ToList();
         state.Text = r.S("state").Length == 0 ? "未参加" : r.S("state");
         count.Text = $"{all.Count}人";
+        UpdateBanners(r);
 
         var mn = r.P("mailNow");
         mailBanner.Visibility = mn.Has() ? Visibility.Visible : Visibility.Collapsed;
