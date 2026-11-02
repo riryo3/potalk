@@ -21,6 +21,8 @@ public sealed class RoomWindow : Window
     readonly StackPanel legend = new() { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
     readonly Border mailBanner, tagRow;
     // エラー・お知らせの帯：接続の失敗・切断（状態の文言。10秒で消える）／ページのお知らせ（#peerNotice）／音が届かない警告（#audioWarn）。押すと消える
+    readonly Border crowdBanner = new() { Background = Ui.Orange, Padding = new Thickness(12, 9, 12, 9), Visibility = Visibility.Collapsed };
+    readonly TextBlock crowdText = Ui.Txt("", 13, Ui.White, true, true);
     readonly Border errBanner = new() { Background = Ui.Red, Padding = new Thickness(12, 9, 12, 9), Visibility = Visibility.Collapsed, Cursor = System.Windows.Input.Cursors.Hand };
     readonly Border noticeBanner = new() { Background = Ui.Orange, Padding = new Thickness(12, 9, 12, 9), Visibility = Visibility.Collapsed, Cursor = System.Windows.Input.Cursors.Hand };
     readonly Border audioBanner = new() { Background = Ui.Orange, Padding = new Thickness(12, 9, 12, 9), Visibility = Visibility.Collapsed };
@@ -93,11 +95,11 @@ public sealed class RoomWindow : Window
         bottom.Children.Add(legend); bottom.Children.Add(eq); bottom.Children.Add(reactions); bottom.Children.Add(actions);
 
         var dock = new DockPanel();
-        errBanner.Child = errText; noticeBanner.Child = noticeText; audioBanner.Child = audioText;
+        errBanner.Child = errText; noticeBanner.Child = noticeText; audioBanner.Child = audioText; crowdBanner.Child = crowdText;
         errBanner.MouseLeftButtonUp += (_, _) => { errBanner.Visibility = Visibility.Collapsed; errTimer?.Stop(); };
         noticeBanner.MouseLeftButtonUp += (_, _) => { dismissedNotice = noticeText.Text; noticeBanner.Visibility = Visibility.Collapsed; };
         var top = new StackPanel(); top.Children.Add(head); top.Children.Add(mailBanner); top.Children.Add(tagRow);
-        top.Children.Add(errBanner); top.Children.Add(noticeBanner); top.Children.Add(audioBanner);
+        top.Children.Add(errBanner); top.Children.Add(noticeBanner); top.Children.Add(audioBanner); top.Children.Add(crowdBanner);
         DockPanel.SetDock(top, Dock.Top); dock.Children.Add(top);
         DockPanel.SetDock(bottom, Dock.Bottom); dock.Children.Add(bottom);
         dock.Children.Add(new ScrollViewer { Content = members, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
@@ -229,6 +231,9 @@ public sealed class RoomWindow : Window
         var aw = r.S("audioWarn");
         audioBanner.Visibility = aw.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         if (aw.Length > 0) audioText.Text = aw;
+        var cn = r.S("crowdNote");        // 人数が多いときの警告（#crowdNote）。上限に達したときは、赤にする
+        crowdBanner.Visibility = cn.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (cn.Length > 0) { crowdText.Text = cn; crowdBanner.Background = cn.Contains("に達しました") ? Ui.Red : Ui.Orange; }
     }
     void HideErr(object sender, EventArgs e) { errTimer.Stop(); errBanner.Visibility = Visibility.Collapsed; }
 
