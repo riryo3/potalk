@@ -614,7 +614,21 @@ function render() {
   renderTabs()
 }
 
+// 誰かがリアクションを押すと、絵文字が下から浮かんで、消える（Mac 版・Windows 版と同じ：1.4 秒で 110 上がって、薄くなる。自分の分は、左端、ほかの人の分は、横にばらける）。部屋の画面があるとき（ひとつの窓・分けた窓の「部屋」）だけ
+function flyReaction(d) {
+  if (!d || !d.e || !(KIND === 'single' || KIND === 'room') || !(S.room && S.room.joined)) return
+  if (document.querySelectorAll('.fly-react').length >= 12) return
+  const self = d.u === 'self', f = el('div', 'fly-react')
+  f.append(el('div', 'fly-em', d.e)); if (!self && d.n) f.append(el('div', 'fly-who', d.n))
+  const w = window.innerWidth, h = window.innerHeight
+  f.style.left = (self ? 40 + (Math.random() * 16 - 8) : 40 + Math.random() * Math.max(20, w - 140)) + 'px'
+  f.style.top = Math.max(120, h * 0.6) + 'px'
+  f.onanimationend = () => f.remove()
+  document.body.append(f)
+}
+
 window.potalk.onState(({ t, d }) => {
+  if (t === 'react') { flyReaction(d); return }
   if (t === 'eq') { S.eq = d || ''; if (S.room && S.room.joined) renderEq(S.eq); return }
   if (t === 'ui') { uiAction(d || {}); return }
   if (t === 'devices') { S.devices = d || []; if (!$('micMenu').hidden) renderMicMenu(); return }

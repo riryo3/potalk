@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -193,6 +195,8 @@ fun RoomScreen() {
         // 内容の部分（下のタブは、いつも見えるように、この外に置く）
         Box(Modifier.weight(1f).fillMaxWidth()) {
             RoomMain(room, Modifier.fillMaxSize())
+            // 浮かぶリアクション（触れない）
+            FlyingReactions()
             // 画面の右端のタブ：押す／左へスワイプで、ひとこと欄が出る
             EdgeTab(Modifier.align(Alignment.CenterEnd), room.optBoolean("bcast"))
             when (panel) {
@@ -307,6 +311,30 @@ private fun RoomMain(room: JSONObject, modifier: Modifier) {
             confirmButton = { androidx.compose.material3.TextButton({ leaveAsk = false; Engine.cmd("type" to "leave") }) { Text("退出する", color = Red) } },
             dismissButton = { androidx.compose.material3.TextButton({ leaveAsk = false }) { Text("やめる", color = Dim) } }
         )
+    }
+}
+
+/** 誰かがリアクションを押すと、絵文字が下から浮かんで、消える（Mac 版・Windows 版と同じ：1.4 秒で 110 上がって、薄くなる。自分の分は、左端、ほかの人の分は、横にばらける） */
+@Composable
+private fun FlyingReactions() {
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val w = maxWidth; val h = maxHeight
+        for (f in Engine.flies.toList()) androidx.compose.runtime.key(f.id) {
+            val t = remember { androidx.compose.animation.core.Animatable(0f) }
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                t.animateTo(1f, androidx.compose.animation.core.tween(1400, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+                Engine.flies.remove(f)
+            }
+            val x = if (f.self) 40.dp + (f.xr * 16f - 8f).dp else 40.dp + ((w - 140.dp).coerceAtLeast(20.dp)) * f.xr
+            val y0 = maxOf(120.dp, h * 0.6f)
+            Column(
+                Modifier.offset(x, y0 - 110.dp * t.value).graphicsLayer { alpha = 1f - t.value },
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(f.emoji, fontSize = 26.sp)
+                if (f.who.isNotEmpty()) Text(f.who, color = Dim, fontSize = 10.sp, maxLines = 1)
+            }
+        }
     }
 }
 
