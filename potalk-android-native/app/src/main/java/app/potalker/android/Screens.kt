@@ -61,6 +61,7 @@ fun LobbyScreen() {
     var menu by remember { mutableStateOf(false) }
     var create by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var joinPick by remember { mutableStateOf<String?>(null) }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Spacer(Modifier.height(8.dp))
@@ -80,17 +81,31 @@ fun LobbyScreen() {
         }
         // 部屋を作るボタン（1 行）
         item { Button({ create = true }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White)) { Text("＋ 部屋を作る") } }
-        // 検索（1 行）
+        // 検索（1 行）と、その右に、一覧の再読み込み
         item {
-            OutlinedTextField(query, { query = it.take(200) }, Modifier.fillMaxWidth(), placeholder = { Text("🔍 部屋名・話題・人の名前・URL", maxLines = 1) }, singleLine = true,
-                trailingIcon = { if (query.isNotEmpty()) Text("✕", Modifier.clickable { query = "" }.padding(12.dp), color = Dim) })
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(query, { query = it.take(200) }, Modifier.weight(1f), placeholder = { Text("🔍 部屋名・話題・人の名前・URL", maxLines = 1) }, singleLine = true,
+                    trailingIcon = { if (query.isNotEmpty()) Text("✕", Modifier.clickable { query = "" }.padding(12.dp), color = Dim) })
+                Box(Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(Card).clickable { Engine.cmd("type" to "refreshLobby") }, contentAlignment = Alignment.Center) { Text("🔄", fontSize = 22.sp) }
+            }
         }
         item { Text("通話中の部屋", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White) }
-        roomsList(this, query = query) { id -> Engine.cmd("type" to "join", "id" to id, "quiet" to false) }
+        roomsList(this, query = query) { id -> joinPick = id }
         item { Spacer(Modifier.height(24.dp)) }
     }
     if (menu) ProfileMenu { menu = false }
     if (create) CreateRoomDialog { create = false }
+    joinPick?.let { id ->
+        val r = Engine.lobby?.arr("rooms").orEmpty().firstOrNull { it.optString("id") == id }
+        val title = r?.optString("sub")?.ifEmpty { null } ?: r?.optString("name").orEmpty().ifEmpty { "この部屋" }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { joinPick = null }, containerColor = Card,
+            title = { Text("部屋に入りますか？", color = Color.White) },
+            text = { Text("「$title」に入ります。", color = Color.White) },
+            confirmButton = { androidx.compose.material3.TextButton({ joinPick = null; Engine.cmd("type" to "join", "id" to id, "quiet" to false) }) { Text("入る", color = Teal) } },
+            dismissButton = { androidx.compose.material3.TextButton({ joinPick = null }) { Text("やめる", color = Dim) } }
+        )
+    }
 }
 
 /** 自分の名前を押したときの入口 */
@@ -281,7 +296,15 @@ private fun RoomMain(room: JSONObject, modifier: Modifier) {
             }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text("🔗 リンクの取得") }
             Button({ Engine.cmd("type" to "reconnect") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text("🔄 つなぎ直す") }
         }
-        Button({ Engine.cmd("type" to "leave") }, Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = Red, contentColor = Color.White)) { Text("退出") }
+        var leaveAsk by remember { mutableStateOf(false) }
+        Button({ leaveAsk = true }, Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = Red, contentColor = Color.White)) { Text("退出") }
+        if (leaveAsk) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { leaveAsk = false }, containerColor = Card,
+            title = { Text("退出しますか？", color = Color.White) },
+            text = { Text("この部屋から出て、ロビーに戻ります。", color = Color.White) },
+            confirmButton = { androidx.compose.material3.TextButton({ leaveAsk = false; Engine.cmd("type" to "leave") }) { Text("退出する", color = Red) } },
+            dismissButton = { androidx.compose.material3.TextButton({ leaveAsk = false }) { Text("やめる", color = Dim) } }
+        )
     }
 }
 
