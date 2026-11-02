@@ -239,9 +239,9 @@ private fun RoomMain(room: JSONObject, modifier: Modifier) {
             }
         }
         // ページが出すお知らせ・警告（マイクが使えなかった／音が届いていない など）
-        for (msg in listOf(room.optString("notice"), room.optString("audioWarn"))) if (msg.isNotEmpty()) {
+        for (msg in listOf(room.optString("notice"), room.optString("audioWarn"), room.optString("crowdNote"))) if (msg.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
-            Text(msg, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (msg.startsWith("🔌") || msg.contains("失敗") || msg.contains("できません")) Red else Orange).padding(10.dp), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(msg, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (msg.startsWith("🔌") || msg.contains("失敗") || msg.contains("できません") || msg.contains("上限に達")) Red else Orange).padding(10.dp), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(8.dp))
         val members = room.arr("members")
