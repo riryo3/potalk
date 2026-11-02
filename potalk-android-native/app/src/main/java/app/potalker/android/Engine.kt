@@ -65,6 +65,7 @@ object Engine {
         app = context.applicationContext as Application
         loadBanned()
         muteOnJoin = prefs.getBoolean("muteOnJoin", true); muteOnCreate = prefs.getBoolean("muteOnCreate", true)
+        Look.mode = prefs.getString("theme", "time").takeIf { it in listOf("time", "auto", "day", "night") } ?: "time"
         val w = WebView(app)
         web = w
         w.settings.apply {
@@ -148,6 +149,7 @@ object Engine {
     fun createRoom(name: String, broadcast: Boolean) { armMute(muteOnCreate); cmd("type" to "create", "name" to name, "kind" to if (broadcast) "bc" else "chat") }
 
     fun changeMuteOnJoin(v: Boolean) { muteOnJoin = v; prefs.edit().putBoolean("muteOnJoin", v).apply() }
+    fun changeTheme(v: String) { Look.mode = v; prefs.edit().putString("theme", v).apply() }
     fun changeMuteOnCreate(v: Boolean) { muteOnCreate = v; prefs.edit().putBoolean("muteOnCreate", v).apply() }
 
     private fun armMute(on: Boolean) { pendingMuteUntil = if (on) System.currentTimeMillis() + 40000 else 0L }

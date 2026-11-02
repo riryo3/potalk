@@ -59,7 +59,7 @@ fun LinkAskDialog() {
     val ctx = LocalContext.current
     AlertDialog(
         onDismissRequest = { linkAsk = null }, containerColor = Card,
-        title = { Text("リンクを開きますか？", color = Color.White) },
+        title = { Text("リンクを開きますか？", color = Ink) },
         text = { Column { Text(url, color = Teal, fontSize = 14.sp); Text("ブラウザで開きます。", color = Dim, fontSize = 12.sp) } },
         confirmButton = { TextButton({ linkAsk = null; ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }) { Text("開く", color = Teal) } },
         dismissButton = { TextButton({ linkAsk = null }) { Text("やめる", color = Dim) } }

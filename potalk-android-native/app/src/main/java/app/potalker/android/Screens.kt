@@ -47,12 +47,25 @@ import androidx.compose.ui.unit.sp
 import org.json.JSONArray
 import org.json.JSONObject
 
-val Bg = Color(0xFF0F1426)
-val Card = Color(0xFF1B2340)
-val Teal = Color(0xFF16B8A6)
+/** 見た目（昼夜）。元のサイトの 4 択（時刻で変わる・端末に合わせる・ずっと昼・ずっと夜）と同じ */
+object Look {
+    var mode by mutableStateOf("time")
+    var systemDark by mutableStateOf(true)
+    var minute by mutableStateOf(0)   // 時刻モードのとき、1 分ごとに更新して、昼夜の切り替わりを拾う
+    val dark: Boolean get() = when (mode) {
+        "night" -> true
+        "day" -> false
+        "auto" -> systemDark
+        else -> minute < 6 * 60 + 15 || minute >= 18 * 60 + 15   // 夜明け 6:00 ごろ・日没 18:15（サイトと同じ）
+    }
+}
+val Bg get() = if (Look.dark) Color(0xFF0F1426) else Color(0xFFF3EFE8)
+val Card get() = if (Look.dark) Color(0xFF1B2340) else Color(0xFFE6DFD3)
+val Teal get() = if (Look.dark) Color(0xFF16B8A6) else Color(0xFF00796B)
 val Red = Color(0xFFD93036)
 val Orange = Color(0xFFD9822B)
-val Dim = Color(0xFF9AA0B5)
+val Dim get() = if (Look.dark) Color(0xFF9AA0B5) else Color(0xFF5E766D)
+val Ink get() = if (Look.dark) Color.White else Color(0xFF1E3A33)   // 文字
 
 /** いま、前に出している窓（ひとこと・部屋一覧・設定） */
 enum class Panel { None, Chat, Mail, Lobby, Settings }
@@ -71,7 +84,7 @@ fun LobbyScreen() {
         item {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("ぽっと通話", Modifier.weight(1f), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("ぽっと通話", Modifier.weight(1f), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Text("非公式・Android", fontSize = 11.sp, color = Dim)
             }
         }
@@ -80,7 +93,7 @@ fun LobbyScreen() {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Card).clickable { menu = true }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(me?.optString("emoji").orEmpty().ifEmpty { "🙂" }, fontSize = 24.sp)
                 Spacer(Modifier.padding(5.dp))
-                Text(me?.optString("name").orEmpty().ifEmpty { "…" }, Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                Text(me?.optString("name").orEmpty().ifEmpty { "…" }, Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Ink, maxLines = 1)
                 Text("設定 ▾", color = Dim, fontSize = 13.sp)
             }
         }
@@ -94,7 +107,7 @@ fun LobbyScreen() {
                 Box(Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(Card).clickable { Engine.cmd("type" to "refreshLobby") }, contentAlignment = Alignment.Center) { Text("🔄", fontSize = 22.sp) }
             }
         }
-        item { Text("通話中の部屋", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+        item { Text("通話中の部屋", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Ink) }
         roomsList(this, query = query) { id -> joinPick = id }
         item { Spacer(Modifier.height(24.dp)) }
     }
@@ -105,8 +118,8 @@ fun LobbyScreen() {
         val title = r?.optString("sub")?.ifEmpty { null } ?: r?.optString("name").orEmpty().ifEmpty { "この部屋" }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { joinPick = null }, containerColor = Card,
-            title = { Text("部屋に入りますか？", color = Color.White) },
-            text = { Text("「$title」に入ります。", color = Color.White) },
+            title = { Text("部屋に入りますか？", color = Ink) },
+            text = { Text("「$title」に入ります。", color = Ink) },
             confirmButton = { androidx.compose.material3.TextButton({ joinPick = null; Engine.joinRoom(id) }) { Text("入る", color = Teal) } },
             dismissButton = { androidx.compose.material3.TextButton({ joinPick = null }) { Text("やめる", color = Dim) } }
         )
@@ -118,14 +131,14 @@ fun LobbyScreen() {
 private fun ProfileMenu(close: () -> Unit) {
     androidx.compose.material3.AlertDialog(
         onDismissRequest = close, containerColor = Card,
-        title = { Text("設定", color = Color.White) },
+        title = { Text("設定", color = Ink) },
         text = {
             Column {
                 for ((label, act) in listOf<Pair<String, () -> Unit>>(
                     "👤 名前・アイコン" to { page = Page.Profile },
                     "📇 名刺（画像・SNS・本人確認）" to { Engine.cmd("type" to "cardEdit") },
                     "🛡 自衛ワード" to { page = Page.Banned },
-                )) Text(label, Modifier.fillMaxWidth().clickable { close(); act() }.padding(vertical = 14.dp), color = Color.White, fontSize = 16.sp)
+                )) Text(label, Modifier.fillMaxWidth().clickable { close(); act() }.padding(vertical = 14.dp), color = Ink, fontSize = 16.sp)
                 Spacer(Modifier.height(6.dp))
                 MuteSettings()
             }
@@ -141,13 +154,13 @@ private fun CreateRoomDialog(close: () -> Unit) {
     var broadcast by remember { mutableStateOf(false) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = close, containerColor = Card,
-        title = { Text("部屋を作る", color = Color.White) },
+        title = { Text("部屋を作る", color = Ink) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(name, { name = it.take(30) }, Modifier.fillMaxWidth(), placeholder = { Text("部屋の名前（○○の部屋）") }, singleLine = true)
                 for ((label, bc) in listOf("🏠 雑談（みんなで話す）" to false, "📣 配信（あなたの声だけ）" to true))
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (broadcast == bc) Teal.copy(alpha = 0.35f) else Bg).clickable { broadcast = bc }.padding(horizontal = 12.dp, vertical = 12.dp)) {
-                        Text(label, color = Color.White, fontSize = 15.sp, fontWeight = if (broadcast == bc) FontWeight.Bold else FontWeight.Normal)
+                        Text(label, color = Ink, fontSize = 15.sp, fontWeight = if (broadcast == bc) FontWeight.Bold else FontWeight.Normal)
                     }
             }
         },
@@ -179,12 +192,12 @@ fun roomsList(scope: androidx.compose.foundation.lazy.LazyListScope, exceptId: S
     scope.items(rooms) { r ->
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Card).clickable { onPick(r.optString("id")) }.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(r.optString("sub").ifEmpty { r.optString("name") }.ifEmpty { "（名前なし）" }, Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                Text(r.optString("sub").ifEmpty { r.optString("name") }.ifEmpty { "（名前なし）" }, Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Ink, maxLines = 1)
                 Text(r.optString("count"), color = Teal, fontWeight = FontWeight.Bold)
             }
             if (r.optString("sub").isNotEmpty()) Text(r.optString("name"), color = Dim, fontSize = 13.sp, maxLines = 1)
             val ps = r.arr("people").joinToString("  ") { it.optString("em") + it.optString("name") }
-            if (ps.isNotEmpty()) Text(ps, color = Color.White, fontSize = 13.sp, maxLines = 1)
+            if (ps.isNotEmpty()) Text(ps, color = Ink, fontSize = 13.sp, maxLines = 1)
         }
     }
 }
@@ -228,7 +241,7 @@ private fun LaunchedEffectChat() {
 private fun RoomMain(room: JSONObject, modifier: Modifier) {
     Column(modifier.padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(12.dp))
-        Text(room.optString("state").ifEmpty { "通話中" }, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(room.optString("state").ifEmpty { "通話中" }, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Ink)
         val tag = room.optJSONObject("tag")
         if (tag != null && tag.optBoolean("show")) {
             var edit by remember { mutableStateOf(false) }
@@ -262,11 +275,11 @@ private fun RoomMain(room: JSONObject, modifier: Modifier) {
                     Text(m.optString("em"), fontSize = 24.sp)
                     Spacer(Modifier.padding(6.dp))
                     Column(Modifier.weight(1f)) {
-                        Text((m.optString("mark").let { if (it.isEmpty()) "" else "$it " }) + m.optString("name") + if (m.optBoolean("you")) "（あなた）" else "", color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text((m.optString("mark").let { if (it.isEmpty()) "" else "$it " }) + m.optString("name") + if (m.optBoolean("you")) "（あなた）" else "", color = Ink, fontWeight = FontWeight.Bold, maxLines = 1)
                         if (m.optString("stage").isNotEmpty()) Text(m.optString("stage"), color = Teal, fontSize = 12.sp)
                     }
                     if (m.optBoolean("muted")) Text("🔇", fontSize = 18.sp)
-                    m.optJSONObject("grant")?.let { g -> Text(if (g.optBoolean("on")) "🎙 登壇中" else "🎙 登壇", Modifier.padding(start = 6.dp).clip(RoundedCornerShape(8.dp)).background(if (g.optBoolean("on")) Teal else Card).clickable { Engine.cmd("type" to "grant", "i" to idx) }.padding(horizontal = 8.dp, vertical = 4.dp), color = Color.White, fontSize = 12.sp) }
+                    m.optJSONObject("grant")?.let { g -> Text(if (g.optBoolean("on")) "🎙 登壇中" else "🎙 登壇", Modifier.padding(start = 6.dp).clip(RoundedCornerShape(8.dp)).background(if (g.optBoolean("on")) Teal else Card).clickable { Engine.cmd("type" to "grant", "i" to idx) }.padding(horizontal = 8.dp, vertical = 4.dp), color = if (g.optBoolean("on")) Color.White else Ink, fontSize = 12.sp) }
                     m.optJSONObject("ig")?.let { ig -> Text(if (ig.optBoolean("off")) "♡" else "♥", Modifier.padding(start = 8.dp).clickable { Engine.cmd("type" to "ignoreRow", "i" to idx) }, color = Red, fontSize = 20.sp) }
                 }
             }
@@ -287,12 +300,12 @@ private fun RoomMain(room: JSONObject, modifier: Modifier) {
         if ((speak != null && speak.optBoolean("show")) || (raise != null && raise.optBoolean("show"))) {
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (speak != null && speak.optBoolean("show")) Button({ Engine.cmd("type" to "speak") }, Modifier.weight(1f), enabled = !speak.optBoolean("disabled"), colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White)) { Text(speak.optString("label")) }
-                if (raise != null && raise.optBoolean("show")) Button({ Engine.cmd("type" to "raise") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text(raise.optString("label")) }
+                if (raise != null && raise.optBoolean("show")) Button({ Engine.cmd("type" to "raise") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Ink)) { Text(raise.optString("label")) }
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ Engine.cmd("type" to "mute") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = if (muted) Orange else Card, contentColor = Color.White)) { Text(if (muted) "🎤 ミュート中" else "🎤 ミュート") }
-            Button({ Engine.toggleSpeaker() }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = if (Engine.spkMuted) Orange else Card, contentColor = Color.White)) { Text(if (Engine.spkMuted) "🔇 ミュート中" else "🔈 ミュート") }
+            Button({ Engine.cmd("type" to "mute") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = if (muted) Orange else Card, contentColor = if (muted) Color.White else Ink)) { Text(if (muted) "🎤 ミュート中" else "🎤 ミュート") }
+            Button({ Engine.toggleSpeaker() }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = if (Engine.spkMuted) Orange else Card, contentColor = if (Engine.spkMuted) Color.White else Ink)) { Text(if (Engine.spkMuted) "🔇 ミュート中" else "🔈 ミュート") }
         }
         val ctx = LocalContext.current
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -302,15 +315,15 @@ private fun RoomMain(room: JSONObject, modifier: Modifier) {
                     (ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("potalk", url))
                     android.widget.Toast.makeText(ctx, "リンクをコピーしました", android.widget.Toast.LENGTH_SHORT).show()
                 }
-            }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text("🔗 リンクの取得") }
-            Button({ Engine.cmd("type" to "reconnect") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text("🔄 つなぎ直す") }
+            }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Ink)) { Text("🔗 リンクの取得") }
+            Button({ Engine.cmd("type" to "reconnect") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Ink)) { Text("🔄 つなぎ直す") }
         }
         var leaveAsk by remember { mutableStateOf(false) }
         Button({ leaveAsk = true }, Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = Red, contentColor = Color.White)) { Text("退出") }
         if (leaveAsk) androidx.compose.material3.AlertDialog(
             onDismissRequest = { leaveAsk = false }, containerColor = Card,
-            title = { Text("退出しますか？", color = Color.White) },
-            text = { Text("この部屋から出て、ロビーに戻ります。", color = Color.White) },
+            title = { Text("退出しますか？", color = Ink) },
+            text = { Text("この部屋から出て、ロビーに戻ります。", color = Ink) },
             confirmButton = { androidx.compose.material3.TextButton({ leaveAsk = false; Engine.cmd("type" to "leave") }) { Text("退出する", color = Red) } },
             dismissButton = { androidx.compose.material3.TextButton({ leaveAsk = false }) { Text("やめる", color = Dim) } }
         )

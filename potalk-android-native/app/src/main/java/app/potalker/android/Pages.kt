@@ -83,7 +83,7 @@ private fun PageFrame(title: String, onBack: () -> Unit, content: @Composable an
     Column(Modifier.fillMaxSize().background(Bg).statusBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onBack) { Text("← 戻る", color = Teal) }
-            Text(title, Modifier.padding(start = 4.dp), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(title, Modifier.padding(start = 4.dp), color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
         }
         Column(Modifier.weight(1f).padding(horizontal = 16.dp)) { content() }
     }
@@ -97,9 +97,20 @@ fun MuteSettings() {
             Triple("入室したとき、マイクをミュートにする", Engine.muteOnJoin, { v: Boolean -> Engine.changeMuteOnJoin(v) }),
             Triple("部屋を作ったとき、マイクをミュートにする", Engine.muteOnCreate, { v: Boolean -> Engine.changeMuteOnCreate(v) }),
         )) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, Modifier.weight(1f), color = Color.White, fontSize = 14.sp)
+            Text(label, Modifier.weight(1f), color = Ink, fontSize = 14.sp)
             androidx.compose.material3.Switch(on, set)
         }
+        Spacer(Modifier.height(6.dp))
+        Text("🌗 見た目", color = Ink, fontSize = 14.sp)
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for ((k, label) in listOf("time" to "時刻", "auto" to "端末", "day" to "昼", "night" to "夜")) {
+                val on = Look.mode == k
+                Box(Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(10.dp)).background(if (on) Teal else Card).clickable { Engine.changeTheme(k) }, contentAlignment = Alignment.Center) {
+                    Text(label, color = if (on) Color.White else Ink, fontSize = 13.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
+                }
+            }
+        }
+        Text("時刻：昼と夜が時刻で変わる／端末：端末の設定に合わせる", color = Dim, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
     }
 }
 
@@ -109,7 +120,7 @@ fun ProfileEntries() {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         @Composable fun chip(label: String, mod: Modifier, click: () -> Unit) =
             Box(mod.height(56.dp).clip(RoundedCornerShape(12.dp)).background(Card).clickable(onClick = click).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
-                Text(label, color = Color.White, fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text(label, color = Ink, fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         chip("👤 名前・アイコン", Modifier.weight(1f)) { page = Page.Profile }
         chip("📇 名刺", Modifier.weight(1f)) { Engine.cmd("type" to "cardEdit") }
@@ -126,7 +137,7 @@ private fun ProfilePage() {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(p?.optString("emoji").orEmpty().ifEmpty { "🙂" }, fontSize = 40.sp)
             Spacer(Modifier.padding(6.dp))
-            Text(p?.optString("name").orEmpty(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(p?.optString("name").orEmpty(), color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -143,7 +154,7 @@ private fun ProfilePage() {
                 }
             }
         }
-        Button({ page = Page.None; Engine.cmd("type" to "cardEdit") }, Modifier.fillMaxWidth().padding(vertical = 10.dp), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text("📇 名刺（画像・SNS・本人確認）を編集") }
+        Button({ page = Page.None; Engine.cmd("type" to "cardEdit") }, Modifier.fillMaxWidth().padding(vertical = 10.dp), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Ink)) { Text("📇 名刺（画像・SNS・本人確認）を編集") }
     }
 }
 
@@ -159,7 +170,7 @@ private fun CardEditPage(e: JSONObject) {
                 val bmp = dataUrlBitmap(e.optString("img"))
                 if (bmp != null) Image(bmp.asImageBitmap(), null, Modifier.size(56.dp).clip(CircleShape), contentScale = ContentScale.Crop)
                 else Text(e.optString("emoji").ifEmpty { "🙂" }, fontSize = 40.sp)
-                Button({ pick.launch("image/*") }, colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text("📷 画像を選ぶ") }
+                Button({ pick.launch("image/*") }, colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Ink)) { Text("📷 画像を選ぶ") }
                 if (e.optBoolean("clearShow")) TextButton({ Engine.cmd("type" to "ceAvatarClear") }) { Text("画像を削除", color = Red) }
             }
             if (e.optString("avatarMsg").isNotEmpty()) Text(e.optString("avatarMsg"), color = Orange, fontSize = 12.sp)
@@ -181,18 +192,18 @@ private fun CardEditPage(e: JSONObject) {
                     if (k.isNotEmpty()) {
                         val v = e.optJSONObject("ver" + k.replaceFirstChar { it.uppercase() })
                         if (v != null && v.optBoolean("verified")) Text("✅", Modifier.clickable { Engine.cmd("type" to "ceUnverify", "k" to k) }, fontSize = 22.sp)
-                        else if (v != null && v.optBoolean("btnShow")) Button({ Engine.cmd("type" to "ceVerify", "k" to k) }, enabled = !v.optBoolean("btnDisabled"), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text(v.optString("btnLabel").ifEmpty { "認証" }) }
+                        else if (v != null && v.optBoolean("btnShow")) Button({ Engine.cmd("type" to "ceVerify", "k" to k) }, enabled = !v.optBoolean("btnDisabled"), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Ink)) { Text(v.optString("btnLabel").ifEmpty { "認証" }) }
                     }
                 }
             }
             Row(Modifier.clickable { Engine.cmd("type" to "ceNoImg", "on" to !e.optBoolean("noImg")) }, verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(e.optBoolean("noImg"), { Engine.cmd("type" to "ceNoImg", "on" to it) })
-                Text("相手の名刺の画像を表示しない（絵文字だけにする）", color = Color.White, fontSize = 13.sp)
+                Text("相手の名刺の画像を表示しない（絵文字だけにする）", color = Ink, fontSize = 13.sp)
             }
             if (e.optString("warn").isNotEmpty()) Text(e.optString("warn"), color = Orange, fontSize = 12.sp)
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ Engine.cmd("type" to "ceClose") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text("閉じる") }
+            Button({ Engine.cmd("type" to "ceClose") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Ink)) { Text("閉じる") }
             Button({ Engine.cmd("type" to "ceSave") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White)) { Text("保存") }
         }
     }
@@ -216,7 +227,7 @@ private fun tipRow(value: String, label: String, current: String, input: Triple<
     Column {
         Row(Modifier.clickable { Engine.cmd("type" to "ceTipOpt", "v" to value) }, verticalAlignment = Alignment.CenterVertically) {
             RadioButton(current == value, { Engine.cmd("type" to "ceTipOpt", "v" to value) })
-            Text(label, color = Color.White, fontSize = 14.sp)
+            Text(label, color = Ink, fontSize = 14.sp)
         }
         if (input != null && current == value) {
             var v by remember { mutableStateOf(input.third) }
@@ -248,12 +259,12 @@ private fun AuthDialog(a: JSONObject) {
     AlertDialog(
         onDismissRequest = { Engine.cmd("type" to "caCancel") },
         containerColor = Card,
-        title = { Column { Text(a.optString("title"), color = Color.White); if (a.optString("account").isNotEmpty()) Text(a.optString("account"), color = Dim, fontSize = 12.sp) } },
+        title = { Column { Text(a.optString("title"), color = Ink); if (a.optString("account").isNotEmpty()) Text(a.optString("account"), color = Dim, fontSize = 12.sp) } },
         text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (a.optString("desc").isNotEmpty()) Text(a.optString("desc"), color = Color.White, fontSize = 13.sp)
+            if (a.optString("desc").isNotEmpty()) Text(a.optString("desc"), color = Ink, fontSize = 13.sp)
             if (a.optBoolean("codeShow")) Text(a.optString("code"), Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Bg).clickable { copy(ctx, a.optString("code")) }.padding(10.dp), color = Teal, fontSize = 13.sp)
             if (a.optBoolean("postShow")) {
-                Text(a.optString("post"), Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Bg).clickable { copy(ctx, a.optString("post")) }.padding(10.dp), color = Color.White, fontSize = 13.sp)
+                Text(a.optString("post"), Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Bg).clickable { copy(ctx, a.optString("post")) }.padding(10.dp), color = Ink, fontSize = 13.sp)
                 if (a.optString("tweet").startsWith("https://")) TextButton({ ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(a.optString("tweet")))) }) { Text("X で投稿する", color = Teal) }
             }
             if (a.optBoolean("inputShow")) OutlinedTextField(input, { input = it; Engine.cmd("type" to "caInput", "value" to it) }, Modifier.fillMaxWidth(), label = { Text("投稿・ページの URL") }, singleLine = true)
@@ -301,21 +312,21 @@ private fun BannedPage() {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(Engine.banned.toList()) { w ->
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Card).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(w, Modifier.weight(1f), color = Color.White, fontSize = 15.sp)
+                    Text(w, Modifier.weight(1f), color = Ink, fontSize = 15.sp)
                     TextButton({ del = w }) { Text("消す", color = Red) }
                 }
             }
             if (Engine.banned.isEmpty()) item { Text("まだ登録がありません", color = Dim) }
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ importer.launch("text/*") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text("📥 読み込む") }
-            Button({ exporter.launch("jiei-words-" + SimpleDateFormat("yyyy-MM-dd", Locale.JAPAN).format(Date()) + ".txt") }, Modifier.weight(1f), enabled = Engine.banned.isNotEmpty(), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text("📤 書き出す") }
+            Button({ importer.launch("text/*") }, Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Ink)) { Text("📥 読み込む") }
+            Button({ exporter.launch("jiei-words-" + SimpleDateFormat("yyyy-MM-dd", Locale.JAPAN).format(Date()) + ".txt") }, Modifier.weight(1f), enabled = Engine.banned.isNotEmpty(), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Ink)) { Text("📤 書き出す") }
         }
     }
     del?.let { w ->
         AlertDialog(onDismissRequest = { del = null }, containerColor = Card,
-            title = { Text("このワードを消しますか？", color = Color.White) },
-            text = { Text("「$w」を消すと、このワードを含む部屋が、また一覧に出ます。", color = Color.White) },
+            title = { Text("このワードを消しますか？", color = Ink) },
+            text = { Text("「$w」を消すと、このワードを含む部屋が、また一覧に出ます。", color = Ink) },
             confirmButton = { TextButton({ Engine.removeBanned(w); del = null }) { Text("消す", color = Red) } },
             dismissButton = { TextButton({ del = null }) { Text("やめる", color = Dim) } })
     }

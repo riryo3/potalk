@@ -52,7 +52,7 @@ fun ChatDrawer() {
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)).clickable { panel = Panel.None }) {
         AnimatedVisibility(shown, Modifier.align(Alignment.CenterEnd), enter = slideInHorizontally { it }, exit = slideOutHorizontally { it }) {
             Column(Modifier.fillMaxHeight().fillMaxWidth(0.88f).background(Bg).clickable(enabled = false) {}.padding(12.dp).imePadding()) {
-                Text("💬 ひとこと", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("💬 ひとこと", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Spacer(Modifier.height(8.dp))
                 val state = rememberLazyListState()
                 LaunchedEffect(Engine.chat.size) { if (Engine.chat.isNotEmpty()) state.scrollToItem(Engine.chat.size - 1) }
@@ -63,7 +63,7 @@ fun ChatDrawer() {
                             Text(c.optString("em"), fontSize = 18.sp)
                             Column(Modifier.padding(start = 8.dp)) {
                                 Text(c.optString("who"), color = if (c.optBoolean("hist")) Dim else Teal, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                LinkText(c.optString("text"), if (c.optBoolean("hist")) Dim else Color.White, 15.sp)
+                                LinkText(c.optString("text"), if (c.optBoolean("hist")) Dim else Ink, 15.sp)
                             }
                         }
                     }
@@ -85,13 +85,13 @@ fun LobbySheet(room: JSONObject) {
     var pick by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(12.dp))
-        Text("🏠 通話中の部屋", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text("🏠 通話中の部屋", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Ink)
         Text("いまの部屋：" + room.optString("state"), fontSize = 12.sp, color = Dim)
         Spacer(Modifier.height(8.dp))
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             roomsList(this, exceptId = room.optString("rid")) { id -> pick = id }
         }
-        Button({ Engine.cmd("type" to "refreshLobby") }, Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Color.White)) { Text("🔄 一覧を更新") }
+        Button({ Engine.cmd("type" to "refreshLobby") }, Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Ink)) { Text("🔄 一覧を更新") }
     }
     pick?.let { id ->
         AlertDialog(
@@ -109,7 +109,7 @@ fun LobbySheet(room: JSONObject) {
 fun SettingsSheet(room: JSONObject) {
     Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(12.dp))
-        Text("⚙ 設定", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text("⚙ 設定", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Ink)
         Spacer(Modifier.height(8.dp))
         ProfileEntries()
         Spacer(Modifier.height(8.dp))
@@ -123,19 +123,19 @@ fun SettingsSheet(room: JSONObject) {
                         val v = s.optString("value").toFloatOrNull() ?: 0f
                         var cur by remember(id, v) { mutableStateOf(v) }
                         Column {
-                            Text(s.optString("label"), color = Color.White, fontSize = 14.sp)
+                            Text(s.optString("label"), color = Ink, fontSize = 14.sp)
                             Slider(cur, { cur = it }, valueRange = (s.optString("min").toFloatOrNull() ?: 0f)..(s.optString("max").toFloatOrNull() ?: 100f),
                                 onValueChangeFinished = { Engine.cmd("type" to "set", "id" to id, "value" to cur.toString()) })
                         }
                     }
                     "check" -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(s.optString("label"), Modifier.weight(1f), color = Color.White, fontSize = 14.sp)
+                        Text(s.optString("label"), Modifier.weight(1f), color = Ink, fontSize = 14.sp)
                         Switch(s.optBoolean("checked"), { Engine.cmd("type" to "set", "id" to s.optString("id"), "value" to it) })
                     }
                     "radios" -> Column {
                         for (r in s.arr("items")) Row(Modifier.fillMaxWidth().clickable { Engine.cmd("type" to "set", "id" to r.optString("id"), "value" to true) }, verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(r.optBoolean("checked"), { Engine.cmd("type" to "set", "id" to r.optString("id"), "value" to true) })
-                            Text(r.optString("label"), color = Color.White, fontSize = 14.sp)
+                            Text(r.optString("label"), color = Ink, fontSize = 14.sp)
                         }
                     }
                     "note" -> Text(s.optString("text"), color = Dim, fontSize = 12.sp)
@@ -154,7 +154,7 @@ fun MailDrawer(room: JSONObject) {
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)).clickable { panel = Panel.None }) {
         AnimatedVisibility(shown, Modifier.align(Alignment.CenterEnd), enter = slideInHorizontally { it }, exit = slideOutHorizontally { it }) {
             Column(Modifier.fillMaxHeight().fillMaxWidth(0.88f).background(Bg).clickable(enabled = false) {}.padding(12.dp).imePadding()) {
-                Text("📮 おたより", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("📮 おたより", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (mail != null) {
@@ -183,10 +183,10 @@ fun MailDrawer(room: JSONObject) {
 @Composable
 private fun MailRow(text: String, btns: List<JSONObject>, em: String?) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Card).padding(10.dp)) {
-        if (text.isNotEmpty()) LinkText((if (em.isNullOrEmpty()) "" else "$em ") + text, Color.White, 14.sp)
+        if (text.isNotEmpty()) LinkText((if (em.isNullOrEmpty()) "" else "$em ") + text, Ink, 14.sp)
         if (btns.isNotEmpty()) Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (b in btns) Text(b.optString("label").trim().ifEmpty { "…" }, Modifier.clip(RoundedCornerShape(8.dp)).background(if (b.optBoolean("on")) Teal else Bg).clickable { Engine.cmd("type" to "mailbtn", "i" to b.optInt("i")) }.padding(horizontal = 10.dp, vertical = 6.dp),
-                color = Color.White, fontSize = 13.sp)
+                color = Ink, fontSize = 13.sp)
         }
     }
 }
@@ -202,12 +202,12 @@ fun CardDialog(room: JSONObject) {
         title = { Row(verticalAlignment = Alignment.CenterVertically) {
             Text(c.optString("emoji"), fontSize = 32.sp)
             Column(Modifier.padding(start = 10.dp)) {
-                Text(c.optString("name"), color = Color.White, fontWeight = FontWeight.Bold)
+                Text(c.optString("name"), color = Ink, fontWeight = FontWeight.Bold)
                 if (c.optString("state").isNotEmpty()) Text(c.optString("state"), color = Dim, fontSize = 12.sp)
             }
         } },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (c.optString("bio").isNotEmpty()) LinkText(c.optString("bio"), Color.White, 14.sp)
+            if (c.optString("bio").isNotEmpty()) LinkText(c.optString("bio"), Ink, 14.sp)
             for (s in c.arr("socials")) Text("🔗 " + s.optString("t"), Modifier.clickable {
                 val u = s.optString("u"); if (u.startsWith("https://") || u.startsWith("http://")) ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)))
             }, color = Teal, fontSize = 14.sp)
@@ -226,8 +226,8 @@ fun IgnoreDialog(room: JSONObject) {
     AlertDialog(
         onDismissRequest = { Engine.cmd("type" to "ignoreNo") },
         containerColor = Card,
-        title = { Text(a.optString("title"), color = Color.White) },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { if (items != null) for (i in 0 until items.length()) Text("・" + items.optString(i), color = Color.White, fontSize = 14.sp) } },
+        title = { Text(a.optString("title"), color = Ink) },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { if (items != null) for (i in 0 until items.length()) Text("・" + items.optString(i), color = Ink, fontSize = 14.sp) } },
         confirmButton = { TextButton({ Engine.cmd("type" to "ignoreYes") }) { Text(a.optString("yes").ifEmpty { "無視する" }, color = Red) } },
         dismissButton = { TextButton({ Engine.cmd("type" to "ignoreNo") }) { Text(a.optString("no").ifEmpty { "やめる" }, color = Teal) } }
     )
@@ -240,7 +240,7 @@ fun TagDialog(current: String, done: (String?) -> Unit) {
     AlertDialog(
         onDismissRequest = { done(null) },
         containerColor = Card,
-        title = { Text("🏷 話題タグ", color = Color.White) },
+        title = { Text("🏷 話題タグ", color = Ink) },
         text = { OutlinedTextField(text, { text = it.take(30) }, singleLine = true, placeholder = { Text("いまの話題（30 文字まで）") }) },
         confirmButton = { TextButton({ done(text.trim()) }) { Text("決める", color = Teal) } },
         dismissButton = { TextButton({ done(null) }) { Text("やめる", color = Dim) } }
