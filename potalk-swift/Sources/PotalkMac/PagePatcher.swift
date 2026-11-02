@@ -57,6 +57,15 @@ enum PagePatcher {
         Patch(find: "const roomUrl = (id, name) => location.origin + location.pathname + '#room=' + id + (name ? '&name=' + encodeURIComponent(name) : '')", replace: { _ in
             "const roomUrl = (id, name) => location.origin + location.pathname + '#room=' + id" }),
         Patch(find: "btn.onclick = () => askRoom(room, lobbyName(room, people))", replace: { "btn.dataset.room = room; " + $0 }),
+        // ひとこと着信音：相手のひとこと（自分の分・履歴は除く）が届いたら、ピコンと鳴らす。設定にスイッチを足す（既定オン・localStorage に保存）
+        Patch(find: "id=\"sndReact\"> 🎵 リアクションを音で鳴らす</label>", replace: {
+            $0 + "\n      <label class=\"snd-opt\" id=\"sndChatRow\"><input type=\"checkbox\" id=\"sndChat\"> 💬 ひとことが届いたら音で鳴らす</label>" }),
+        Patch(find: "const seenRooms = new Set()", replace: {
+            "const SND_CHAT_KEY = 'pot-call-snd-chat'\nlet sndChat = lsGet(SND_CHAT_KEY) !== '0'   // 未保存＝オン\nconst soundChat = () => { if (sndChat) playTones([[880, 0, 0.07], [1175, 0.07, 0.12]]) }   // 短いピコン＝ひとこと\n" + $0 }),
+        Patch(find: "  reactBox.onchange = () => {\n", replace: {
+            "  { const chatBox = $('sndChat'); chatBox.checked = sndChat; chatBox.onchange = () => { sndChat = chatBox.checked; lsSet(SND_CHAT_KEY, sndChat ? '1' : '0'); if (sndChat) { try { ensureAudioCtx() } catch {} ; soundChat() } } }\n" + $0 }),
+        Patch(find: "const logChat = (uid, text) => {\n  const me = uid === 'self'\n", replace: {
+            $0 + "  if (!me) { try { soundChat() } catch {} }\n" }),
         Patch(find: "const flyReaction = (uid, idx) => {\n", replace: {
             $0 + "  try { window.__pm && window.__pm.react(uid, idx, REACTIONS[idx], uid === 'self' ? '' : ((call.profiles.get(uid) || {}).name || '')) } catch {}\n" }),
     ]
