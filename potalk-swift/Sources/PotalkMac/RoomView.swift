@@ -37,6 +37,7 @@ struct RoomView: View {
                     if let e = errorText { errorBanner(e) }
                     if !r.notice.isEmpty && r.notice != dismissedNotice { pageBanner(r.notice, bad: r.notice.hasPrefix("🔌") || r.notice.contains("失敗") || r.notice.contains("できません")) { dismissedNotice = r.notice } }
                     if !r.audioWarn.isEmpty { pageBanner(r.audioWarn, bad: false) {} }
+                    if !r.crowdNote.isEmpty { pageBanner(r.crowdNote, bad: r.crowdNote.contains("に達しました")) {} }
                 }
                 members
                 legendAndEq
