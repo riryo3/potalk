@@ -614,15 +614,17 @@ function render() {
   renderTabs()
 }
 
-// 誰かがリアクションを押すと、絵文字が下から浮かんで、消える（Mac 版・Windows 版と同じ：1.4 秒で 110 上がって、薄くなる。自分の分は、左端、ほかの人の分は、横にばらける）。部屋の画面があるとき（ひとつの窓・分けた窓の「部屋」）だけ
+// 誰かがリアクションを押すと、その人の行から、絵文字が浮かんで、消える（Mac 版と同じ：行の左から 36 のあたりに出て、1.4 秒で 90 上がって、少し大きくなりながら、薄くなる）。部屋の画面があるとき（ひとつの窓・分けた窓の「部屋」）だけ
 function flyReaction(d) {
   if (!d || !d.e || !(KIND === 'single' || KIND === 'room') || !(S.room && S.room.joined)) return
   if (document.querySelectorAll('.fly-react').length >= 12) return
-  const self = d.u === 'self', f = el('div', 'fly-react')
-  f.append(el('div', 'fly-em', d.e)); if (!self && d.n) f.append(el('div', 'fly-who', d.n))
-  const w = window.innerWidth, h = window.innerHeight
-  f.style.left = (self ? 40 + (Math.random() * 16 - 8) : 40 + Math.random() * Math.max(20, w - 140)) + 'px'
-  f.style.top = Math.max(120, h * 0.6) + 'px'
+  const self = d.u === 'self'
+  const rows = [...document.querySelectorAll('#members .member')]
+  const row = self ? rows.find(r => r.classList.contains('you')) : rows.find(r => d.n && (r.querySelector('.name') || {}).textContent && r.querySelector('.name').textContent.includes(d.n))
+  const rc = row ? row.getBoundingClientRect() : null
+  const f = el('div', 'fly-react', d.e)
+  f.style.left = ((rc ? rc.left : 20) + 36 + (Math.random() * 20 - 10) - 15) + 'px'
+  f.style.top = ((rc ? rc.top + rc.height / 2 : 200) - 17) + 'px'
   f.onanimationend = () => f.remove()
   document.body.append(f)
 }

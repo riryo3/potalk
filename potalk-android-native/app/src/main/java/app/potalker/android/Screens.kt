@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -254,7 +257,7 @@ private fun RoomMain(room: JSONObject, modifier: Modifier) {
         LazyColumn(Modifier.weight(1f).padding(end = 26.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {      // 右端のタブが、♥ などに重ならないように、右を空ける
             itemsIndexed(members) { idx, m ->
                 val speaking = m.optBoolean("speaking")
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (speaking) Teal.copy(alpha = 0.25f) else Card)
+                Row(Modifier.fillMaxWidth().onGloballyPositioned { rowBounds[if (m.optBoolean("you")) "\u0000you" else "n:" + m.optString("name")] = it.boundsInRoot() }.clip(RoundedCornerShape(12.dp)).background(if (speaking) Teal.copy(alpha = 0.25f) else Card)
                     .clickable(enabled = m.optBoolean("tap")) { Engine.cmd("type" to "card", "i" to idx) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(m.optString("em"), fontSize = 24.sp)
                     Spacer(Modifier.padding(6.dp))
@@ -314,26 +317,28 @@ private fun RoomMain(room: JSONObject, modifier: Modifier) {
     }
 }
 
-/** 誰かがリアクションを押すと、絵文字が下から浮かんで、消える（Mac 版・Windows 版と同じ：1.4 秒で 110 上がって、薄くなる。自分の分は、左端、ほかの人の分は、横にばらける） */
+/** 部屋の画面の、参加者の行の場所（リアクションの絵文字が、押した人の行から出るために使う） */
+val rowBounds = androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.ui.geometry.Rect>()
+
+/** 誰かがリアクションを押すと、その人の行から、絵文字が浮かんで、消える（Mac 版と同じ：行の左から 36 のあたりに出て、1.4 秒で 90 上がって、少し大きくなりながら、薄くなる） */
 @Composable
 private fun FlyingReactions() {
-    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
-        val w = maxWidth; val h = maxHeight
+    var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }) {
         for (f in Engine.flies.toList()) androidx.compose.runtime.key(f.id) {
             val t = remember { androidx.compose.animation.core.Animatable(0f) }
             androidx.compose.runtime.LaunchedEffect(Unit) {
-                t.animateTo(1f, androidx.compose.animation.core.tween(1400, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+                t.animateTo(1f, androidx.compose.animation.core.tween(1400, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
                 Engine.flies.remove(f)
             }
-            val x = if (f.self) 40.dp + (f.xr * 16f - 8f).dp else 40.dp + ((w - 140.dp).coerceAtLeast(20.dp)) * f.xr
-            val y0 = maxOf(120.dp, h * 0.6f)
-            Column(
-                Modifier.offset(x, y0 - 110.dp * t.value).graphicsLayer { alpha = 1f - t.value },
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(f.emoji, fontSize = 26.sp)
-                if (f.who.isNotEmpty()) Text(f.who, color = Dim, fontSize = 10.sp, maxLines = 1)
-            }
+            val r = rowBounds[if (f.self) "\u0000you" else "n:" + f.who]
+            val x = with(density) { ((r?.left ?: (origin.x + 40.dp.toPx())) - origin.x).toDp() } + 36.dp + f.dx.dp - 15.dp
+            val y = with(density) { ((r?.center?.y ?: (origin.y + 200.dp.toPx())) - origin.y).toDp() } - 17.dp
+            Text(
+                f.emoji, fontSize = 26.sp,
+                modifier = Modifier.offset(x, y - 90.dp * t.value).graphicsLayer { alpha = 1f - t.value; val sc = 0.6f + 0.4f * t.value; scaleX = sc; scaleY = sc }
+            )
         }
     }
 }

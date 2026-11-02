@@ -49,7 +49,7 @@ object Engine {
     var spkMuted by mutableStateOf(false)
     val chat = mutableStateListOf<JSONObject>()
     /** 部屋の画面に、いま浮かんでいるリアクション（絵文字）。Mac 版・Windows 版と同じく、最大 12 個 */
-    class Fly(val id: Long, val emoji: String, val who: String, val self: Boolean, val xr: Float)
+    class Fly(val id: Long, val emoji: String, val who: String, val self: Boolean, val dx: Float)
     val flies = mutableStateListOf<Fly>()
     private var flySeq = 0L
     var unread by mutableStateOf(0)         // ひとこと欄を開いていない間に届いた、新着の数
@@ -178,7 +178,7 @@ object Engine {
             "profile" -> profile = d as? JSONObject
             "cards" -> cards = d as? JSONObject
             "react" -> (d as? JSONObject)?.let { r ->
-                if (flies.size < 12 && r.optString("e").isNotEmpty()) flies.add(Fly(++flySeq, r.optString("e"), if (r.optString("u") == "self") "" else r.optString("n"), r.optString("u") == "self", Math.random().toFloat()))
+                if (flies.size < 12 && r.optString("e").isNotEmpty()) flies.add(Fly(++flySeq, r.optString("e"), if (r.optString("u") == "self") "" else r.optString("n"), r.optString("u") == "self", (Math.random() * 20 - 10).toFloat()))
             }
             "room" -> { room = d as? JSONObject; onJoinedChanged(); checkBannedMembers(); applyPendingMute() }
             "chat" -> (d as? JSONObject)?.let {
