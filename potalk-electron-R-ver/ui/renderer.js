@@ -178,6 +178,7 @@ function renderRoom() {
   if (isBad(r.state) && !S.errHidden && Date.now() - S.errAt < 10000) msgs.push({ t: r.state, cls: 'bad', onclick: () => { S.errHidden = true; renderRoom() } })
   if (r.notice && r.notice !== S.dismissed) msgs.push({ t: r.notice, cls: /^🔌|失敗|できません/.test(r.notice) ? 'bad' : 'warn', dismiss: true })
   if (r.audioWarn) msgs.push({ t: r.audioWarn, cls: 'warn' })
+  if (r.crowdNote) msgs.push({ t: r.crowdNote, cls: /に達しました/.test(r.crowdNote) ? 'bad' : 'warn' })      // 人数が多いときの警告（#crowdNote）
   for (const h of hits) msgs.push({ t: `🛡 自衛ワード「${h.w}」を含む名前の人がいます：${h.name}`, cls: 'warn' })
   const ban = $('banner'); ban.replaceChildren(); ban.hidden = !msgs.length
   for (const m of msgs) {
