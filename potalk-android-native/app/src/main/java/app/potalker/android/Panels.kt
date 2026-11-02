@@ -140,3 +140,105 @@ fun SettingsSheet(room: JSONObject) {
         }
     }
 }
+
+/** おたより（配信部屋）：右から出る引き出し */
+@Composable
+fun MailDrawer(room: JSONObject) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    val mail = room.optJSONObject("mail")
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)).clickable { panel = Panel.None }) {
+        AnimatedVisibility(shown, Modifier.align(Alignment.CenterEnd), enter = slideInHorizontally { it }, exit = slideOutHorizontally { it }) {
+            Column(Modifier.fillMaxHeight().fillMaxWidth(0.88f).background(Bg).clickable(enabled = false) {}.padding(12.dp).imePadding()) {
+                Text("📮 おたより", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (mail != null) {
+                        items(mail.arr("head")) { h -> MailRow(h.optString("text"), h.arr("btns"), null) }
+                        items(mail.arr("body")) { b ->
+                            if (b.optBoolean("item")) MailRow(b.optString("who") + "　" + b.optString("text"), b.arr("btns"), b.optString("em"))
+                            else if (b.optString("text").isNotEmpty()) Text(b.optString("text"), color = Dim, fontSize = 13.sp)
+                        }
+                    }
+                }
+                val form = mail?.optJSONObject("form")
+                if (form != null) {
+                    var text by remember { mutableStateOf("") }
+                    val max = form.optInt("max", 60).let { if (it <= 0) 60 else it }
+                    fun send() { val x = text.trim(); if (x.isNotEmpty()) { Engine.cmd("type" to "mailsend", "text" to x); text = "" } }
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(text, { text = it.take(max) }, Modifier.weight(1f), placeholder = { Text(form.optString("ph").ifEmpty { "おたより…" }) }, singleLine = true)
+                        Button(::send, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White)) { Text(form.optString("btn").ifEmpty { "送る" }) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MailRow(text: String, btns: List<JSONObject>, em: String?) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Card).padding(10.dp)) {
+        if (text.isNotEmpty()) Text((if (em.isNullOrEmpty()) "" else "$em ") + text, color = Color.White, fontSize = 14.sp)
+        if (btns.isNotEmpty()) Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (b in btns) Text(b.optString("label").trim().ifEmpty { "…" }, Modifier.clip(RoundedCornerShape(8.dp)).background(if (b.optBoolean("on")) Teal else Bg).clickable { Engine.cmd("type" to "mailbtn", "i" to b.optInt("i")) }.padding(horizontal = 10.dp, vertical = 6.dp),
+                color = Color.White, fontSize = 13.sp)
+        }
+    }
+}
+
+/** 相手の名刺（名前の行を押すと出る）。無視のボタンもここにある */
+@Composable
+fun CardDialog(room: JSONObject) {
+    val c = room.optJSONObject("card") ?: return
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    AlertDialog(
+        onDismissRequest = { Engine.cmd("type" to "cardClose") },
+        containerColor = Card,
+        title = { Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(c.optString("emoji"), fontSize = 32.sp)
+            Column(Modifier.padding(start = 10.dp)) {
+                Text(c.optString("name"), color = Color.White, fontWeight = FontWeight.Bold)
+                if (c.optString("state").isNotEmpty()) Text(c.optString("state"), color = Dim, fontSize = 12.sp)
+            }
+        } },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (c.optString("bio").isNotEmpty()) Text(c.optString("bio"), color = Color.White, fontSize = 14.sp)
+            for (s in c.arr("socials")) Text("🔗 " + s.optString("t"), Modifier.clickable {
+                val u = s.optString("u"); if (u.startsWith("https://") || u.startsWith("http://")) ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)))
+            }, color = Teal, fontSize = 14.sp)
+            if (c.optString("foot").isNotEmpty()) Text(c.optString("foot"), color = Dim, fontSize = 11.sp)
+        } },
+        confirmButton = { TextButton({ Engine.cmd("type" to "cardClose") }) { Text("閉じる", color = Teal) } },
+        dismissButton = c.optJSONObject("ignore")?.let { ig -> { TextButton({ Engine.cmd("type" to "cardIgnore") }, enabled = !ig.optBoolean("disabled")) { Text(ig.optString("text").ifEmpty { "無視する" }, color = Red) } } }
+    )
+}
+
+/** 「無視」の確認 */
+@Composable
+fun IgnoreDialog(room: JSONObject) {
+    val a = room.optJSONObject("ignoreAsk") ?: return
+    val items = a.optJSONArray("items")
+    AlertDialog(
+        onDismissRequest = { Engine.cmd("type" to "ignoreNo") },
+        containerColor = Card,
+        title = { Text(a.optString("title"), color = Color.White) },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { if (items != null) for (i in 0 until items.length()) Text("・" + items.optString(i), color = Color.White, fontSize = 14.sp) } },
+        confirmButton = { TextButton({ Engine.cmd("type" to "ignoreYes") }) { Text(a.optString("yes").ifEmpty { "無視する" }, color = Red) } },
+        dismissButton = { TextButton({ Engine.cmd("type" to "ignoreNo") }) { Text(a.optString("no").ifEmpty { "やめる" }, color = Teal) } }
+    )
+}
+
+/** 話題タグを付ける・変える */
+@Composable
+fun TagDialog(current: String, done: (String?) -> Unit) {
+    var text by remember { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = { done(null) },
+        containerColor = Card,
+        title = { Text("🏷 話題タグ", color = Color.White) },
+        text = { OutlinedTextField(text, { text = it.take(30) }, singleLine = true, placeholder = { Text("いまの話題（30 文字まで）") }) },
+        confirmButton = { TextButton({ done(text.trim()) }) { Text("決める", color = Teal) } },
+        dismissButton = { TextButton({ done(null) }) { Text("やめる", color = Dim) } }
+    )
+}
