@@ -98,8 +98,20 @@ object Engine {
         val w = web ?: return
         if (!ready) return
         pendingLink = null
-        w.loadUrl(url)
-        // リンクの部屋が、いま開かれていないときは、ページが「このまま入ってみる」を出す。少し待って、押す（開いている部屋なら、押す先がないので、何も起きない）
+        if (isJoined) { w.loadUrl(url); return }
+        val id = Uri.parse(url).fragment.orEmpty().removePrefix("room=").substringBefore("&")
+        if (id.isEmpty()) { w.loadUrl(url); return }
+        joinLinkRoom(url, id, 0)
+    }
+
+    /** リンクの部屋が、ロビーの一覧にあれば、一覧から入る（確実）。一覧に出てくるまで少し待ち、出なければ、ページのリンクの入り方にまかせる */
+    private fun joinLinkRoom(url: String, id: String, tries: Int) {
+        if (isJoined) return
+        if (lobby?.arr("rooms").orEmpty().any { it.optString("id") == id }) { cmd("type" to "join", "id" to id, "quiet" to false); return }
+        if (tries < 8) { main.postDelayed({ joinLinkRoom(url, id, tries + 1) }, 1500); return }
+        // 部屋が、いま開かれていないとき：ページに、リンクを開かせて、「このまま入ってみる」を押す
+        val frag = Uri.parse(url).fragment.orEmpty()
+        main.post { web?.evaluateJavascript("(function(h){location.hash='';setTimeout(function(){location.hash=h},80)})(${JSONObject.quote(frag)})", null) }
         for (ms in longArrayOf(8000, 14000)) main.postDelayed({ if (!isJoined) cmd("type" to "entryTry") }, ms)
     }
 
