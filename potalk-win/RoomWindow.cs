@@ -36,9 +36,9 @@ public sealed class RoomWindow : Window
     readonly Grid root = new();
     readonly Canvas fx = new() { IsHitTestVisible = false };
     readonly Border overlay = new() { Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)), Visibility = Visibility.Collapsed };
-    readonly ComboBox mic = new() { FontSize = 12, MaxWidth = 150 };
+    Button micBtn;
+    readonly TextBlock roomName = Ui.Txt("", 13, bold: true);
     string lastOverlay = "", lastReact = "";
-    bool micBusy;
 
     public RoomWindow(AppModel m)
     {
@@ -52,13 +52,20 @@ public sealed class RoomWindow : Window
         pin = Ui.Btn("📌 最前面", () => { M.PinRoom = !M.PinRoom; Topmost = M.PinRoom; UpdatePin(); }, size: 12);
         var settings = Ui.Btn("⚙ 設定", M.OpenSettings, size: 12);
         if (M.S.SinglePane) { pin.Visibility = Visibility.Collapsed; settings.Visibility = Visibility.Collapsed; }
-        mic.SelectionChanged += (_, _) => { if (!micBusy && mic.SelectedIndex >= 0) M.SwitchMic(mic.SelectedIndex == 0 ? "" : (string)mic.SelectedItem); };
-        var head2 = new DockPanel { Margin = new Thickness(0, 6, 0, 0) };
-        DockPanel.SetDock(pin, Dock.Right); DockPanel.SetDock(settings, Dock.Right); settings.Margin = new Thickness(0, 0, 6, 0);
-        head2.Children.Add(pin); head2.Children.Add(settings); head2.Children.Add(mic); mic.HorizontalAlignment = HorizontalAlignment.Left; mic.Margin = new Thickness(0, 0, 6, 0);
+        micBtn = Ui.Btn("🎤", ShowMicMenu, size: 13); micBtn.Margin = new Thickness(6, 0, 0, 0);
+        // 最前面・設定は、シングルペインでは出さない。出すときは、3 行目に右寄せで置く
+        var head3 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 6, 0, 0) };
+        settings.Margin = new Thickness(6, 0, 0, 0);
+        head3.Children.Add(pin); head3.Children.Add(settings);
+        if (M.S.SinglePane) head3.Visibility = Visibility.Collapsed;
         var head = new StackPanel { Margin = new Thickness(12, 8, 12, 8) };
-        var retry = Ui.Btn("🔄 つなぎ直す", () => E.Cmd(new { type = "reconnect" }), size: 12); retry.Margin = new Thickness(10, 0, 0, 0); retry.ToolTip = "通話をつなぎ直す（数秒、声が途切れます）";
-        head.Children.Add(state); var cr = new StackPanel { Orientation = Orientation.Horizontal }; cr.Children.Add(count); cr.Children.Add(retry); head.Children.Add(cr); head.Children.Add(head2);
+        var retry = Ui.Btn("🔄 つなぎ直す", () => E.Cmd(new { type = "reconnect" }), size: 12); retry.Margin = new Thickness(6, 0, 0, 0); retry.ToolTip = "通話をつなぎ直す（数秒、声が途切れます）";
+        // [部屋名] / [ステータス][人数]　　　[つなぎ直す][🎤]
+        roomName.TextTrimming = TextTrimming.CharacterEllipsis; state.FontWeight = FontWeights.Normal; state.TextTrimming = TextTrimming.CharacterEllipsis; count.Margin = new Thickness(8, 0, 0, 0);
+        var line2 = new DockPanel { Margin = new Thickness(0, 4, 0, 0), LastChildFill = true };
+        DockPanel.SetDock(micBtn, Dock.Right); DockPanel.SetDock(retry, Dock.Right); line2.Children.Add(micBtn); line2.Children.Add(retry);
+        var sc = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center }; sc.Children.Add(state); sc.Children.Add(count); line2.Children.Add(sc);
+        head.Children.Add(roomName); head.Children.Add(line2); head.Children.Add(head3);
 
         mailBanner = new Border { Background = Ui.TealSoft, Padding = new Thickness(12, 8, 12, 8), Visibility = Visibility.Collapsed };
         var mb = new StackPanel(); mb.Children.Add(mailCap); mb.Children.Add(mailBody); mailBanner.Child = mb;
@@ -189,10 +196,21 @@ public sealed class RoomWindow : Window
 
     void RefreshMicList()
     {
-        micBusy = true; mic.Items.Clear(); mic.Items.Add("🎤 既定のマイク");
-        foreach (var n in M.Mics) mic.Items.Add(n);
-        mic.SelectedIndex = M.S.MicLabel.Length == 0 ? 0 : Math.Max(0, M.Mics.IndexOf(M.S.MicLabel) + 1);
-        micBusy = false;
+        micBtn.ToolTip = $"マイクを選ぶ（いま：{(M.S.MicLabel.Length == 0 ? "既定のマイク" : M.S.MicLabel)}）";
+    }
+
+    void ShowMicMenu()
+    {
+        var menu = new ContextMenu { PlacementTarget = micBtn, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        void Add(string label, string value)
+        {
+            var it = new MenuItem { Header = label, IsCheckable = true, IsChecked = M.S.MicLabel == value };
+            it.Click += (_, _) => M.SwitchMic(value);
+            menu.Items.Add(it);
+        }
+        Add("既定のマイク", "");
+        foreach (var n in M.Mics) Add(n, n);
+        menu.IsOpen = true;
     }
 
     void UpdateChatBtn()
@@ -242,7 +260,10 @@ public sealed class RoomWindow : Window
     {
         var r = E.Room;
         var all = r.A("members").ToList();
-        state.Text = r.S("state").Length == 0 ? "未参加" : r.S("state");
+        var st = r.S("state").Length == 0 ? "未参加" : r.S("state");
+        var ci = st.IndexOf('：');     // 「通話中：部屋の名前」を、部屋の名前とステータスに分ける
+        roomName.Text = ci >= 0 ? st[(ci + 1)..] : ""; roomName.Visibility = ci >= 0 ? Visibility.Visible : Visibility.Collapsed;
+        state.Text = ci >= 0 ? st[..ci] : st; state.ToolTip = st;
         count.Text = $"{all.Count}人";
         UpdateBanners(r);
 
