@@ -72,7 +72,10 @@ object Engine {
     private var backoffMs = 60_000L
     private var autoCount = 0
     private var lastSig = ""
-    private val badGraceMs = 90_000L                    // 切れた状態がこれだけ続いたら、つなぎ直す
+    private var splitSince = 0L                         // 人数が合わない状態が続き始めた時刻（0＝いま、合っている）
+    private var splitNextAt = 0L                        // この時刻までは、人数の食い違いで入り直さない（入り直しが続かないように）
+    private val splitGraceMs = 120_000L                 // 人数が合わない状態が、これだけ続いたら、入り直す
+    private val badGraceMs = 90_000L                   // 切れた状態がこれだけ続いたら、つなぎ直す
     private val watchdog = object : Runnable {
         override fun run() {
             if (!isJoined) return
@@ -82,6 +85,18 @@ object Engine {
             val stale = healthAt != 0L && now - healthAt > 60_000          // ページから、1 分以上、何も届かない
             val netBad = others && pcN > 0 && pcOk == 0 || others && pcN == 0 && healthAt != 0L
             val bad = netBad || micBad || stale
+            // 部屋が割れている：ロビーの一覧の人数と、自分に見えている人数が、合わない状態が続く（自分は部屋にいるつもりで、ほかの人から見えていない）
+            val seen = room?.optJSONArray("members")?.length() ?: 0
+            val lr = lobby?.arr("rooms").orEmpty().firstOrNull { it.optString("id") == room?.optString("rid") }
+            val lobbyN = lr?.optString("count")?.filter { it.isDigit() }?.toIntOrNull()
+            if (lr != null && !lr.optBoolean("bc") && lobbyN != null && lobbyN != seen) {
+                if (splitSince == 0L) { splitSince = now; log("部屋の人数が、一覧と合いません（自分から見て $seen 人、一覧は $lobbyN 人）") }
+                if (now - splitSince >= splitGraceMs && now >= splitNextAt) {
+                    splitNextAt = now + 600_000L; splitSince = 0L
+                    recoverWebView(false, "部屋の人数が、一覧と合わない状態が続いています（自分から見て $seen 人、一覧は $lobbyN 人）。ページを作り直して、部屋に入り直します")
+                    return
+                }
+            } else splitSince = 0L
             if (!bad) { badSince = 0L; if (goodSince == 0L) goodSince = now; if (now - goodSince > 120_000) backoffMs = 60_000L }
             else {
                 goodSince = 0L
@@ -98,7 +113,7 @@ object Engine {
             main.postDelayed(this, 15_000)
         }
     }
-    private fun startWatchdog() { main.removeCallbacks(watchdog); healthAt = 0L; badSince = 0L; goodSince = 0L; nextTryAt = 0L; backoffMs = 60_000L; autoCount = 0; main.postDelayed(watchdog, 15_000) }
+    private fun startWatchdog() { main.removeCallbacks(watchdog); splitSince = 0L; healthAt = 0L; badSince = 0L; goodSince = 0L; nextTryAt = 0L; backoffMs = 60_000L; autoCount = 0; main.postDelayed(watchdog, 15_000) }
 
     // ---- 通話の記録（切れた原因を、後から調べるため。端末の中だけに残す） ----
     private val logFile get() = java.io.File(app.filesDir, "call.log")
@@ -212,9 +227,9 @@ object Engine {
     }
 
     /** システム（機種の省電力など）に、ページの描画プロセスだけを終了させられたとき：アプリごと落ちずに、ページを作り直して、同じ部屋に入り直す */
-    private fun recoverWebView(crashed: Boolean) {
+    private fun recoverWebView(crashed: Boolean, why: String? = null) {
         val rid = if (isJoined) room?.optString("rid").orEmpty() else ""
-        log("ページの描画プロセスが${if (crashed) "クラッシュ" else "システムに終了"}されました。ページを作り直します${if (rid.isNotEmpty()) "（部屋に入り直します）" else ""}")
+        log(why ?: "ページの描画プロセスが${if (crashed) "クラッシュ" else "システムに終了"}されました。ページを作り直します${if (rid.isNotEmpty()) "（部屋に入り直します）" else ""}")
         try { web?.destroy() } catch (e: Exception) {}
         web = null; ready = false; room = null; joined = false
         lobby = null          // 前のページの部屋の一覧が残っていると、新しいページの準備ができる前に、入る命令を出してしまう
