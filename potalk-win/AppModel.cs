@@ -153,13 +153,39 @@ public sealed class AppModel
     int lastHands;
     System.Windows.Forms.NotifyIcon tray;
 
+    bool loggedJoined;
+    static readonly object logLock = new();
+    /// <summary>通話の記録（%APPDATA%\Potalker\call.log）。切れた・落ちた原因を、あとから調べるため。端末の中だけに残る</summary>
+    public static void CallLog(string msg)
+    {
+        try
+        {
+            lock (logLock)
+            {
+                var dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Potalker");
+                System.IO.Directory.CreateDirectory(dir);
+                var f = System.IO.Path.Combine(dir, "call.log");
+                if (System.IO.File.Exists(f) && new System.IO.FileInfo(f).Length > 200000)
+                {
+                    var t = System.IO.File.ReadAllText(f);
+                    System.IO.File.WriteAllText(f, t.Substring(t.Length - 100000));
+                }
+                System.IO.File.AppendAllText(f, $"{DateTime.Now:MM/dd HH:mm:ss} {msg}\n");
+            }
+        }
+        catch { }
+    }
+
     public void Start()
     {
         tray = new System.Windows.Forms.NotifyIcon { Icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath) ?? System.Drawing.SystemIcons.Application, Visible = true, Text = "Potalker" };
         tray.BalloonTipClicked += (_, _) => { Main?.Show(); Main?.Activate(); };
         Application.Current.Exit += (_, _) => { tray.Visible = false; tray.Dispose(); };
 
-        E.Log = s => System.Diagnostics.Debug.WriteLine(s);
+        E.Log = s => { System.Diagnostics.Debug.WriteLine(s); CallLog(s); };
+        CallLog("アプリが起動しました");
+        E.OnReloading += () => CallLog("ページを読み込み直します（つなぎ直し・描画プロセスの復帰など）");
+        E.OnRoom += () => { var j = E.Joined; if (j != loggedJoined) { loggedJoined = j; CallLog(j ? "入室しました" : "退出しました"); } };
         E.OnChat += l => ReceiveChat(l);
         E.OnReact += r => Fly?.Invoke(r.S("e"), r.S("u") == "self" ? "" : r.S("n"), r.S("u") == "self");
         E.OnRoom += RoomChanged;
