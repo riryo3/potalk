@@ -19,11 +19,20 @@
           MP.__pmGum = true;
         }
       } catch (e) {}
+      const failedAt = new WeakMap();
       setInterval(() => {
-        let n = 0, ok = 0;
-        for (const pc of [...pcs]) { if (pc.connectionState === 'closed') { pcs.delete(pc); continue; } n++; if (pc.connectionState === 'connected') ok++; }
+        let n = 0, ok = 0; const st = {}, now = Date.now();
+        for (const pc of [...pcs]) {
+          const c = pc.connectionState;
+          if (c === 'closed') { pcs.delete(pc); continue; }
+          n++; if (c === 'connected') ok++;
+          st[c] = (st[c] || 0) + 1;
+          // 失敗したまま 60 秒たった接続は、閉じて片付ける（溜まり続けて、メモリを食うのを防ぐ）
+          if (c === 'failed') { const t = failedAt.get(pc) || now; failedAt.set(pc, t); if (now - t > 60000) { try { pc.close(); } catch (e) {} } }
+          else failedAt.delete(pc);
+        }
         const t = mics[mics.length - 1];
-        post('health', { n: n, ok: ok, mic: t ? t.readyState + (t.muted ? '/muted' : '') : '' });
+        post('health', { n: n, ok: ok, st: st, mic: t ? t.readyState + (t.muted ? '/muted' : '') : '' });
       }, 10000);
 
       // ---- ロビー（通話中の部屋の一覧）----

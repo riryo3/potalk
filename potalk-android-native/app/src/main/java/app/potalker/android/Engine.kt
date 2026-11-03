@@ -107,6 +107,47 @@ object Engine {
             f.appendText("${java.text.SimpleDateFormat("MM/dd HH:mm:ss", java.util.Locale.JAPAN).format(java.util.Date())} $msg\n")
         } catch (e: Exception) {}
     }
+    private var memLogAt = 0L
+    /** 5 分ごとに、メモリの使用量を記録する（アプリが、メモリ不足で終了させられていないかを調べるため） */
+    private fun logMemory(force: Boolean) {
+        val now = System.currentTimeMillis()
+        if (!force && now - memLogAt < 300_000) return
+        memLogAt = now
+        try {
+            val am = app.getSystemService(android.app.ActivityManager::class.java)
+            val mi = android.app.ActivityManager.MemoryInfo(); am.getMemoryInfo(mi)
+            val pss = am.getProcessMemoryInfo(intArrayOf(android.os.Process.myPid()))[0].totalPss / 1024
+            log("メモリ：アプリ ${pss}MB、端末の空き ${mi.availMem / 1048576}MB${if (mi.lowMemory) "（不足）" else ""}")
+        } catch (e: Exception) {}
+    }
+    /** 前回の終了の理由を記録する（Android 11 以降） */
+    private fun logLastExit() {
+        if (android.os.Build.VERSION.SDK_INT < 30) return
+        try {
+            val am = app.getSystemService(android.app.ActivityManager::class.java)
+            val last = prefs.getLong("lastExitTs", 0L)
+            for (e in am.getHistoricalProcessExitReasons(null, 0, 3).sortedBy { it.timestamp }) {
+                if (e.timestamp <= last) continue
+                prefs.edit().putLong("lastExitTs", e.timestamp).apply()
+                val why = when (e.reason) {
+                    android.app.ApplicationExitInfo.REASON_LOW_MEMORY -> "メモリ不足"
+                    android.app.ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "資源の使いすぎ"
+                    android.app.ApplicationExitInfo.REASON_CRASH -> "異常終了（クラッシュ）"
+                    android.app.ApplicationExitInfo.REASON_CRASH_NATIVE -> "異常終了（ネイティブ）"
+                    android.app.ApplicationExitInfo.REASON_ANR -> "応答なし（ANR）"
+                    android.app.ApplicationExitInfo.REASON_USER_REQUESTED -> "ユーザーが停止"
+                    android.app.ApplicationExitInfo.REASON_USER_STOPPED -> "ユーザーが強制停止"
+                    android.app.ApplicationExitInfo.REASON_SIGNALED -> "シグナルで終了"
+                    android.app.ApplicationExitInfo.REASON_DEPENDENCY_DIED -> "依存先の終了"
+                    android.app.ApplicationExitInfo.REASON_INITIALIZATION_FAILURE -> "起動の失敗"
+                    android.app.ApplicationExitInfo.REASON_PERMISSION_CHANGE -> "権限の変更"
+                    android.app.ApplicationExitInfo.REASON_EXIT_SELF -> "自分で終了"
+                    else -> "その他(${e.reason})"
+                }
+                log("前回の終了の理由：$why（${e.description.orEmpty()}、${java.text.SimpleDateFormat("MM/dd HH:mm:ss", java.util.Locale.JAPAN).format(java.util.Date(e.timestamp))}）")
+            }
+        } catch (e: Exception) {}
+    }
     fun readLog(): String = try { logFile.readText().takeLast(30_000).ifEmpty { "（まだ記録がありません）" } } catch (e: Exception) { "（まだ記録がありません）" }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -115,6 +156,12 @@ object Engine {
         app = context.applicationContext as Application
         if (prefs.getBoolean("wasJoined", false)) { log("アプリが起動しました（前回は、通話中にアプリが終了していました）"); prefs.edit().putBoolean("wasJoined", false).apply() }
         else log("アプリが起動しました")
+        logLastExit(); logMemory(true)
+        app.registerComponentCallbacks(object : android.content.ComponentCallbacks2 {
+            override fun onTrimMemory(level: Int) { if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) { log("端末がメモリ不足を知らせました（レベル $level）"); logMemory(true) } }
+            override fun onConfigurationChanged(c: android.content.res.Configuration) {}
+            @Deprecated("") override fun onLowMemory() { log("端末がメモリ不足を知らせました（onLowMemory）") }
+        })
         loadBanned()
         muteOnJoin = prefs.getBoolean("muteOnJoin", true); muteOnCreate = prefs.getBoolean("muteOnCreate", true)
         Look.mode = prefs.getString("theme", "time").takeIf { it in listOf("time", "auto", "day", "night") } ?: "time"
@@ -236,8 +283,10 @@ object Engine {
             }
             "health" -> (d as? JSONObject)?.let { h ->
                 healthAt = System.currentTimeMillis(); pcN = h.optInt("n"); pcOk = h.optInt("ok"); micState = h.optString("mic"); if (micState == "live") micLive = true
+                val stText = h.optJSONObject("st")?.let { o -> o.keys().asSequence().sorted().joinToString(" ") { "$it=${o.optInt(it)}" } }.orEmpty()
                 val sig = "$pcOk/$pcN ${micState}"
-                if (isJoined && sig != lastSig) { lastSig = sig; log("接続 $pcOk/$pcN、マイク ${micState.ifEmpty { "なし" }}") }
+                if (isJoined && sig != lastSig) { lastSig = sig; log("接続 $pcOk/$pcN（$stText）、マイク ${micState.ifEmpty { "なし" }}") }
+                logMemory(false)
             }
             "room" -> { room = d as? JSONObject; onJoinedChanged(); checkBannedMembers(); applyPendingMute() }
             "chat" -> (d as? JSONObject)?.let {
