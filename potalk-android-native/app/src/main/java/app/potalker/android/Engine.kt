@@ -57,6 +57,7 @@ object Engine {
     var chatOpen = false                    // 画面が、ひとこと欄を開いているか
     private var joined = false
     private var pendingLink: String? = null
+    private var recovering = false          // 描画プロセスが終了されて、部屋に入り直している間
 
     val isJoined: Boolean get() = room?.optBoolean("joined") == true
 
@@ -161,7 +162,7 @@ object Engine {
             else log("アプリが起動しました")
             logLastExit(); logMemory(true)
             app.registerComponentCallbacks(object : android.content.ComponentCallbacks2 {
-                override fun onTrimMemory(level: Int) { if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) { log("端末がメモリ不足を知らせました（レベル $level）"); logMemory(true) } }
+                override fun onTrimMemory(level: Int) { if (level in android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW..android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL || level >= android.content.ComponentCallbacks2.TRIM_MEMORY_MODERATE) { log("端末がメモリ不足を知らせました（レベル $level）"); logMemory(true) } }
                 override fun onConfigurationChanged(c: android.content.res.Configuration) {}
                 @Deprecated("") override fun onLowMemory() { log("端末がメモリ不足を知らせました（onLowMemory）") }
             })
@@ -216,10 +217,13 @@ object Engine {
         log("ページの描画プロセスが${if (crashed) "クラッシュ" else "システムに終了"}されました。ページを作り直します${if (rid.isNotEmpty()) "（部屋に入り直します）" else ""}")
         try { web?.destroy() } catch (e: Exception) {}
         web = null; ready = false; room = null; joined = false
+        lobby = null          // 前のページの部屋の一覧が残っていると、新しいページの準備ができる前に、入る命令を出してしまう
         main.removeCallbacks(watchdog)
+        recovering = rid.isNotEmpty()
         if (rid.isNotEmpty()) pendingLink = HOME + "#room=" + rid
         start(app)
         if (rid.isNotEmpty()) main.postDelayed({
+            recovering = false
             if (!isJoined) { log("部屋に入り直せませんでした。通話を終わります"); app.stopService(Intent(app, CallService::class.java)); prefs.edit().putBoolean("wasJoined", false).apply() }
         }, 90_000)
     }
@@ -239,8 +243,15 @@ object Engine {
     /** リンクの部屋が、ロビーの一覧にあれば、一覧から入る（確実）。一覧に出てくるまで少し待ち、出なければ、ページのリンクの入り方にまかせる */
     private fun joinLinkRoom(url: String, id: String, tries: Int) {
         if (isJoined) return
-        if (lobby?.arr("rooms").orEmpty().any { it.optString("id") == id }) { joinRoom(id); return }
-        if (tries < 8) { main.postDelayed({ joinLinkRoom(url, id, tries + 1) }, 1500); return }
+        if (recovering) log("入り直し：入室を試みます（tries=$tries、一覧に部屋あり=${lobby?.arr("rooms").orEmpty().any { it.optString("id") == id }}）")
+        if (lobby?.arr("rooms").orEmpty().any { it.optString("id") == id }) {
+            joinRoom(id)
+            // 入る命令が、ページに無視されることがある。入れていなければ、少し待って、もう一度出す
+            if (recovering && tries < 12) main.postDelayed({ joinLinkRoom(url, id, tries + 4) }, 6000)
+            return
+        }
+        // 描画プロセスを作り直した直後は、一覧が届くまで 20 秒ほどかかるので、入り直しのときは、長く待つ
+        if (tries < (if (recovering) 50 else 8)) { main.postDelayed({ joinLinkRoom(url, id, tries + 1) }, 1500); return }
         // 部屋が、いま開かれていないとき：ページに、リンクを開かせて、「このまま入ってみる」を押す
         val frag = Uri.parse(url).fragment.orEmpty()
         main.post { web?.evaluateJavascript("(function(h){location.hash='';setTimeout(function(){location.hash=h},80)})(${JSONObject.quote(frag)})", null) }
@@ -298,8 +309,8 @@ object Engine {
     private fun handle(m: JSONObject) {
         val d = m.opt("d")
         when (m.optString("t")) {
-            "ready" -> { ready = true; pendingLink?.let { openLink(it) } }
-            "lobby" -> lobby = d as? JSONObject
+            "ready" -> { ready = true; if (recovering) log("入り直し：ページの準備ができました"); pendingLink?.let { openLink(it) } }
+            "lobby" -> { lobby = d as? JSONObject; if (recovering) log("入り直し：部屋の一覧が届きました（${lobby?.arr("rooms").orEmpty().size} 件）") }
             "profile" -> profile = d as? JSONObject
             "cards" -> cards = d as? JSONObject
             "react" -> (d as? JSONObject)?.let { r ->
@@ -312,7 +323,7 @@ object Engine {
                 if (isJoined && sig != lastSig) { lastSig = sig; log("接続 $pcOk/$pcN（$stText）、マイク ${micState.ifEmpty { "なし" }}") }
                 logMemory(false)
             }
-            "room" -> { room = d as? JSONObject; onJoinedChanged(); checkBannedMembers(); applyPendingMute() }
+            "room" -> { room = d as? JSONObject; if (recovering) log("入り直し：部屋の状態が届きました（joined=${room?.optBoolean("joined")}）"); onJoinedChanged(); checkBannedMembers(); applyPendingMute() }
             "chat" -> (d as? JSONObject)?.let {
                 chat.add(it); if (chat.size > 300) chat.removeAt(0)
                 if (!chatOpen && !it.optBoolean("sys") && !it.optBoolean("hist") && !it.optString("who").endsWith("（あなた）")) unread++
@@ -327,6 +338,7 @@ object Engine {
         joined = now
         prefs.edit().putBoolean("wasJoined", now).apply()
         if (now) {
+            recovering = false
             log("入室しました"); micLive = false; callNote = "通話中です。タップすると開きます"; lastSig = ""
             app.startForegroundService(Intent(app, CallService::class.java)); startWatchdog()
         } else {
