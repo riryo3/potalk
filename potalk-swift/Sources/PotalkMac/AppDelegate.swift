@@ -8,7 +8,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     var debug: DebugChannel?
 
     func applicationDidFinishLaunching(_ n: Notification) {
-        engine.log = { print("[engine]", $0) }
+        engine.log = { print("[engine]", $0); CallLog.write($0) }
+        CallLog.write("アプリが起動しました（版 \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "開発用")）")
+        CallLog.watchNetwork()
         engine.start()
         buildMenu()
         model.buildMainWindow()
@@ -150,6 +152,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func toggleDrawer() { if model.singlePane { model.drawerOpen.toggle() } }
     @objc func setScale(_ sender: NSMenuItem) { model.scalePct = sender.tag }
     @objc func showBanned() { model.openBanned() }
+    @objc func copyCallLog() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(CallLog.text(), forType: .string)
+    }
+    @objc func revealCallLog() { NSWorkspace.shared.activateFileViewerSelecting([CallLog.url]) }
     @objc func nextTab() { model.cycleTab(1) }
     @objc func prevTab() { model.cycleTab(-1) }
     /// 入室していないあいだは、部屋まわりの項目を、グレーにする
@@ -191,6 +198,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let call = NSMenu(title: "通話"); callItem.submenu = call
         for (t, sel, key) in [("マイクのミュート", #selector(micMute), "m"), ("スピーカーのミュート", #selector(speakerMute), "s")] {
             let m = NSMenuItem(title: t, action: sel, keyEquivalent: key); m.keyEquivalentModifierMask = [.command, .shift]; m.target = self; call.addItem(m)
+        }
+        call.addItem(.separator())
+        for (t, sel) in [("通話の記録をコピー", #selector(copyCallLog)), ("通話の記録を Finder で表示", #selector(revealCallLog))] {
+            let m = NSMenuItem(title: t, action: sel, keyEquivalent: ""); m.target = self; call.addItem(m)
         }
         let winItem = NSMenuItem(); main.addItem(winItem)
         let win = NSMenu(title: "ウインドウ"); winItem.submenu = win

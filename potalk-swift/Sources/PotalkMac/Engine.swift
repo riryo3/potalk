@@ -102,7 +102,22 @@ final class Engine: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelega
         }
     }
 
-    func reload() { Task { ready = false; await load() } }
+    func reload() { log?("ページを読み込み直します"); Task { ready = false; await load() } }
+
+    /// 部屋の入退室・人の出入り・お知らせの変わり目を、通話の記録に残す
+    private func logRoomChange(_ old: RoomState, _ new: RoomState) {
+        if old.joined != new.joined { log?(new.joined ? "入室しました（部屋 \(new.rid ?? "?")）" : "退出しました") }
+        if new.joined {
+            let was = Set(old.members.filter { !$0.you }.map { "\($0.em)\($0.name)" }), now = Set(new.members.filter { !$0.you }.map { "\($0.em)\($0.name)" })
+            if old.joined {
+                for n in now.subtracting(was).sorted() { log?("部屋に入った人：\(n)（いま自分から見て \(new.members.count) 人）") }
+                for n in was.subtracting(now).sorted() { log?("部屋から出た人：\(n)（いま自分から見て \(new.members.count) 人）") }
+            } else { log?("部屋にいる人：\(now.sorted().joined(separator: "、"))（自分から見て \(new.members.count) 人）") }
+        }
+        if old.state != new.state, new.joined, !new.state.isEmpty { log?("部屋の状態：\(new.state)") }
+        if old.notice != new.notice, !new.notice.isEmpty { log?("お知らせ：\(new.notice)") }
+        if old.audioWarn != new.audioWarn, !new.audioWarn.isEmpty { log?("音の警告：\(new.audioWarn)") }
+    }
 
     // MARK: 指示
     func cmd(_ dict: [String: Any]) {
@@ -126,7 +141,7 @@ final class Engine: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelega
         switch t {
         case "lobby": if let v = decode(LobbyState.self), v != lobby { lobby = v }
         case "profile": if let v = decode(ProfileState.self), v != profile { profile = v }
-        case "room": if let v = decode(RoomState.self) { if v != room { room = v } } else { log?("room の読み取りに失敗") }
+        case "room": if let v = decode(RoomState.self) { if v != room { logRoomChange(room, v); room = v } } else { log?("room の読み取りに失敗") }
         case "cards": if let v = decode(CardsState.self), v != cards { cards = v }
         case "eq": eq = (d as? String) ?? ""
         case "chat": if let v = decode(ChatLine.self) { onChat?(v) }
