@@ -34,6 +34,7 @@ object Engine {
     private val main = Handler(Looper.getMainLooper())
     private lateinit var app: Application
     private var web: WebView? = null
+    private var started = false
 
     // ページから届く状態（画面は、これを読んで描く）
     var lobby by mutableStateOf<JSONObject?>(null)
@@ -154,14 +155,17 @@ object Engine {
     fun start(context: Context) {
         if (web != null) return
         app = context.applicationContext as Application
-        if (prefs.getBoolean("wasJoined", false)) { log("アプリが起動しました（前回は、通話中にアプリが終了していました）"); prefs.edit().putBoolean("wasJoined", false).apply() }
-        else log("アプリが起動しました")
-        logLastExit(); logMemory(true)
-        app.registerComponentCallbacks(object : android.content.ComponentCallbacks2 {
-            override fun onTrimMemory(level: Int) { if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) { log("端末がメモリ不足を知らせました（レベル $level）"); logMemory(true) } }
-            override fun onConfigurationChanged(c: android.content.res.Configuration) {}
-            @Deprecated("") override fun onLowMemory() { log("端末がメモリ不足を知らせました（onLowMemory）") }
-        })
+        if (!started) {
+            started = true
+            if (prefs.getBoolean("wasJoined", false)) { log("アプリが起動しました（前回は、通話中にアプリが終了していました）"); prefs.edit().putBoolean("wasJoined", false).apply() }
+            else log("アプリが起動しました")
+            logLastExit(); logMemory(true)
+            app.registerComponentCallbacks(object : android.content.ComponentCallbacks2 {
+                override fun onTrimMemory(level: Int) { if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) { log("端末がメモリ不足を知らせました（レベル $level）"); logMemory(true) } }
+                override fun onConfigurationChanged(c: android.content.res.Configuration) {}
+                @Deprecated("") override fun onLowMemory() { log("端末がメモリ不足を知らせました（onLowMemory）") }
+            })
+        }
         loadBanned()
         muteOnJoin = prefs.getBoolean("muteOnJoin", true); muteOnCreate = prefs.getBoolean("muteOnCreate", true)
         Look.mode = prefs.getString("theme", "time").takeIf { it in listOf("time", "auto", "day", "night") } ?: "time"
@@ -183,6 +187,10 @@ object Engine {
                 }
                 return null
             }
+            override fun onRenderProcessGone(v: WebView, d: android.webkit.RenderProcessGoneDetail): Boolean {
+                main.post { recoverWebView(d.didCrash()) }
+                return true      // true を返さないと、システムが、アプリごと終了させる
+            }
             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
                 if (r.url.host == "potalk.app") return false
                 app.startActivity(Intent(Intent.ACTION_VIEW, r.url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))     // 外のサイトは、ブラウザで開く
@@ -197,7 +205,23 @@ object Engine {
                 main.post { if (mic && granted && req.origin.host == "potalk.app") req.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) else req.deny() }
             }
         }
+        // 画面が閉じていても、ページの描画プロセスを、重要なものとして扱ってもらう（システムに、終了させられにくくする）
+        w.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
         w.loadUrl(HOME)
+    }
+
+    /** システム（機種の省電力など）に、ページの描画プロセスだけを終了させられたとき：アプリごと落ちずに、ページを作り直して、同じ部屋に入り直す */
+    private fun recoverWebView(crashed: Boolean) {
+        val rid = if (isJoined) room?.optString("rid").orEmpty() else ""
+        log("ページの描画プロセスが${if (crashed) "クラッシュ" else "システムに終了"}されました。ページを作り直します${if (rid.isNotEmpty()) "（部屋に入り直します）" else ""}")
+        try { web?.destroy() } catch (e: Exception) {}
+        web = null; ready = false; room = null; joined = false
+        main.removeCallbacks(watchdog)
+        if (rid.isNotEmpty()) pendingLink = HOME + "#room=" + rid
+        start(app)
+        if (rid.isNotEmpty()) main.postDelayed({
+            if (!isJoined) { log("部屋に入り直せませんでした。通話を終わります"); app.stopService(Intent(app, CallService::class.java)); prefs.edit().putBoolean("wasJoined", false).apply() }
+        }, 90_000)
     }
 
     /** 部屋のリンクを開く（ページが起動して、ロビーが読めたら入る） */
