@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         engine.start()
         buildMenu()
         model.buildMainWindow()
+        if ProcessInfo.processInfo.environment["POTALK_DEBUG"] != "1" { Updater.shared.start() }
         if ProcessInfo.processInfo.environment["POTALK_DEBUG"] != "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in self?.model.showThanksIfFirst() }
         }
@@ -126,6 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// 入室中（部屋を開いている場合も含む）に終了しようとしたら、確認する
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard model.engine.room.joined else { return .terminateNow }
+        if Updater.quittingForUpdate { model.engine.cmd(["type": "leave"]); return .terminateNow }   // 更新のための終了は、確認ずみ
         if ProcessInfo.processInfo.environment["POTALK_DEBUG"] == "1" { print("quit warning: would ask (joined)"); return .terminateNow }
         let a = NSAlert()
         a.messageText = "通話中です。アプリを終了しますか？"
@@ -174,6 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
     }
 
+    @objc func checkUpdate() { Task { await Updater.shared.check(manual: true) } }
     @objc func showAbout() {
         let credits = NSAttributedString(string: "ぽっと通話（potalk.app）の非公式クライアントです。\nサイトの作者とは関係ありません。通話の仕組みは potalk.app をそのまま利用しています。\nご参考：github.com/po-talk/po-talk.github.io", attributes: [.font: NSFont.systemFont(ofSize: 12)])
         NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Potalker", .credits: credits])
@@ -184,6 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let appItem = NSMenuItem(); main.addItem(appItem)
         let appMenu = NSMenu(); appItem.submenu = appMenu
         let about = NSMenuItem(title: "Potalker について", action: #selector(AppDelegate.showAbout), keyEquivalent: ""); about.target = self; appMenu.addItem(about)
+        let upd = NSMenuItem(title: "更新を確認…", action: #selector(AppDelegate.checkUpdate), keyEquivalent: ""); upd.target = self; appMenu.addItem(upd)
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Potalker を隠す", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
