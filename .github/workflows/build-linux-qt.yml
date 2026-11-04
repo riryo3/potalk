@@ -1,0 +1,46 @@
+name: Build Linux (Qt)
+
+# Qt 版（potalk-linux）は更新終了。最後の版を出すためだけの、手動／タグ（linux-v*）での実行。
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'linux-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build (PyInstaller folder)
+        working-directory: potalk-linux
+        run: sh packaging/build_linux.sh
+      - name: AppImage
+        working-directory: potalk-linux
+        run: |
+          sudo apt-get update && sudo apt-get install -y libfuse2t64 || true
+          sh packaging/make_appimage.sh Potalker-x86_64.AppImage
+      - name: Zip
+        working-directory: potalk-linux
+        run: cd dist && zip -qr ../Potalker-linux-x64.zip Potalker
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Potalker-linux
+          path: |
+            potalk-linux/Potalker-x86_64.AppImage
+            potalk-linux/Potalker-linux-x64.zip
+          if-no-files-found: error
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/linux-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          files: |
+            potalk-linux/Potalker-x86_64.AppImage
+            potalk-linux/Potalker-linux-x64.zip
