@@ -9,9 +9,6 @@ from potalk_linux import patcher  # noqa: E402
 
 def fixture_html() -> str:
     parts = ["<html><script>\n"]
-    parts.append("const CHAT_LOG_MAX = 30\n")
-    parts.append("call.chatAction = call.room.makeAction('chat')\n")
-    parts.append("sendProfile(id); sendMeta(id);\n")
     parts.append("try { $('cardDlg').showModal() } catch {}\n")
     parts.append("try { $('ignoreDlg').showModal() } catch { doIgnore(id) }\n")
     parts.append("cardKeyLoad(false).catch(() => {})\nconst CARD_NOSTR_KIND = 1\n")
@@ -31,9 +28,7 @@ class PatcherTest(unittest.TestCase):
         out, ok, missing = patcher.apply(fixture_html())
         self.assertTrue(ok, f"missing: {missing}")
         self.assertIsNone(missing)
-        self.assertIn("window.__pmPatched = 1", out)
-        self.assertIn("pmHistAction = call.room.makeAction('hist')", out)
-        self.assertIn("pmHistSend(id);", out)
+        self.assertNotIn("pmHist", out)
         self.assertNotIn("showModal() } catch {}\ntry { $('ignoreDlg')", out)
         self.assertIn("$('cardDlg').show()", out)
         self.assertNotIn("cardKeyLoad(false).catch(() => {})\nconst CARD_NOSTR_KIND", out)
@@ -42,14 +37,14 @@ class PatcherTest(unittest.TestCase):
         self.assertNotIn("&name=' + encodeURIComponent(name)", out)
 
     def test_missing_anchor_returns_original(self):
-        html = fixture_html().replace("const CHAT_LOG_MAX = 30\n", "")
+        html = fixture_html().replace("const CARD_NOSTR_KIND = 1\n", "")
         out, ok, missing = patcher.apply(html)
         self.assertFalse(ok)
         self.assertEqual(out, html)
-        self.assertEqual(missing, "const CHAT_LOG_MAX = 30\n")
+        self.assertEqual(missing, "cardKeyLoad(false).catch(() => {})\nconst CARD_NOSTR_KIND")
 
     def test_duplicate_anchor_returns_original(self):
-        html = fixture_html() + "sendProfile(id); sendMeta(id);"
+        html = fixture_html() + "try { $('cardDlg').showModal() } catch {}"
         out, ok, missing = patcher.apply(html)
         self.assertFalse(ok)
         self.assertEqual(out, html)

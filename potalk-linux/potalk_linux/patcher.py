@@ -6,38 +6,6 @@ Mac 版（PagePatcher.swift）・Windows 版（PagePatcher.cs）と同じ内容�
 """
 from __future__ import annotations
 
-HIST_CODE = """
-    // ---- [potalker] 過去ログ共有 ----
-    window.__pmPatched = 1
-    const pmHistSend = id => {
-      const rows = [...chatLogEl.querySelectorAll('.cl-row:not(.cl-sys):not(.cl-hist)')].slice(-30)
-      const items = rows.map(r => ({
-        e: r.querySelector('.cl-em')?.textContent || '',
-        n: (r.querySelector('.cl-who')?.textContent || '').replace('（あなた）', '') || (profile && profile.name) || '',
-        t: r.querySelector('.cl-text')?.textContent || '',
-      })).filter(x => x.t)
-      if (items.length) sendTo(pmHistAction, items, id)
-    }
-    let pmHistFor = null, pmHistAction = null
-    const pmHistRecv = (data, peerId) => {
-      if (!call.joinedId || pmHistFor === call.joinedId || call.ignored.has(peerId) || !Array.isArray(data)) return
-      pmHistFor = call.joinedId
-      const frag = document.createDocumentFragment()
-      const head = document.createElement('div'); head.className = 'cl-row cl-sys cl-hist'
-      const hx = document.createElement('span'); hx.className = 'cl-text'; hx.textContent = 'ここから過去ログ（参加者から受け取ったもの・真偽は未確認）'
-      head.append(hx); frag.append(head)
-      data.slice(-30).forEach(x => {
-        const t = capText(x && x.t, CHAT_MAX); if (!t) return
-        const row = document.createElement('div'); row.className = 'cl-row cl-hist'
-        const em = document.createElement('span'); em.className = 'cl-em'; em.textContent = capText(x.e, 8, '🙂')
-        const who = document.createElement('span'); who.className = 'cl-who'; who.textContent = capText(x.n, 20, 'ゲスト')
-        const tx = document.createElement('span'); tx.className = 'cl-text'; tx.textContent = t
-        row.append(em, who, tx); frag.append(row)
-      })
-      if (frag.childElementCount > 1) { chatLogEl.prepend(frag); chatLogEl.hidden = false }
-    }
-
-"""
 
 
 def _append(extra: str):
@@ -54,12 +22,6 @@ def _const(value: str):
 
 # (find, replace) — replace は見つけた文字列を受け取って差し替え後の文字列を返す
 PATCHES: list[tuple[str, callable]] = [
-    ("const CHAT_LOG_MAX = 30\n", _append(HIST_CODE)),
-    (
-        "call.chatAction = call.room.makeAction('chat')",
-        _prepend("pmHistAction = call.room.makeAction('hist'); pmHistAction.onMessage = (d, { peerId }) => pmHistRecv(d, peerId)\n  "),
-    ),
-    ("sendProfile(id); sendMeta(id);", _append(" pmHistSend(id);")),
     # 名刺と「無視」の確認は、ネイティブ側に出すので、ページ内ではモーダルにしない
     ("try { $('cardDlg').showModal() } catch {}", _const("try { $('cardDlg').show() } catch {}")),
     ("try { $('ignoreDlg').showModal() } catch { doIgnore(id) }", _const("try { $('ignoreDlg').show() } catch { doIgnore(id) }")),

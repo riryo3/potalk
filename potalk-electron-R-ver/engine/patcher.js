@@ -4,15 +4,11 @@
 const fs = require('fs')
 const path = require('path')
 
-const HIST_CODE = fs.readFileSync(path.join(__dirname, 'hist.js.txt'), 'utf8')
 const append = extra => found => found + extra
 const prepend = extra => found => extra + found
 const constant = value => () => value
 
 const PATCHES = [
-  ["const CHAT_LOG_MAX = 30\n", append(HIST_CODE)],
-  ["call.chatAction = call.room.makeAction('chat')", prepend("pmHistAction = call.room.makeAction('hist'); pmHistAction.onMessage = (d, { peerId }) => pmHistRecv(d, peerId)\n  ")],
-  ["sendProfile(id); sendMeta(id);", append(" pmHistSend(id);")],
   // 名刺と「無視」の確認は、こちらの画面に出すので、ページ内ではモーダルにしない
   ["try { $('cardDlg').showModal() } catch {}", constant("try { $('cardDlg').show() } catch {}")],
   ["try { $('ignoreDlg').showModal() } catch { doIgnore(id) }", constant("try { $('ignoreDlg').show() } catch { doIgnore(id) }")],

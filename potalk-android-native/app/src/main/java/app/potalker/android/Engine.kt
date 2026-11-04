@@ -291,7 +291,7 @@ object Engine {
         c.connectTimeout = 10000; c.readTimeout = 15000
         val raw = c.inputStream.use { it.readBytes() }.toString(Charsets.UTF_8)
         fun asset(n: String) = app.assets.open(n).use { it.readBytes() }.toString(Charsets.UTF_8)
-        val (html, _) = PagePatcher.apply(raw, asset("hist.js") + "\n")
+        val (html, _) = PagePatcher.apply(raw)
         val head = html.indexOf("<head>")
         val out = if (head < 0) html else html.substring(0, head + 6) + "<script>" + asset("mic.js") + "</script><script>" + asset("bridge.js") + "</script>" + html.substring(head + 6)
         return WebResourceResponse("text/html", "UTF-8", ByteArrayInputStream(out.toByteArray(Charsets.UTF_8)))

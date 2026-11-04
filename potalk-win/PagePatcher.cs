@@ -9,24 +9,10 @@ namespace Potalker;
 /// <summary>potalk.app の index.html に小さな差し込みを当てる。差し込み位置が見つからなければ元のページをそのまま使う。</summary>
 public static class PagePatcher
 {
-    static string HistCode
-    {
-        get
-        {
-            using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("Potalker.Assets.hist.js");
-            using var r = new StreamReader(s, Encoding.UTF8);
-            return r.ReadToEnd() + "\n";
-        }
-    }
-
     record Patch(string Find, Func<string, string> Replace);
 
     static List<Patch> Patches() => new()
     {
-        new("const CHAT_LOG_MAX = 30\n", f => f + HistCode),
-        new("call.chatAction = call.room.makeAction('chat')", f =>
-            "pmHistAction = call.room.makeAction('hist'); pmHistAction.onMessage = (d, { peerId }) => pmHistRecv(d, peerId)\n  " + f),
-        new("sendProfile(id); sendMeta(id);", f => f + " pmHistSend(id);"),
         // 名刺と「無視」の確認は、ネイティブ側に出すので、ページ内ではモーダルにしない
         new("try { $('cardDlg').showModal() } catch {}", _ => "try { $('cardDlg').show() } catch {}"),
         new("try { $('ignoreDlg').showModal() } catch { doIgnore(id) }", _ => "try { $('ignoreDlg').show() } catch { doIgnore(id) }"),

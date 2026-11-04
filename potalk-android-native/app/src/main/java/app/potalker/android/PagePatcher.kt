@@ -5,12 +5,7 @@ package app.potalker.android
 object PagePatcher {
     private class Patch(val find: String, val replace: (String) -> String)
 
-    private fun patches(hist: String): List<Patch> = listOf(
-        Patch("const CHAT_LOG_MAX = 30\n") { it + hist },
-        Patch("call.chatAction = call.room.makeAction('chat')") {
-            "pmHistAction = call.room.makeAction('hist'); pmHistAction.onMessage = (d, { peerId }) => pmHistRecv(d, peerId)\n  " + it
-        },
-        Patch("sendProfile(id); sendMeta(id);") { "$it pmHistSend(id);" },
+    private fun patches(): List<Patch> = listOf(
         // 名刺と「無視」の確認は、こちらの画面に出すので、ページ内ではモーダルにしない
         Patch("try { $('cardDlg').showModal() } catch {}") { "try { $('cardDlg').show() } catch {}" },
         Patch("try { $('ignoreDlg').showModal() } catch { doIgnore(id) }") { "try { $('ignoreDlg').show() } catch { doIgnore(id) }" },
@@ -44,9 +39,9 @@ object PagePatcher {
     )
 
     /** 戻り値：当てたページ。位置が見つからない／2つ以上あるときは、元の html をそのまま返す（false の組で知らせる） */
-    fun apply(html: String, hist: String): Pair<String, Boolean> {
+    fun apply(html: String): Pair<String, Boolean> {
         var out = html
-        for (p in patches(hist)) {
+        for (p in patches()) {
             val first = out.indexOf(p.find)
             if (first < 0) return html to false
             if (out.indexOf(p.find, first + p.find.length) >= 0) return html to false
