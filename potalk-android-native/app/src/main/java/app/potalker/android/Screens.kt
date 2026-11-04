@@ -194,8 +194,23 @@ fun roomsList(scope: androidx.compose.foundation.lazy.LazyListScope, exceptId: S
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(r.optString("sub").ifEmpty { r.optString("name") }.ifEmpty { "（名前なし）" }, Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Ink, maxLines = 1)
                 Text(r.optString("count"), color = Teal, fontWeight = FontWeight.Bold)
+                // 入る前に、部屋の名前とリンクをコピーする（ウェブ版の共有ボタンと同じ：「🫖 部屋名 - 名前」＋改行＋URL）
+                val ctx = LocalContext.current
+                Text("🔗", Modifier.padding(start = 6.dp).clip(CircleShape).clickable {
+                    val who = r.arr("people").map { it.optString("name").trim() }.filter { it.isNotEmpty() }.distinct().joinToString("、")
+                    val nm = r.optString("sub").ifEmpty { r.optString("name") }.ifEmpty { "部屋" }
+                    val text = (if (r.optBoolean("bc")) "📣 " else "🫖 ") + nm + " - " + who.ifEmpty { "ゲスト" } + "\nhttps://potalk.app/#room=" + r.optString("id")
+                    (ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("potalk", text))
+                    android.widget.Toast.makeText(ctx, "部屋名とリンクをコピーしました", android.widget.Toast.LENGTH_SHORT).show()
+                }.padding(6.dp), fontSize = 16.sp)
             }
             if (r.optString("sub").isNotEmpty()) Text(r.optString("name"), color = Dim, fontSize = 13.sp, maxLines = 1)
+            // 経過時間と、その部屋の声の大きさ（点字の波。ページが描く文字列をそのまま出す）
+            val dur = r.optString("dur"); val eq = r.optString("eq")
+            if (dur.isNotEmpty() || eq.isNotBlank()) Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(dur, Modifier.weight(1f), color = Dim, fontSize = 12.sp, maxLines = 1)
+                if (eq.isNotBlank()) Text(eq, Modifier.padding(end = 6.dp), color = Teal, fontSize = 12.sp, maxLines = 1) // 🔗 の見える右端に揃える
+            }
             val ps = r.arr("people").joinToString("  ") { it.optString("em") + it.optString("name") }
             if (ps.isNotEmpty()) Text(ps, color = Ink, fontSize = 13.sp, maxLines = 1)
         }
