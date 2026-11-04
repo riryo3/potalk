@@ -26,6 +26,7 @@ public static class Program
         main.Loaded += async (_, _) =>
         {
             model.Start();
+            Updater.Start(model);
             try { await model.E.StartAsync(); }
             catch (Exception ex)
             {

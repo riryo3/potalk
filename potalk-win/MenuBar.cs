@@ -65,6 +65,7 @@ public static class MenuBar
         var help = new MenuItem { Header = "ヘルプ(_H)" };
         help.Items.Add(Item("初期設定…", "", m.OpenProfile));
         help.Items.Add(Item("これはなに？", "", m.OpenHelp));
+        help.Items.Add(Item("更新を確認…", "", () => { _ = Updater.CheckAsync(m, true); }));
 
         bar.Items.Add(call); bar.Items.Add(win); bar.Items.Add(help);
         return bar;
