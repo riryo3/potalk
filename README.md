@@ -13,7 +13,7 @@
 | **Mac**（macOS 14 以降） | **Mac 版（安定版）** | [`Potalker-0.3.6.zip`](https://github.com/riryo3/potalk/releases/download/v0.3.6/Potalker-0.3.6.zip) |
 | **Windows**（10 / 11、64bit） | **Windows 版** | [`Potalker-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/win-v0.3.14/Potalker-win-x64.zip) |
 | **Linux** | **Electron 版（Linux）** | [`PotalkerElectron-0.0.40-linux-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.40-beta/PotalkerElectron-0.0.40-linux-x86_64.AppImage)（ARM 機は [`…-linux-arm64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.40-beta/PotalkerElectron-0.0.40-linux-arm64.AppImage)） |
-| **Android**（Android 10 以降） | **Android 版（試用版）** | [`Potalker-Android-0.1.12.apk`](https://github.com/riryo3/potalk/releases/download/android-v0.1.12/Potalker-Android-0.1.12.apk) |
+| **Android**（Android 10 以降） | **Android 版（試用版）** | [`Potalker-Android-0.1.14.apk`](https://github.com/riryo3/potalk/releases/download/android-v0.1.14/Potalker-Android-0.1.14.apk) |
 
 ### 全部の一覧
 
@@ -21,11 +21,11 @@
 |---|---|---|---|---|
 | **Mac 版**（Swift 製・安定版） | Mac（Apple シリコン・Intel 両対応）、macOS 14 以降 | [`Potalker-0.3.6.zip`](https://github.com/riryo3/potalk/releases/download/v0.3.6/Potalker-0.3.6.zip)（`v0.3.6`） | 安定版 | 実機で、通話まで、使っています。エラーの帯・「つなぎ直す」ボタン・ひとこと着信音・人数の警告も、実機で確認済み |
 | **Windows 版**（C# / WPF 製） | Windows 10 / 11、64bit | [`Potalker-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/win-v0.3.14/Potalker-win-x64.zip)（`win-v0.3.14`） | 安定版 | **Windows 11 の実機**で、確認しています（ひとこと着信音・人数の警告も確認済み。本人確認（X・GitHub・Nostr）は、まだ、実機で試していません） |
-| **Linux 版**（Python / Qt 製） | Linux（Ubuntu 24.04 相当、x86_64） | [`Potalker-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.3/Potalker-x86_64.AppImage)（約 227MB）／[`Potalker-linux-x64.zip`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.3/Potalker-linux-x64.zip)（`linux-v0.1.3`） | **アルファ版・更新終了** | **未確認**（開発した担当が、仮想環境で動かしただけで、リポジトリの管理者は、まだ、確認できていません） |
+| **Linux 版**（Python / Qt 製） | Linux（Ubuntu 24.04 相当、x86_64） | [`Potalker-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.3/Potalker-x86_64.AppImage)（約 248MB）／[`Potalker-linux-x64.zip`](https://github.com/riryo3/potalk/releases/download/linux-v0.1.3/Potalker-linux-x64.zip)（`linux-v0.1.3`） | **アルファ版・更新終了** | **未確認**（開発した担当が、仮想環境で動かしただけで、リポジトリの管理者は、まだ、確認できていません） |
 | **Electron 版（Linux）** | Linux（PC：x86_64、ARM 機：arm64） | [`PotalkerElectron-0.0.40-linux-x86_64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.40-beta/PotalkerElectron-0.0.40-linux-x86_64.AppImage)／[`…-linux-arm64.AppImage`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.40-beta/PotalkerElectron-0.0.40-linux-arm64.AppImage)（約 108MB）（`electron-v0.0.40-beta`） | **試用版** | **ARM64**：Ubuntu 24.04 の**仮想マシン**（Mac 上）で、Mac 版との通話（声の往復）まで確認。ARM の実機は未確認。**x86_64：未確認** |
 | **Electron 版（Mac）** | Mac（Apple シリコン） | [`PotalkerElectron-0.0.40-mac-arm64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.40-beta/PotalkerElectron-0.0.40-mac-arm64.zip)（同上） | **試用版** | 自動テストで、起動・画面の表示を確認しています（人が使っての確認は、まだです） |
 | **Electron 版（Windows）** | Windows（x64） | [`PotalkerElectron-0.0.40-win-x64.zip`](https://github.com/riryo3/potalk/releases/download/electron-v0.0.40-beta/PotalkerElectron-0.0.40-win-x64.zip)（同上） | **試用版** | 実機では、まだ確認できていません（Windows 版〔ネイティブ〕は、実機で確認しています） |
-| **Android 版**（Kotlin / Compose 製） | Android 10 以降 | [`Potalker-Android-0.1.12.apk`](https://github.com/riryo3/potalk/releases/download/android-v0.1.12/Potalker-Android-0.1.12.apk)（`android-v0.1.12`） | **試用版** | **Galaxy S9（Android 10）と Pixel 3a（Android 12）の実機**で、入室・通話（声の往復）・画面を閉じても通話が続くこと・ひとこと着信音・人数の警告を確認。名刺の画像の登録・本人確認の実行は、未確認 |
+| **Android 版**（Kotlin / Compose 製） | Android 10 以降 | [`Potalker-Android-0.1.14.apk`](https://github.com/riryo3/potalk/releases/download/android-v0.1.14/Potalker-Android-0.1.14.apk)（`android-v0.1.14`） | **試用版** | **Galaxy S9（Android 10）と Pixel 3a（Android 12）の実機**で、入室・通話（声の往復）・画面を閉じても通話が続くこと・ひとこと着信音・人数の警告を確認。名刺の画像の登録・本人確認の実行は、未確認 |
 
 動作を確認できた機種・環境の一覧は、[動作確認の一覧](docs/動作確認.md)にあります。
 
@@ -39,7 +39,7 @@
   | | Linux 版（Qt 製） | Electron 版（Linux） |
   |---|---|---|
   | 作り | Python と Qt の、ネイティブ版 | Electron（Chromium）。Mac 版に、見た目を合わせています |
-  | 大きさ | 約 227MB | 約 108MB |
+  | 大きさ | 約 248MB | 約 108MB |
   | 確認 | **未確認** | **ARM64** は仮想マシン（Mac 上の Ubuntu 24.04）で、Mac 版との通話・名刺・効果音まで確認。実機は未確認。**x86_64 は未確認** |
   | 対応 | x86_64 | x86_64、ARM（arm64） |
   | 起動前に | 実行権限をつける | 実行権限をつける + `sudo apt install libfuse2t64`（Ubuntu 22.04 は `libfuse2`） |
@@ -61,6 +61,7 @@
 | `potalk-android-native/` | Kotlin（Jetpack Compose）製の **Potalker**（Android 版・試用版）。通話の部分は、画面に出さない WebView で、potalk.app を動かします。 |
 | `potalk-mac/` | Electron 製（先に作った試作版）。作者（リョータ）は、更新していません。ほかの版を作るときの基準にもしません。田上光さん（[@wanderingdj](https://x.com/wanderingdj)）が、保守してくださっています。現役の Electron 版は、`potalk-electron-R-ver/` です。 |
 
+- **ひとこと（チャット）の履歴は、入室した人どうしで共有しません。** 部屋に入ってから流れたひとことだけが、見えます。（どの版も、Mac 0.3.6・Windows 0.3.14・Android 0.1.14・Electron 0.0.40・Linux 0.1.3 から）
 - どれも、通話の仕組みは、画面に出ないブラウザ部品で、potalk.app を、そのまま動かし、画面だけを、それぞれの環境向けに、作り直しています。
 - 動いた・動かなかったの報告や、プルリクエスト、Issue を、お待ちしています。
 
@@ -88,10 +89,11 @@
 - Electron 版（Mac）の `PotalkerElectron.app` も、同じ手順です（表示は「"PotalkerElectron" はブロックされました」になります）。コマンドは `/Applications/PotalkerElectron.app` に書き換えてください。
 
 - 初回の起動で、マイク・ローカルネットワーク・通知の許可を求められます。
+- **更新**: 0.3.6 以降は、起動の少しあとと、6 時間ごとに、新しい版がないか確かめます。あれば知らせて、「更新して再起動」を選ぶと、ダウンロードして入れ替え、開き直します。メニューの「更新を確認…」で、手で確かめることもできます。0.3.5 以前の方は、今回だけ、手で入れ替えてください。
 
 ### Android 版（試用版）
 
-[Releases](https://github.com/riryo3/potalk/releases) から `Potalker-Android-0.1.12.apk` をダウンロードして、入れてください（Android 10 以降）。
+[Releases](https://github.com/riryo3/potalk/releases) から `Potalker-Android-0.1.14.apk` をダウンロードして、入れてください（Android 10 以降）。
 
 1. ブラウザ（Chrome など）で、APK をダウンロードして、開きます。
 2. 「このアプリ（Chrome など）に、アプリのインストールを許可しますか？」と出たら、**設定を開いて、許可**します。Google Play 以外から入れるための、確認です（「提供元不明のアプリ」の許可）。許可したら、戻ります。
@@ -115,6 +117,7 @@
 - 通話の描画に Microsoft Edge WebView2 ランタイムを使います（Windows 11 には最初から入っています。入っていない場合は起動時にエラーが出ます）。
 - 初回の通話で、マイクの許可を求められることがあります。
 - 設定とウィンドウの位置は `%APPDATA%\Potalker\` に保存されます。
+- **更新**: 0.3.14 以降は、起動の少しあとと、6 時間ごとに、新しい版がないか確かめます。あれば知らせて、「更新して再起動」を選ぶと、ダウンロードして入れ替え、開き直します。ヘルプの「更新を確認…」で、手で確かめることもできます。0.3.13 以前の方は、今回だけ、手で入れ替えてください。
 
 ## 使い方（Mac 版・Windows 版 共通）
 
