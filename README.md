@@ -59,7 +59,7 @@
 | `potalk-linux/` | Python 製（Qt）の **Potalker**（Linux 版・アルファ）。**更新は終了しました。** Linux では、`potalk-electron-R-ver/` の Electron 版を、お使いください。 |
 | `potalk-electron-R-ver/` | Electron 製の **PotalkerElectron**（Linux・Mac・Windows 向けの試用版）。 |
 | `potalk-android-native/` | Kotlin（Jetpack Compose）製の **Potalker**（Android 版・試用版）。通話の部分は、画面に出さない WebView で、potalk.app を動かします。 |
-| `potalk-mac/` | Electron 製（先に作った試作版）。現在は、田上光さん（[@wanderingdj](https://x.com/wanderingdj)）が、保守してくださっています。現役の Electron 版は、`potalk-electron-R-ver/` です。 |
+| `potalk-mac/` | Electron 製（先に作った試作版）。作者（リョータ）は、更新していません。ほかの版を作るときの基準にもしません。田上光さん（[@wanderingdj](https://x.com/wanderingdj)）が、保守してくださっています。現役の Electron 版は、`potalk-electron-R-ver/` です。 |
 
 - どれも、通話の仕組みは、画面に出ないブラウザ部品で、potalk.app を、そのまま動かし、画面だけを、それぞれの環境向けに、作り直しています。
 - 動いた・動かなかったの報告や、プルリクエスト、Issue を、お待ちしています。
@@ -230,7 +230,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 ## Electron 版（Windows・試作）
 
-Electron 版（`potalk-mac/`）も、Windows 向けにビルドできます。GitHub Actions（`.github/workflows/build-windows.yml`）が、インストーラー（.exe）と zip を作ります。新しい Windows 版（`potalk-win/`）のほうが小さく軽いので、こちらは試作として残しています。
+Electron 版（`potalk-mac/`）も、Windows 向けにビルドできます。GitHub Actions（`.github/workflows/build-windows.yml`）で、インストーラー（.exe）と zip を作れますが、プッシュでは自動で動かしません（手で動かすときだけ）。この版は更新しておらず、画面も崩れることがあります。Windows の方は、新しい Windows 版（`potalk-win/`）をお使いください。
 
 - ローカルで作る場合: `cd potalk-mac && npm ci && npm run dist:win`
 

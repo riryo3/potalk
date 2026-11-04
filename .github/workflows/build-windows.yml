@@ -1,11 +1,8 @@
 name: Build Windows (Electron)
 
 on:
+  # 旧 Electron 版（potalk-mac/）は更新していないので、プッシュでは自動で動かさない（手で動かすときだけ）
   workflow_dispatch:
-  push:
-    paths:
-      - 'potalk-mac/**'
-      - '.github/workflows/build-windows.yml'
 
 jobs:
   build:
