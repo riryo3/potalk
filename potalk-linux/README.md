@@ -4,6 +4,8 @@
 
 Mac 版（Swift）・Windows 版（C#/WPF）と同じ考え方で作っています。通話の仕組みは、画面に出ない WebView の中で potalk.app のページをそのまま動かし（Nostr で相手を探し、WebRTC で話す）、画面だけを Linux 向けに作り直しています。
 
+> **この版は、v0.1.3 が最後の更新です。** 今後の更新は、予定していません。Linux では、Electron 版（`potalk-electron-R-ver/`）をおすすめします。v0.1.3 は、ひとこと履歴の共有をやめた版で、ビルドが通ったことまでしか、確かめていません。
+
 > ⚠️ **状態：作り始めたところ（アルファ）です。**
 > ロビー・部屋・ひとこと・リアクション・名刺など、Mac/Windows 版の基本機能を移植中です。
 > 開発は Linux の仮想環境で行っているため、**実機の Linux デスクトップでの動作確認がまだありません**。動いた・動かなかったの報告が、いちばんの助けになります。
@@ -53,7 +55,7 @@ sh packaging/build_linux.sh   # dist/Potalker/ にフォルダ形式で出力
 
 PyInstaller で Python と Qt WebEngine を同梱します（約 590MB と大きめです。Qt WebEngine の分です）。ビルドした環境と近いディストリビューション向けです。デスクトップ登録用の `packaging/potalker.desktop` も同梱しています。
 
-単一ファイルの AppImage にするには、フォルダを作ったあと `sh packaging/make_appimage.sh` を実行します（appimagetool を自動で取得します）。約 227MB の `Potalker-x86_64.AppImage` ができます。中身を取り出して起動するところまで確認済みですが、FUSE でそのまま実行する形と実機での動作は未確認です。ビルド環境が Ubuntu 24.04 相当のため、新しめのディストリビューション向けです。
+単一ファイルの AppImage にするには、フォルダを作ったあと `sh packaging/make_appimage.sh` を実行します（appimagetool を自動で取得します）。約 248MB の `Potalker-x86_64.AppImage` ができます。中身を取り出して起動するところまで確認済みですが、FUSE でそのまま実行する形と実機での動作は未確認です。ビルド環境が Ubuntu 24.04 相当のため、新しめのディストリビューション向けです。
 
 確認できていないこと:
 
