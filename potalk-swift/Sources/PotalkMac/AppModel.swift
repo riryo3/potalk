@@ -16,7 +16,6 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
 
     // 画面の状態
     @Published var chat: [ChatLine] = []          // 入室後に届いたもの
-    @Published var past: [ChatLine] = []          // 過去ログ（参加者から受け取ったもの）
     @Published var unread = 0
     @Published var chatOpen = false
     @Published var mailOpen = false
@@ -296,7 +295,6 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
 
     // MARK: 受け取り
     private func receive(chat l: ChatLine) {
-        if l.hist || (l.sys && l.text.hasPrefix("ここから過去ログ")) { past.append(l); return }
         chat.append(l); if chat.count > 200 { chat.removeFirst() }
         if !chatOpen && !l.sys && !l.who.contains("（あなた）") { unread += 1 }
     }
@@ -415,7 +413,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     }
     func toggleMicMute() { if engine.room.joined, engine.room.canMute { engine.cmd(["type": "mute"]) } }
     /// ひとこと（前の部屋のぶん）を空にする
-    func clearChat() { chat = []; past = []; unread = 0 }
+    func clearChat() { chat = []; unread = 0 }
     func join(_ r: LobbyRoom, quiet q: Bool) { quiet(for: 6); if engine.room.joined { clearChat() }; joinedRoomID = r.id; drawerOpen = false; pendingMute = (Date(), muteOnJoin); engine.cmd(["type": "join", "id": r.id, "quiet": q]); joinCandidate = nil }
     func createRoom(name: String, broadcast: Bool) { quiet(for: 6); if engine.room.joined { clearChat() }; joinedRoomID = ""; pendingMute = (Date(), muteOnCreate); engine.cmd(["type": "create", "name": name, "kind": broadcast ? "bc" : "chat"]); createOpen = false }
     /// 部屋のリンク（名前なしでもよい）で入る。入れなかったときは、理由を知らせる
@@ -834,7 +832,7 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     func closeRoomGroup() {
         for w in [roomWin, chatWin, mailWin, letterWin, settingsWin] { if let w { forceClose.insert(ObjectIdentifier(w)); w.close() } }
         roomWin = nil; chatWin = nil; mailWin = nil; letterWin = nil; settingsWin = nil
-        chat = []; past = []; unread = 0; chatDrawer = false; chatOpen = false; mailOpen = false; lastHands = 0; lastLetter = ""; letterDismissed = ""
+        chat = []; unread = 0; chatDrawer = false; chatOpen = false; mailOpen = false; lastHands = 0; lastLetter = ""; letterDismissed = ""
         tab = .room; roomHot = false
     }
     func requestLeave(from w: NSWindow?) {

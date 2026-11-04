@@ -31,7 +31,7 @@ public sealed class AppModel
     public bool Quitting;
     public bool PinRoom = true;
 
-    public readonly List<ChatLine> ChatLines = new(), Past = new();
+    public readonly List<ChatLine> ChatLines = new();
     public int Unread;
     public bool ChatOpen;
     public List<string> Mics = new();
@@ -232,12 +232,8 @@ public sealed class AppModel
     void ReceiveChat(JsonElement l)
     {
         var c = new ChatLine { Sys = l.B("sys"), Hist = l.B("hist"), Em = l.S("em"), Who = l.S("who"), Text = l.S("text") };
-        if (c.Hist || (c.Sys && c.Text.StartsWith("ここから過去ログ"))) Past.Add(c);
-        else
-        {
-            ChatLines.Add(c); if (ChatLines.Count > 200) ChatLines.RemoveAt(0);
-            if (!ChatOpen && !c.Sys && !c.Who.Contains("（あなた）")) Unread++;
-        }
+        ChatLines.Add(c); if (ChatLines.Count > 200) ChatLines.RemoveAt(0);
+        if (!ChatOpen && !c.Sys && !c.Who.Contains("（あなた）")) Unread++;
         ChatChanged?.Invoke(); PaneChanged?.Invoke();
     }
 
@@ -315,7 +311,7 @@ public sealed class AppModel
         if (rid != lastRid)
         {
             // 退出を経ずに、別の部屋へ移ったとき：前の部屋のチャット（ひとこと）を持ち越さない
-            if (lastRid.Length > 0 && rid.Length > 0) { ChatLines.Clear(); Past.Clear(); Unread = 0; knownMembers = new HashSet<string>(); joinedAt = DateTime.Now; ChatChanged?.Invoke(); }
+            if (lastRid.Length > 0 && rid.Length > 0) { ChatLines.Clear(); Unread = 0; knownMembers = new HashSet<string>(); joinedAt = DateTime.Now; ChatChanged?.Invoke(); }
             warnedBanned.Clear(); lastRid = rid; LobbyRefresh?.Invoke();
         }
         if (joined != wasJoined)
@@ -524,7 +520,7 @@ public sealed class AppModel
         ForceClose = true;
         try { Chat?.Close(); Sett?.Close(); Mail?.Close(); Letter?.Close(); Room?.Close(); } catch { } finally { ForceClose = false; }
         Chat = null; Sett = null; Room = null; Mail = null; Letter = null; MailOpen = false; lastLetter = ""; letterDismissed = "";
-        if (!keepChat) { ChatLines.Clear(); Past.Clear(); Unread = 0; }
+        if (!keepChat) { ChatLines.Clear(); Unread = 0; }
         ChatOpen = false; lastHands = 0; Tab = PaneTab.Room; RoomHot = false;
         if (ChatDrawer) { ChatDrawer = false; ChatDrawerChanged?.Invoke(); }
         ChatChanged?.Invoke();

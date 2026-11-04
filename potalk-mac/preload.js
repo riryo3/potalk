@@ -429,7 +429,6 @@ window.addEventListener('DOMContentLoaded', () => {
       if (!n.classList || !n.classList.contains('cl-row')) continue;
       ipcRenderer.send('potalk:chat-line', {
         sys: n.classList.contains('cl-sys'),
-        hist: n.classList.contains('cl-hist'),
         em: n.querySelector('.cl-em')?.textContent || '',
         who: n.querySelector('.cl-who')?.textContent || '',
         text: n.querySelector('.cl-text')?.textContent || '',

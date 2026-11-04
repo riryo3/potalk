@@ -45,10 +45,10 @@ public sealed class ChatWindow : Window
     {
         if (M.ChatOpen) M.Unread = 0;
         log.Children.Clear();
-        foreach (var l in M.Past.Concat(M.ChatLines))
+        foreach (var l in M.ChatLines)
         {
             if (l.Sys) { var s = Ui.Txt("", 11, Ui.Dim, wrap: true); Links.Fill(s, l.Text, u => M.ConfirmOpen(u, this)); s.Margin = new Thickness(0, 4, 0, 4); log.Children.Add(s); continue; }
-            var tb = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 2), FontSize = 13, Foreground = l.Hist ? Ui.Dim : Ui.Fg };
+            var tb = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 2), FontSize = 13, Foreground = Ui.Fg };
             tb.Inlines.Add(new System.Windows.Documents.Run(l.Em + " ") { FontSize = 15 });
             tb.Inlines.Add(new System.Windows.Documents.Run(l.Who + "  ") { FontWeight = FontWeights.SemiBold, Foreground = Ui.Dim, FontSize = 12 });
             Links.Fill(tb, l.Text, u => M.ConfirmOpen(u, this), clear: false);      // 絵文字と名前の Run を消さない

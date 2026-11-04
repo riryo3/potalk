@@ -421,7 +421,7 @@ async function createWindow() {
     lines.push(l); if (lines.length > 100) lines.shift();
     chatWin && chatWin.wc.send('line', l);
     // ひとこと窓を閉じている間に届いた（自分以外の）ひとこと＝新着。小窓のボタンを目立たせる
-    if (!chatWin && !l.hist && !l.sys && !/（あなた）/.test(l.who || '')) { unreadChat++; roomWin && roomWin.wc.send('unread', unreadChat); sendShellState(); }
+    if (!chatWin && !l.sys && !/（あなた）/.test(l.who || '')) { unreadChat++; roomWin && roomWin.wc.send('unread', unreadChat); sendShellState(); }
   });
   // ひとこと内のリンク：見知らぬ相手が貼ったものなので、開く前に行き先を確認する
   ipcMain.on('potalk:open-link', (e, u) => {
