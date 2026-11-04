@@ -173,7 +173,12 @@ struct RoomCard: View {
                 }
                 .copyMenu(room.sub + room.subBy)
             }
-            Text(room.dur).font(.system(size: 11)).foregroundColor(.secondary)
+            HStack(spacing: 0) {
+                Text(room.dur).font(.system(size: 11)).foregroundColor(.secondary)
+                Spacer(minLength: 8)
+                // 部屋の声の波（ページが描く点字の文字をそのまま出す）
+                if !room.eq.trimmingCharacters(in: .whitespaces).isEmpty { Text(room.eq).font(.system(size: 11)).foregroundColor(tealColor).lineLimit(1) }
+            }
             FlowLayout(spacing: 5) {
                 ForEach(Array(room.people.enumerated()), id: \.offset) { _, p in
                     HStack(spacing: 4) {

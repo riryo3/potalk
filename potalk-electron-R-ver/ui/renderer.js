@@ -59,7 +59,7 @@ function renderLobby() {
     top.append(el('span', 'room-name emoji-line', (/^[🏠📣]/u.test(r.name) ? '' : r.bc ? '📣 ' : '🏠 ') + r.name), el('span', 'room-count', r.count))
     card.append(top)
     if (r.sub) { const s = el('div', 'room-sub'); s.append('🏷 ', el('b', '', r.sub)); if (r.subBy) s.append(' ' + r.subBy); card.append(s) }
-    if (r.dur) card.append(el('div', 'room-dur', '⏱ ' + r.dur.replace(/^⏱\s*/, '')))
+    if (r.dur) { const d = el('div', 'room-dur'); d.append(el('span', '', '⏱ ' + r.dur.replace(/^⏱\s*/, '')), el('span', 'room-eq', r.eq || '')); card.append(d) }  // 右端は、部屋の声の波
     const people = el('div', 'people')
     for (const m of (r.people || [])) { const p = el('span', 'person'); p.append(el('span', 'emoji', m.em), m.name); if (m.muted) p.append(micOff()); people.append(p) }
     card.append(people)

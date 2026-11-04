@@ -38,6 +38,7 @@ class LobbyRoom:
     sub: str = ""
     sub_by: str = ""
     dur: str = ""
+    eq: str = ""
     people: list[Person] = field(default_factory=list)
     bc: bool = False
 
@@ -45,7 +46,7 @@ class LobbyRoom:
     def from_dict(cls, d: dict) -> "LobbyRoom":
         return cls(
             id=_s(d, "id"), name=_s(d, "name"), count=_s(d, "count"),
-            sub=_s(d, "sub"), sub_by=_s(d, "subBy"), dur=_s(d, "dur"),
+            sub=_s(d, "sub"), sub_by=_s(d, "subBy"), dur=_s(d, "dur"), eq=_s(d, "eq"),
             people=[Person.from_dict(p) for p in d.get("people") or []],
             bc=_b(d, "bc"),
         )

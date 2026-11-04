@@ -14,6 +14,7 @@
           sub: T(b, '.room-sub-name'),
           subBy: T(b, '.room-sub-by'),
           dur: T(b, '.room-dur > span'),
+          eq: T(b, '.room-eq'),
           people: [...b.querySelectorAll('.room-people .rp')].map(rp => ({ em: rp.children[0] ? rp.children[0].textContent : '', name: rp.children[1] ? rp.children[1].textContent : '', muted: rp.classList.contains('mut') })),
           bc: (T(b, '.room-name') + T(b, '.room-sub-name')).includes('📣'),
         }));

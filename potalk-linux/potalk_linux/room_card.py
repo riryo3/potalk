@@ -129,6 +129,11 @@ class RoomCardDelegate(QStyledItemDelegate):
             painter.setFont(dur_font)
             painter.setPen(pal_dim)
             painter.drawText(QRectF(x, y, right - x, DUR_H), Qt.AlignmentFlag.AlignVCenter, f"⏱ {room.dur}")
+            # 右端：部屋の声の波（ページが描く点字の文字）
+            if room.eq.strip():
+                painter.setPen(QColor(p["count"]))
+                painter.drawText(QRectF(x, y, right - x, DUR_H),
+                                 Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, room.eq)
             y += DUR_H
 
         # 人のチップ

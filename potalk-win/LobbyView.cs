@@ -224,7 +224,10 @@ public sealed class LobbyView : UserControl
             s.Children.Add(sub); s.Children.Add(subBy);
             sp.Children.Add(s);
         }
-        sp.Children.Add(Ui.Txt(r.S("dur"), 11, Ui.Dim));
+        var durRow = new DockPanel();   // 左：経過時間、右端：部屋の声の波
+        var eqT = Ui.Txt(r.S("eq"), 11, Ui.Teal); DockPanel.SetDock(eqT, Dock.Right); durRow.Children.Add(eqT);
+        durRow.Children.Add(Ui.Txt(r.S("dur"), 11, Ui.Dim));
+        sp.Children.Add(durRow);
         var people = new WrapPanel { Margin = new Thickness(0, 5, 0, 0) };
         foreach (var p in r.A("people"))
         {

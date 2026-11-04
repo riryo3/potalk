@@ -38,6 +38,8 @@ input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in sr
 .room-top { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 14px; }
 .room-count { color: var(--teal); white-space: nowrap; font-weight: 700; }
 .room-sub, .room-dur { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.room-dur { display: flex; justify-content: space-between; }
+.room-eq { color: var(--teal); white-space: pre; }
 .room-sub b { color: var(--fg); font-weight: 600; }
 .people { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
 .person { display: inline-flex; align-items: center; gap: 5px; background: var(--soft); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; }
