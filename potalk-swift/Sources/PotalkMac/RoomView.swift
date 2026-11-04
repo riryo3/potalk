@@ -392,7 +392,7 @@ struct RoomActionRows: View {
                     NSPasteboard.general.clearContents(); NSPasteboard.general.setString(r.share, forType: .string)
                     copied = true; DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
                 }.buttonStyle(PillButton()).disabled(r.share.isEmpty)
-                Button("🚪 退出") { model.requestLeave(from: model.roomHost) }.buttonStyle(PillButton(fill: Color(red: 0.72, green: 0.11, blue: 0.11), fg: .white))
+                Button("🚪 退出") { model.requestLeave(from: model.roomHost) }.buttonStyle(PillButton(fill: Color(red: 0.96, green: 0.42, blue: 0.36), fg: .white))
             }
         }.padding(.horizontal, 10).padding(.top, 8).padding(.bottom, 12)
     }
