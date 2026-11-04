@@ -80,7 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 case "demoRoom": Demo.apply(m, joined: true)
                 case "demoTag": m.engine.room.tag.text = "https://riryo3.github.io/en/（リョータが付けた）"
                 case "fakeChat": m.chat.append(ChatLine(sys: false, hist: false, em: "🦊", who: "テスト", text: "前の部屋のひとこと")); print("chat count:", m.chat.count)
-                case "chatCount": print("chat count:", m.chat.count, "past:", m.past.count)
+                case "chatCount": print("chat count:", m.chat.count)
                 case "joinOther": if let r = m.engine.lobby.rooms.first(where: { !$0.name.contains("ようこそ") && !$0.bc }) { print("join other:", r.name); m.join(r, quiet: false) } else { print("no other room") }
                 case "spk": m.toggleSpeakerMute(); print("speakerMuted:", m.speakerMuted)
                 case "toggleDrawer": m.drawerOpen.toggle()
