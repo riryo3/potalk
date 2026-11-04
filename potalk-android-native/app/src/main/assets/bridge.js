@@ -32,7 +32,8 @@
           else failedAt.delete(pc);
         }
         const t = mics[mics.length - 1];
-        post('health', { n: n, ok: ok, st: st, mic: t ? t.readyState + (t.muted ? '/muted' : '') : '' });
+        const mb = $('mute'), domMuted = !!(mb && mb.classList.contains('muted'));
+        post('health', { n: n, ok: ok, st: st, mic: t ? t.readyState + (t.muted ? '/muted' : '') : '', leak: !!(t && domMuted && t.enabled && t.readyState === 'live') });
       }, 10000);
 
       // ---- ロビー（通話中の部屋の一覧）----

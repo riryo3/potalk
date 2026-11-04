@@ -64,6 +64,7 @@ object Engine {
     // ---- 接続の見張り：相手と一人もつながっていない（またはマイクが止まった）状態が続いたら、自動でつなぎ直す ----
     var callNote = "通話中です。タップすると開きます"      // 通話中の通知の文
     private var pcN = 0; private var pcOk = 0; private var micState = ""
+    private var micLeak = false
     private var micLive = false                         // 今回の入室で、マイクが動いているのを見たか（前の通話の止まったマイクを、数えないため）
     private var healthAt = 0L                           // 最後に、ページから状態が届いた時刻
     private var badSince = 0L                           // 「切れている」が続き始めた時刻（0＝いま、切れていない）
@@ -117,11 +118,17 @@ object Engine {
 
     // ---- 通話の記録（切れた原因を、後から調べるため。端末の中だけに残す） ----
     private val logFile get() = java.io.File(app.filesDir, "call.log")
+    /** 接続・メモリの行（10 秒ごと）を除いた、出来事だけの記録。細かい記録が流れたあとも、一晩ぶんを残すため */
+    private val eventFile get() = java.io.File(app.filesDir, "events.log")
+    private fun trimmedAppend(f: java.io.File, line: String) {
+        if (f.length() > 200_000) f.writeText(f.readText().takeLast(100_000).substringAfter('\n'))
+        f.appendText(line)
+    }
     @Synchronized fun log(msg: String) {
         try {
-            val f = logFile
-            if (f.length() > 200_000) f.writeText(f.readText().takeLast(100_000).substringAfter('\n'))
-            f.appendText("${java.text.SimpleDateFormat("MM/dd HH:mm:ss", java.util.Locale.JAPAN).format(java.util.Date())} $msg\n")
+            val line = "${java.text.SimpleDateFormat("MM/dd HH:mm:ss", java.util.Locale.JAPAN).format(java.util.Date())} $msg\n"
+            trimmedAppend(logFile, line)
+            if (!msg.startsWith("接続 ") && !msg.startsWith("メモリ：")) trimmedAppend(eventFile, line)
         } catch (e: Exception) {}
     }
     private var memLogAt = 0L
@@ -165,7 +172,12 @@ object Engine {
             }
         } catch (e: Exception) {}
     }
-    fun readLog(): String = try { logFile.readText().takeLast(30_000).ifEmpty { "（まだ記録がありません）" } } catch (e: Exception) { "（まだ記録がありません）" }
+    @Synchronized fun readLog(): String = try {
+        val events = if (eventFile.exists()) eventFile.readText().takeLast(40_000) else ""
+        val detail = logFile.readText().takeLast(30_000)
+        if (events.isEmpty() && detail.isEmpty()) "（まだ記録がありません）"
+        else "【出来事だけの記録】\n$events\n【直近の細かい記録（接続・メモリを含む）】\n$detail"
+    } catch (e: Exception) { "（まだ記録がありません）" }
 
     @SuppressLint("SetJavaScriptEnabled")
     fun start(context: Context) {
@@ -285,8 +297,18 @@ object Engine {
         return WebResourceResponse("text/html", "UTF-8", ByteArrayInputStream(out.toByteArray(Charsets.UTF_8)))
     }
 
+    /** 「つなぎ直す」「部屋一覧の再読み込み」を押したことを、端末を少し震わせて知らせる（自動の入り直しでは、震わせない） */
+    private fun buzz(times: Int) {
+        try {
+            val v = app.getSystemService(android.os.Vibrator::class.java) ?: return
+            val pattern = LongArray(times * 2) { if (it % 2 == 0) 0L else 80L }.also { for (i in 2 until it.size step 2) it[i] = 120L }
+            v.vibrate(android.os.VibrationEffect.createWaveform(pattern, -1))
+        } catch (e: Exception) {}
+    }
+
     /** 画面からの命令（ミュート・入室・退出 など）。ページの橋（bridge.js）に渡す */
     fun cmd(vararg kv: Pair<String, Any?>) {
+        if (kv.any { it.first == "type" && (it.second == "reconnect" || it.second == "refreshLobby") }) buzz(1)
         val j = JSONObject(); for ((k, v) in kv) j.put(k, v)
         main.post { web?.evaluateJavascript("window.__pm && window.__pm.cmd($j)", null) }
     }
@@ -324,7 +346,7 @@ object Engine {
     private fun handle(m: JSONObject) {
         val d = m.opt("d")
         when (m.optString("t")) {
-            "ready" -> { ready = true; if (recovering) log("入り直し：ページの準備ができました"); pendingLink?.let { openLink(it) } }
+            "ready" -> { ready = true; if (spkMuted) cmd("type" to "spk", "on" to true); if (recovering) log("入り直し：ページの準備ができました"); pendingLink?.let { openLink(it) } }
             "lobby" -> { lobby = d as? JSONObject; if (recovering) log("入り直し：部屋の一覧が届きました（${lobby?.arr("rooms").orEmpty().size} 件）") }
             "profile" -> profile = d as? JSONObject
             "cards" -> cards = d as? JSONObject
@@ -333,12 +355,13 @@ object Engine {
             }
             "health" -> (d as? JSONObject)?.let { h ->
                 healthAt = System.currentTimeMillis(); pcN = h.optInt("n"); pcOk = h.optInt("ok"); micState = h.optString("mic"); if (micState == "live") micLive = true
+                val leak = h.optBoolean("leak"); if (leak != micLeak) { micLeak = leak; if (isJoined) log(if (leak) "注意：画面はマイクがミュートなのに、マイクの音は止まっていません" else "マイクのミュートが、実際に効いている状態に戻りました") }
                 val stText = h.optJSONObject("st")?.let { o -> o.keys().asSequence().sorted().joinToString(" ") { "$it=${o.optInt(it)}" } }.orEmpty()
                 val sig = "$pcOk/$pcN ${micState}"
                 if (isJoined && sig != lastSig) { lastSig = sig; log("接続 $pcOk/$pcN（$stText）、マイク ${micState.ifEmpty { "なし" }}") }
                 logMemory(false)
             }
-            "room" -> { room = d as? JSONObject; if (recovering) log("入り直し：部屋の状態が届きました（joined=${room?.optBoolean("joined")}）"); onJoinedChanged(); checkBannedMembers(); applyPendingMute() }
+            "room" -> { room = d as? JSONObject; if (spkMuted && room?.optBoolean("joined") == true) cmd("type" to "spk", "on" to true); if (recovering) log("入り直し：部屋の状態が届きました（joined=${room?.optBoolean("joined")}）"); onJoinedChanged(); checkBannedMembers(); applyPendingMute() }
             "chat" -> (d as? JSONObject)?.let {
                 chat.add(it); if (chat.size > 300) chat.removeAt(0)
                 if (!chatOpen && !it.optBoolean("sys") && !it.optBoolean("hist") && !it.optString("who").endsWith("（あなた）")) unread++
