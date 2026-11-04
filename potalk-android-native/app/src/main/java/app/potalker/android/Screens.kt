@@ -211,7 +211,7 @@ fun roomsList(scope: androidx.compose.foundation.lazy.LazyListScope, exceptId: S
                 Text(dur, Modifier.weight(1f), color = Dim, fontSize = 12.sp, maxLines = 1)
                 if (eq.isNotBlank()) Text(eq, Modifier.padding(end = 6.dp), color = Teal, fontSize = 12.sp, maxLines = 1) // 🔗 の見える右端に揃える
             }
-            val ps = r.arr("people").joinToString("  ") { it.optString("em") + it.optString("name") }
+            val ps = r.arr("people").joinToString("  ") { it.optString("em") + it.optString("name") + (if (it.optBoolean("muted")) "🔇" else "") }
             if (ps.isNotEmpty()) Text(ps, color = Ink, fontSize = 13.sp, maxLines = 1)
         }
     }
