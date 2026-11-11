@@ -129,6 +129,7 @@ fun LobbyScreen() {
 /** 自分の名前を押したときの入口 */
 @Composable
 private fun ProfileMenu(close: () -> Unit) {
+    val ctx = LocalContext.current
     androidx.compose.material3.AlertDialog(
         onDismissRequest = close, containerColor = Card,
         title = { Text("設定", color = Ink) },
@@ -138,6 +139,7 @@ private fun ProfileMenu(close: () -> Unit) {
                     "👤 名前・アイコン" to { page = Page.Profile },
                     "📇 名刺（画像・SNS・本人確認）" to { Engine.cmd("type" to "cardEdit") },
                     "🛡 自衛ワード" to { page = Page.Banned },
+                    "🔄 更新を確認（いまの版 ${Updater.current(ctx)}）" to { Updater.check(ctx, true) },
                 )) Text(label, Modifier.fillMaxWidth().clickable { close(); act() }.padding(vertical = 14.dp), color = Ink, fontSize = 16.sp)
                 Spacer(Modifier.height(6.dp))
                 MuteSettings()

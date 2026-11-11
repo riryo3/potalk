@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 新しい版の APK を、アプリの中から入れる（更新の確認画面は、Android が出す） -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:label="Potalker"
@@ -36,6 +38,9 @@
                 <data android:scheme="https" android:host="potalk.app" />
             </intent-filter>
         </activity>
+
+        <!-- 更新のインストールの結果を受け取る -->
+        <receiver android:name=".InstallResultReceiver" android:exported="false" />
 
         <!-- 通話中、画面を閉じても、マイクを使い続けるための常駐（エンジンは、プロセスの中で動き続ける） -->
         <service
