@@ -47,6 +47,10 @@ struct MainView: View {
 
     /// 部屋のカードを押したとき：いまいる部屋なら、その部屋の画面を前に出すだけ。ほかの部屋なら、参加の確認を出す
     func tap(_ r: LobbyRoom) {
+        if !r.ptt.isEmpty {   // 🔘 は、ぽちっと通話のページ。ブラウザで開く
+            if let u = URL(string: "https://potalk.app/ptt/?r=" + r.ptt) { NSWorkspace.shared.open(u) }
+            return
+        }
         if isCurrent(r) { model.openRoom(); return }
         if r.id != "" { model.joinCandidate = r }
     }
@@ -158,13 +162,13 @@ struct RoomCard: View {
                 Text(room.name).font(.system(size: 15, weight: .bold)).lineLimit(2)
                 Spacer()
                 Text(room.count).font(.system(size: 13, weight: .bold)).foregroundColor(tealColor)
-                Button {
+                if room.ptt.isEmpty { Button {
                     let idEnc = room.id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? room.id
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString("\(room.name)\nhttps://potalk.app/#room=\(idEnc)", forType: .string)
                     copied = true; DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { copied = false }
                 } label: { Image(systemName: copied ? "checkmark" : "square.and.arrow.up") }
-                .buttonStyle(.plain).help("部屋名とリンクをコピー")
+                .buttonStyle(.plain).help("部屋名とリンクをコピー") }
             }
             if !room.sub.isEmpty {
                 HStack(spacing: 0) {

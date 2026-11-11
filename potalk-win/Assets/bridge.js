@@ -11,11 +11,14 @@
           id: b.dataset.room || '',
           name: T(b, '.room-name'),
           count: T(b, '.room-count'),
-          sub: T(b, '.room-sub-name'),
+          // 🏷 のある部屋は .room-sub-name（部屋名）と .room-sub-by（付けた人）。🔘（ぽちっと通話）の部屋は .room-sub に文字だけ（話題と部屋のハッシュ）
+          sub: T(b, '.room-sub-name') || (b.querySelector('.room-sub-name') ? '' : T(b, '.room-sub')),
+          ptt: b.dataset.ptt || '',
           subBy: T(b, '.room-sub-by'),
           dur: T(b, '.room-dur > span'),
           eq: T(b, '.room-eq'),
-          people: [...b.querySelectorAll('.room-people .rp')].map(rp => ({ em: rp.children[0] ? rp.children[0].textContent : '', name: rp.children[1] ? rp.children[1].textContent : '', muted: rp.classList.contains('mut') })),
+          // 🔘 の部屋の人は、絵文字がなく、名前だけの span が 1 つ
+          people: [...b.querySelectorAll('.room-people .rp')].map(rp => { const c = rp.children, one = c.length < 2; return { em: one ? '' : (c[0] ? c[0].textContent : ''), name: one ? (c[0] ? c[0].textContent : '') : c[1].textContent, muted: rp.classList.contains('mut') }; }),
           bc: (T(b, '.room-name') + T(b, '.room-sub-name')).includes('📣'),
         }));
         return { rooms: rooms, status: T(document, '#lobbyStatus'), viewers: ($('lobbyViewers') ? $('lobbyViewers').textContent : '').trim() };

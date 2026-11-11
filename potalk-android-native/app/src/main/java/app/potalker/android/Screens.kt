@@ -186,17 +186,21 @@ private fun roomMatches(r: JSONObject, q: String): Boolean {
 
 /** 通話中の部屋の一覧（ロビーの画面と、部屋の中の「部屋一覧」で、同じものを使う） */
 fun roomsList(scope: androidx.compose.foundation.lazy.LazyListScope, exceptId: String = "", query: String = "", onPick: (String) -> Unit) {
-    val all = Engine.lobby?.arr("rooms").orEmpty().filter { it.optString("id") != exceptId && !Engine.isBannedRoom(it) }
+    val all = Engine.lobby?.arr("rooms").orEmpty().filter { (exceptId.isEmpty() || it.optString("id") != exceptId) && !Engine.isBannedRoom(it) }
     val rooms = all.filter { roomMatches(it, query) }
     if (rooms.isEmpty()) scope.item { Text(if (all.isNotEmpty()) "「${query.trim()}」に合う部屋は、ありません" else Engine.lobby?.optString("status").orEmpty().ifEmpty { "部屋を探しています…" }, color = Dim) }
     scope.items(rooms) { r ->
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Card).clickable { onPick(r.optString("id")) }.padding(14.dp)) {
+        val ctx = LocalContext.current
+        val ptt = r.optString("ptt")   // 🔘 ぽちっと通話の部屋：ほかのページ（/ptt/）への入り口。ブラウザで開く
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Card).clickable {
+            if (ptt.isNotEmpty()) runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://potalk.app/ptt/?r=$ptt"))) }
+            else onPick(r.optString("id"))
+        }.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(r.optString("sub").ifEmpty { r.optString("name") }.ifEmpty { "（名前なし）" }, Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Ink, maxLines = 1)
+                Text((if (ptt.isNotEmpty()) r.optString("name") else r.optString("sub").ifEmpty { r.optString("name") }).ifEmpty { "（名前なし）" }, Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Ink, maxLines = 1)
                 Text(r.optString("count"), color = Teal, fontWeight = FontWeight.Bold)
                 // 入る前に、部屋の名前とリンクをコピーする（ウェブ版の共有ボタンと同じ：「🫖 部屋名 - 名前」＋改行＋URL）
-                val ctx = LocalContext.current
-                Text("🔗", Modifier.padding(start = 6.dp).clip(CircleShape).clickable {
+                if (ptt.isEmpty()) Text("🔗", Modifier.padding(start = 6.dp).clip(CircleShape).clickable {
                     val who = r.arr("people").map { it.optString("name").trim() }.filter { it.isNotEmpty() }.distinct().joinToString("、")
                     val nm = r.optString("sub").ifEmpty { r.optString("name") }.ifEmpty { "部屋" }
                     val text = (if (r.optBoolean("bc")) "📣 " else "🫖 ") + nm + " - " + who.ifEmpty { "ゲスト" } + "\nhttps://potalk.app/#room=" + r.optString("id")
@@ -204,7 +208,7 @@ fun roomsList(scope: androidx.compose.foundation.lazy.LazyListScope, exceptId: S
                     android.widget.Toast.makeText(ctx, "部屋名とリンクをコピーしました", android.widget.Toast.LENGTH_SHORT).show()
                 }.padding(6.dp), fontSize = 16.sp)
             }
-            if (r.optString("sub").isNotEmpty()) Text(r.optString("name"), color = Dim, fontSize = 13.sp, maxLines = 1)
+            if (r.optString("sub").isNotEmpty()) Text(if (ptt.isNotEmpty()) r.optString("sub") else r.optString("name"), color = Dim, fontSize = 13.sp, maxLines = if (ptt.isNotEmpty()) 2 else 1)
             // 経過時間と、その部屋の声の大きさ（点字の波。ページが描く文字列をそのまま出す）
             val dur = r.optString("dur"); val eq = r.optString("eq")
             if (dur.isNotEmpty() || eq.isNotBlank()) Row(verticalAlignment = Alignment.CenterVertically) {

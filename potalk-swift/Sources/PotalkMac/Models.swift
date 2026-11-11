@@ -5,6 +5,7 @@ struct LobbyRoom: Codable, Identifiable, Hashable {
     var id: String; var name: String; var count: String; var sub: String; var subBy: String; var dur: String
     var people: [Person]; var bc: Bool
     var eq: String = ""   // 部屋の声の波（ページの .room-eq の文字）
+    var ptt: String = ""  // 🔘 ぽちっと通話の部屋の番号（ほかのページ /ptt/ への入り口。ふつうの部屋は空）
     var key: String { id.isEmpty ? name : id }
 }
 struct LobbyState: Codable, Equatable { var rooms: [LobbyRoom]; var status: String; var viewers: String }
