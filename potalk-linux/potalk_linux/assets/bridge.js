@@ -79,7 +79,13 @@
           more: $('membersMore') ? $('membersMore').textContent.trim() : '',
           mailOpen: ($('mailHead') ? $('mailHead').textContent : '').includes('📮'),
           bcast: !!$('tabMail') && !$('tabMail').hidden,
-          tag: { show: !!$('tagRow') && !$('tagRow').hidden, text: T(document, '#tagText'), btn: T(document, '#tagEdit') },
+          tag: (() => {
+            // 話題タグは「札そのものがボタン」（#tagEdit）。タグがあるとき #tagText は <b>話題</b><span class="tag-by">付けた人</span>、
+            // 無いときは「話題をつける」で #tagEdit に add が付く。ここで、前と同じ形（text＝話題（○○が付けた）／btn＝つける・変える）にそろえる。
+            const e = $('tagEdit'), add = !!(e && e.classList.contains('add'));
+            const t = add ? '' : (T(document, '#tagText b') || ''), by = add ? '' : T(document, '#tagText .tag-by');
+            return { show: !!$('tagRow') && !$('tagRow').hidden, text: t ? t + (by ? '（' + by + 'が付けた）' : '') : '', btn: e ? (add ? 'つける' : '変える') : '' };
+          })(),
           speak: { show: !!$('speak') && $('speak').style.display !== 'none', label: $('speak') ? $('speak').textContent.trim() : '', disabled: !!($('speak') && $('speak').disabled) },
           raise: { show: !!$('raise') && !$('raise').hidden && $('raise').style.display !== 'none', label: $('raise') ? $('raise').textContent.trim() : '' },
           mail: {
