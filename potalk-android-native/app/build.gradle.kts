@@ -11,8 +11,8 @@ android {
         applicationId = "app.potalker.android"
         minSdk = 29                 // Android 10 以降
         targetSdk = 34
-        versionCode = 18
-        versionName = "0.1.16"
+        versionCode = 19
+        versionName = "0.1.17"
     }
     // リリース用の署名：鍵は、リポジトリの外（~/Documents/potalk-keys/）に置く。パスワードは、Mac のキーチェーンから読む（環境変数 POTALKER_KEYSTORE_PASSWORD でも渡せる）。
     // 鍵がない環境（他の人が取ってきたとき）では、署名なしのリリース版になる（デバッグ版のビルドには、影響しない）
