@@ -16,6 +16,8 @@ struct RoomView: View {
     @State private var rowFrames: [String: CGRect] = [:]
     @State private var tagEditing = false
     @State private var tagText = ""
+    @State private var renameEditing = false
+    @State private var renameText = ""
     @State private var errorText: String? = nil
     @State private var dismissedNotice = ""
     @State private var errorTask: DispatchWorkItem? = nil
@@ -109,7 +111,21 @@ struct RoomView: View {
         VStack(alignment: .leading, spacing: 6) {
             // 1行目：部屋の名前。2行目：状態・人数 … つなぎ直す・マイク（状態の文言は「通話中：部屋の名前」の形。分けられないときは、全体を1行目に出す）
             let parts = roomStateParts
-            Text(parts.title).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+            HStack(spacing: 6) {
+                Text(parts.title).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                if r.renameCan {
+                    Button("✏️") { renameText = r.renameName; renameEditing.toggle() }.buttonStyle(ChipButton()).help("部屋の名前を変える")
+                }
+                Spacer(minLength: 0)
+            }
+            if renameEditing && r.renameCan {
+                HStack {
+                    TextField("新しい部屋名", text: $renameText).textFieldStyle(.roundedBorder).onSubmit(sendRename)
+                        .onChange(of: renameText) { _, v in if v.count > 30 { renameText = String(v.prefix(30)) } }
+                    Text("\(renameText.count)/30").font(.system(size: 11, design: .monospaced)).foregroundColor(renameText.count >= 27 ? .orange : .secondary)
+                    Button("変える", action: sendRename).buttonStyle(ChipButton())
+                }
+            }
             HStack(spacing: 8) {
                 if !parts.status.isEmpty {
                     let c: Color = isBad(r.state) ? redColor : (r.state.contains("通話中") ? tealColor : orangeColor)
@@ -156,6 +172,11 @@ struct RoomView: View {
             }
         }.padding(.horizontal, 12).padding(.vertical, 6)
         .environment(\.openURL, OpenURLAction { url in model.confirmOpen(url.absoluteString, from: model.roomHost); return .handled })
+    }
+    func sendRename() {
+        let t = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !t.isEmpty { engine.cmd(["type": "rename", "text": t]) }
+        renameEditing = false
     }
     func sendTag() { engine.cmd(["type": "tag", "text": tagText]); tagText = ""; tagEditing = false }
 

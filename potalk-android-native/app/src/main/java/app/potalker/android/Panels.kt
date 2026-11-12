@@ -234,6 +234,19 @@ fun IgnoreDialog(room: JSONObject) {
 }
 
 /** 話題タグを付ける・変える */
+/** 部屋の名前を変える */
+@Composable
+fun RenameDialog(current: String, done: (String?) -> Unit) {
+    var text by remember { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = { done(null) }, containerColor = Card,
+        title = { Text("✏️ 部屋の名前", color = Ink) },
+        text = { OutlinedTextField(text, { text = it.take(30) }, singleLine = true, placeholder = { Text("新しい部屋名（30 文字まで）") }) },
+        confirmButton = { TextButton({ done(text.trim()) }) { Text("変える", color = Teal) } },
+        dismissButton = { TextButton({ done(null) }) { Text("やめる", color = Dim) } }
+    )
+}
+
 @Composable
 fun TagDialog(current: String, done: (String?) -> Unit) {
     var text by remember { mutableStateOf(current) }

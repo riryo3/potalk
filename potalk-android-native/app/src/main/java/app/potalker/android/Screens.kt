@@ -262,7 +262,12 @@ private fun LaunchedEffectChat() {
 private fun RoomMain(room: JSONObject, modifier: Modifier) {
     Column(modifier.padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(12.dp))
-        Text(room.optString("state").ifEmpty { "通話中" }, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Ink)
+        var renaming by remember { mutableStateOf(false) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(room.optString("state").ifEmpty { "通話中" }, Modifier.weight(1f, fill = false), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Ink)
+            if (room.optBoolean("renameCan")) Text("✏️", Modifier.padding(start = 6.dp).clip(CircleShape).clickable { renaming = true }.padding(6.dp), fontSize = 16.sp)
+        }
+        if (renaming) RenameDialog(room.optString("renameName")) { renaming = false; it?.takeIf { t -> t.isNotEmpty() }?.let { t -> Engine.cmd("type" to "rename", "text" to t) } }
         val tag = room.optJSONObject("tag")
         if (tag != null && tag.optBoolean("show")) {
             var edit by remember { mutableStateOf(false) }

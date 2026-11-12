@@ -66,6 +66,8 @@ struct RoomState: Codable, Equatable {
     var mail: MailInfo; var reactions: [String]
     var canMute: Bool; var muted: Bool; var share: String; var settings: [SettingItem]
     var rid: String? = nil      // いまいる部屋の ID（URL の #room= から）
+    var renameCan: Bool = false    // 部屋の名前を変えられるか（見出しの部屋名が、変えるボタンになっているか）
+    var renameName: String = ""    // いまの部屋の名前（変える欄の初めの文字）
     var notice: String = ""       // ページが出す一時のお知らせ（#peerNotice。マイクの失敗・接続が切れた など）
     var audioWarn: String = ""     // 音が届いていない人がいるときの警告（#audioWarn）
     var crowdNote: String = ""     // 人数が多いときの警告（#crowdNote。「あと N 人まで」「上限に達しました」）

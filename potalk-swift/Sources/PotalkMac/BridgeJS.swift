@@ -128,6 +128,8 @@ enum BridgeJS {
             const t = add ? '' : (T(document, '#tagText b') || ''), by = add ? '' : T(document, '#tagText .tag-by');
             return { show: !!$('tagRow') && !$('tagRow').hidden, text: t ? t + (by ? '（' + by + 'が付けた）' : '') : '', btn: e ? (add ? 'つける' : '変える') : '' };
           })(),
+          // 部屋名を変えられるとき（v0.16.26〜）、見出しの部屋名が .rn-edit のボタンになる。変えられない部屋（配信の聞き役・常設の席）には、ボタンがない
+          renameCan: !!($('state') && $('state').querySelector('.rn-edit')), renameName: T(document, '#state .rn-edit').replace(/^📣 ?/, ''),
           speak: { show: !!$('speak') && $('speak').style.display !== 'none', label: $('speak') ? $('speak').textContent.trim() : '', disabled: !!($('speak') && $('speak').disabled) },
           raise: { show: !!$('raise') && !$('raise').hidden && $('raise').style.display !== 'none', label: $('raise') ? $('raise').textContent.trim() : '' },
           mail: {
@@ -227,6 +229,7 @@ enum BridgeJS {
             case 'speak': click($('speak')); break;
             case 'raise': click($('raise')); break;
             case 'tag': $('tagInput').value = String(c.text).slice(0, 30); if ($('tagSend').onclick) $('tagSend').onclick(); break;
+            case 'rename': { const i = $('nameInput'), b = $('nameSend'); if (i && b && $('state').querySelector('.rn-edit')) { i.value = String(c.text).slice(0, 30); b.onclick(); } break; }
             case 'mailbtn': click([...$('mailHead').querySelectorAll('button'), ...$('mailBody').querySelectorAll('button')][c.i | 0]); break;
             case 'mailsend': $('mailText').value = String(c.text); click($('mailSend')); break;
             case 'card': click(rowAt(c.i) && rowAt(c.i).querySelector('.m-emoji')); break;
