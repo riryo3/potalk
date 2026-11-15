@@ -142,7 +142,8 @@ enum BridgeJS {
           reactions: [...document.querySelectorAll('#reactions button')].map(b => b.textContent),
           canMute: !!$('mute') && $('mute').style.display !== 'none',
           muted: !!($('mute') && $('mute').classList.contains('muted')),
-          share: $('share') ? $('share').textContent.trim() : '',
+          // 招待リンクは #share から #fbUrl（カードの裏の URL）に移った（v0.16.2x〜）。古いページ用に #share も見る
+          share: (($('fbUrl') && $('fbUrl').textContent.trim()) || ($('share') ? $('share').textContent.trim() : '')),
           settings: settings,
         };
       };
@@ -254,7 +255,7 @@ enum BridgeJS {
               if (k) { k.checked = true; k.dispatchEvent(new Event('change', { bubbles: true })); k.click(); }
               if (c.kind !== 'bc') { join.click(); break; }
               const t0 = Date.now();
-              const wait = () => { if (($('share') ? $('share').textContent : '').includes('~pk~')) { join.click(); return; } if (Date.now() - t0 < 6000) setTimeout(wait, 100); };
+              const wait = () => { if ((($('fbUrl') && $('fbUrl').textContent) || ($('share') ? $('share').textContent : '')).includes('~pk~')) { join.click(); return; } if (Date.now() - t0 < 6000) setTimeout(wait, 100); };
               wait(); break;
             }
             case 'join': {
